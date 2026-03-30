@@ -1,2 +1,2 @@
 export { Header } from "./header";
-export { AppShell } from "./app-shell";
+export { AppShell, MobileSidebarTrigger } from "./app-shell";

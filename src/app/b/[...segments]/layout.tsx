@@ -4,7 +4,7 @@ import { parseSegments } from "@/lib/url";
 import { extractBundle } from "@/lib/bundle/extractor";
 import { BundleNotFoundError } from "@/lib/bundle/types";
 import { Header } from "@/components/layout/header";
-import { AppShell } from "@/components/layout/app-shell";
+import { AppShell, MobileSidebarTrigger } from "@/components/layout/app-shell";
 import { TreeProvider, FileTree } from "@/components/file-tree";
 import type { TreeNode } from "@/lib/bundle/types";
 
@@ -54,8 +54,15 @@ export default async function BundleLayout({ children, params }: LayoutProps) {
 
   return (
     <div className="flex h-screen flex-col">
-      <Header title={manifest.title} userName={userName} />
-      <AppShell sidebar={sidebar}>{children}</AppShell>
+      <Header
+        title={manifest.title}
+        filePath={filePath}
+        userName={userName}
+        mobileTrigger={<MobileSidebarTrigger sidebar={sidebar} />}
+      />
+      <AppShell sidebar={sidebar} filePath={filePath}>
+        {children}
+      </AppShell>
     </div>
   );
 }

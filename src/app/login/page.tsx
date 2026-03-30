@@ -1,8 +1,13 @@
+import { redirect } from "next/navigation";
 import { signIn } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { LogIn } from "lucide-react";
 
 export default function LoginPage() {
+  if (process.env.AUTH_BYPASS === "true") {
+    redirect("/");
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6 p-6">
