@@ -2,6 +2,7 @@ import {
   S3Client,
   HeadObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 import type { BundleInfo, StorageAdapter } from "./types";
@@ -57,6 +58,27 @@ export class S3Adapter implements StorageAdapter {
       }
       throw err;
     }
+  }
+
+  async listBundles(prefix?: string): Promise<string[]> {
+    const results: string[] = [];
+    let continuationToken: string | undefined;
+    do {
+      const res = await this.client.send(
+        new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        })
+      );
+      for (const obj of res.Contents ?? []) {
+        if (obj.Key?.endsWith(".zip")) {
+          results.push(obj.Key.slice(0, -4));
+        }
+      }
+      continuationToken = res.IsTruncated ? res.NextContinuationToken : undefined;
+    } while (continuationToken);
+    return results;
   }
 
   async getBundleStream(bundleId: string): Promise<ReadableStream<Uint8Array>> {

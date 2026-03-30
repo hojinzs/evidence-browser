@@ -2,7 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  serverExternalPackages: ["shiki", "@aws-sdk/client-s3", "yauzl-promise"],
+  serverExternalPackages: ["shiki", "@aws-sdk/client-s3", "yauzl-promise", "@modelcontextprotocol/sdk"],
 };
 
 export default nextConfig;
+

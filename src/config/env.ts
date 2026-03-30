@@ -28,6 +28,9 @@ const envSchema = z
     S3_SECRET_ACCESS_KEY: z.string().optional(),
     S3_FORCE_PATH_STYLE: booleanFromString,
 
+    // MCP
+    MCP_API_KEY: z.string().optional(),
+
     // Auth
     AUTH_BYPASS: booleanFromString,
     OIDC_ISSUER: z.string().optional(),

@@ -8,4 +8,5 @@ export interface BundleInfo {
 export interface StorageAdapter {
   getBundleInfo(bundleId: string): Promise<BundleInfo>;
   getBundleStream(bundleId: string): Promise<ReadableStream<Uint8Array>>;
+  listBundles?(prefix?: string): Promise<string[]>;
 }
