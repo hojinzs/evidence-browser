@@ -1,0 +1,200 @@
+2026-03-29T08:00:00.000Z [INFO] app.server: Request handled successfully
+2026-03-29T08:00:01.500Z [DEBUG] db.pool: Connection pool acquired connection #8198
+2026-03-29T08:00:03.000Z [WARN] auth.session: Session token refreshed for user_id=5110
+2026-03-29T08:00:04.500Z [INFO] api.handler: Processing API request GET /api/v1/evidence/5748
+2026-03-29T08:00:06.000Z [INFO] cache.redis: Cache hit ratio: 4992%%
+2026-03-29T08:00:07.500Z [DEBUG] worker.queue: Background job enqueued: job_id=3818
+2026-03-29T08:00:09.000Z [INFO] middleware.cors: CORS preflight for origin https://app.example.com
+2026-03-29T08:00:10.500Z [DEBUG] config.loader: Configuration reloaded from environment
+2026-03-29T08:00:12.000Z [WARN] app.server: Database query executed in 3175ms
+2026-03-29T08:00:13.500Z [INFO] db.pool: WebSocket connection established: ws_id=7315
+2026-03-29T08:00:15.000Z [INFO] auth.session: Rate limiter: 6067 requests remaining for client 10.0.1.6134
+2026-03-29T08:00:16.500Z [DEBUG] api.handler: File upload completed: 3199 bytes written
+2026-03-29T08:00:18.000Z [INFO] cache.redis: Health check passed: uptime=2143s
+2026-03-29T08:00:19.500Z [DEBUG] worker.queue: Graceful shutdown signal received
+2026-03-29T08:00:21.000Z [WARN] middleware.cors: TLS handshake completed with cipher TLS_AES_256_GCM_SHA384
+2026-03-29T08:00:22.500Z [INFO] config.loader: Memory usage: heap_used=9921MB heap_total=9328MB
+2026-03-29T08:00:24.000Z [INFO] app.server: Garbage collection pause: 9109ms
+2026-03-29T08:00:25.500Z [DEBUG] db.pool: HTTP/2 stream multiplexed: stream_id=5899
+2026-03-29T08:00:27.000Z [INFO] auth.session: JWT token validated: exp=2035
+2026-03-29T08:00:28.500Z [DEBUG] api.handler: Static asset served: /assets/bundle-1550.js
+2026-03-29T08:00:30.000Z [WARN] cache.redis: Request handled successfully
+2026-03-29T08:00:31.500Z [INFO] worker.queue: Connection pool acquired connection #3069
+2026-03-29T08:00:33.000Z [INFO] middleware.cors: Session token refreshed for user_id=9986
+2026-03-29T08:00:34.500Z [DEBUG] config.loader: Processing API request GET /api/v1/evidence/4871
+2026-03-29T08:00:36.000Z [INFO] app.server: Cache hit ratio: 8501%%
+2026-03-29T08:00:37.500Z [DEBUG] db.pool: Background job enqueued: job_id=1983
+2026-03-29T08:00:39.000Z [WARN] auth.session: CORS preflight for origin https://app.example.com
+2026-03-29T08:00:40.500Z [INFO] api.handler: Configuration reloaded from environment
+2026-03-29T08:00:42.000Z [INFO] cache.redis: Database query executed in 3439ms
+2026-03-29T08:00:43.500Z [DEBUG] worker.queue: WebSocket connection established: ws_id=9210
+2026-03-29T08:00:45.000Z [INFO] middleware.cors: Rate limiter: 9887 requests remaining for client 10.0.1.1063
+2026-03-29T08:00:46.500Z [DEBUG] config.loader: File upload completed: 6108 bytes written
+2026-03-29T08:00:48.000Z [WARN] app.server: Health check passed: uptime=6166s
+2026-03-29T08:00:49.500Z [INFO] db.pool: Graceful shutdown signal received
+2026-03-29T08:00:51.000Z [INFO] auth.session: TLS handshake completed with cipher TLS_AES_256_GCM_SHA384
+2026-03-29T08:00:52.500Z [DEBUG] api.handler: Memory usage: heap_used=8676MB heap_total=5049MB
+2026-03-29T08:00:54.000Z [INFO] cache.redis: Garbage collection pause: 6668ms
+2026-03-29T08:00:55.500Z [DEBUG] worker.queue: HTTP/2 stream multiplexed: stream_id=6510
+2026-03-29T08:00:57.000Z [WARN] middleware.cors: JWT token validated: exp=756
+2026-03-29T08:00:58.500Z [INFO] config.loader: Static asset served: /assets/bundle-4229.js
+2026-03-29T08:01:00.000Z [INFO] app.server: Request handled successfully
+2026-03-29T08:01:01.500Z [DEBUG] db.pool: Connection pool acquired connection #1663
+2026-03-29T08:01:03.000Z [INFO] auth.session: Session token refreshed for user_id=3993
+2026-03-29T08:01:04.500Z [DEBUG] api.handler: Processing API request GET /api/v1/evidence/7529
+2026-03-29T08:01:06.000Z [WARN] cache.redis: Cache hit ratio: 4428%%
+2026-03-29T08:01:07.500Z [INFO] worker.queue: Background job enqueued: job_id=6620
+2026-03-29T08:01:09.000Z [INFO] middleware.cors: CORS preflight for origin https://app.example.com
+2026-03-29T08:01:10.500Z [DEBUG] config.loader: Configuration reloaded from environment
+2026-03-29T08:01:12.000Z [INFO] app.server: Database query executed in 4010ms
+2026-03-29T08:01:13.500Z [DEBUG] db.pool: WebSocket connection established: ws_id=9235
+2026-03-29T08:01:15.000Z [WARN] auth.session: Rate limiter: 7906 requests remaining for client 10.0.1.3517
+2026-03-29T08:01:16.500Z [INFO] api.handler: File upload completed: 2950 bytes written
+2026-03-29T08:01:18.000Z [INFO] cache.redis: Health check passed: uptime=7888s
+2026-03-29T08:01:19.500Z [DEBUG] worker.queue: Graceful shutdown signal received
+2026-03-29T08:01:21.000Z [INFO] middleware.cors: TLS handshake completed with cipher TLS_AES_256_GCM_SHA384
+2026-03-29T08:01:22.500Z [DEBUG] config.loader: Memory usage: heap_used=6476MB heap_total=7755MB
+2026-03-29T08:01:24.000Z [WARN] app.server: Garbage collection pause: 3073ms
+2026-03-29T08:01:25.500Z [INFO] db.pool: HTTP/2 stream multiplexed: stream_id=681
+2026-03-29T08:01:27.000Z [INFO] auth.session: JWT token validated: exp=350
+2026-03-29T08:01:28.500Z [DEBUG] api.handler: Static asset served: /assets/bundle-4887.js
+2026-03-29T08:01:30.000Z [INFO] cache.redis: Request handled successfully
+2026-03-29T08:01:31.500Z [DEBUG] worker.queue: Connection pool acquired connection #2833
+2026-03-29T08:01:33.000Z [WARN] middleware.cors: Session token refreshed for user_id=8375
+2026-03-29T08:01:34.500Z [INFO] config.loader: Processing API request GET /api/v1/evidence/3007
+2026-03-29T08:01:36.000Z [INFO] app.server: Cache hit ratio: 5577%%
+2026-03-29T08:01:37.500Z [DEBUG] db.pool: Background job enqueued: job_id=6105
+2026-03-29T08:01:39.000Z [INFO] auth.session: CORS preflight for origin https://app.example.com
+2026-03-29T08:01:40.500Z [DEBUG] api.handler: Configuration reloaded from environment
+2026-03-29T08:01:42.000Z [WARN] cache.redis: Database query executed in 8982ms
+2026-03-29T08:01:43.500Z [INFO] worker.queue: WebSocket connection established: ws_id=5553
+2026-03-29T08:01:45.000Z [INFO] middleware.cors: Rate limiter: 2037 requests remaining for client 10.0.1.7848
+2026-03-29T08:01:46.500Z [DEBUG] config.loader: File upload completed: 1284 bytes written
+2026-03-29T08:01:48.000Z [INFO] app.server: Health check passed: uptime=2945s
+2026-03-29T08:01:49.500Z [DEBUG] db.pool: Graceful shutdown signal received
+2026-03-29T08:01:51.000Z [WARN] auth.session: TLS handshake completed with cipher TLS_AES_256_GCM_SHA384
+2026-03-29T08:01:52.500Z [INFO] api.handler: Memory usage: heap_used=4343MB heap_total=5994MB
+2026-03-29T08:01:54.000Z [INFO] cache.redis: Garbage collection pause: 3300ms
+2026-03-29T08:01:55.500Z [DEBUG] worker.queue: HTTP/2 stream multiplexed: stream_id=2871
+2026-03-29T08:01:57.000Z [INFO] middleware.cors: JWT token validated: exp=4104
+2026-03-29T08:01:58.500Z [DEBUG] config.loader: Static asset served: /assets/bundle-6218.js
+2026-03-29T08:02:00.000Z [WARN] app.server: Request handled successfully
+2026-03-29T08:02:01.500Z [INFO] db.pool: Connection pool acquired connection #3747
+2026-03-29T08:02:03.000Z [INFO] auth.session: Session token refreshed for user_id=6133
+2026-03-29T08:02:04.500Z [DEBUG] api.handler: Processing API request GET /api/v1/evidence/1094
+2026-03-29T08:02:06.000Z [INFO] cache.redis: Cache hit ratio: 1120%%
+2026-03-29T08:02:07.500Z [DEBUG] worker.queue: Background job enqueued: job_id=2795
+2026-03-29T08:02:09.000Z [WARN] middleware.cors: CORS preflight for origin https://app.example.com
+2026-03-29T08:02:10.500Z [INFO] config.loader: Configuration reloaded from environment
+2026-03-29T08:02:12.000Z [INFO] app.server: Database query executed in 1841ms
+2026-03-29T08:02:13.500Z [DEBUG] db.pool: WebSocket connection established: ws_id=6325
+2026-03-29T08:02:15.000Z [INFO] auth.session: Rate limiter: 612 requests remaining for client 10.0.1.3302
+2026-03-29T08:02:16.500Z [DEBUG] api.handler: File upload completed: 6298 bytes written
+2026-03-29T08:02:18.000Z [WARN] cache.redis: Health check passed: uptime=9770s
+2026-03-29T08:02:19.500Z [INFO] worker.queue: Graceful shutdown signal received
+2026-03-29T08:02:21.000Z [INFO] middleware.cors: TLS handshake completed with cipher TLS_AES_256_GCM_SHA384
+2026-03-29T08:02:22.500Z [DEBUG] config.loader: Memory usage: heap_used=75MB heap_total=1886MB
+2026-03-29T08:02:24.000Z [INFO] app.server: Garbage collection pause: 6045ms
+2026-03-29T08:02:25.500Z [DEBUG] db.pool: HTTP/2 stream multiplexed: stream_id=1559
+2026-03-29T08:02:27.000Z [WARN] auth.session: JWT token validated: exp=7237
+2026-03-29T08:02:28.500Z [INFO] api.handler: Static asset served: /assets/bundle-901.js
+2026-03-29T08:02:30.000Z [INFO] cache.redis: Request handled successfully
+2026-03-29T08:02:31.500Z [DEBUG] worker.queue: Connection pool acquired connection #9079
+2026-03-29T08:02:33.000Z [INFO] middleware.cors: Session token refreshed for user_id=4239
+2026-03-29T08:02:34.500Z [DEBUG] config.loader: Processing API request GET /api/v1/evidence/4588
+2026-03-29T08:02:36.000Z [WARN] app.server: Cache hit ratio: 132%%
+2026-03-29T08:02:37.500Z [INFO] db.pool: Background job enqueued: job_id=2818
+2026-03-29T08:02:39.000Z [INFO] auth.session: CORS preflight for origin https://app.example.com
+2026-03-29T08:02:40.500Z [DEBUG] api.handler: Configuration reloaded from environment
+2026-03-29T08:02:42.000Z [INFO] cache.redis: Database query executed in 9254ms
+2026-03-29T08:02:43.500Z [DEBUG] worker.queue: WebSocket connection established: ws_id=4887
+2026-03-29T08:02:45.000Z [WARN] middleware.cors: Rate limiter: 928 requests remaining for client 10.0.1.5653
+2026-03-29T08:02:46.500Z [INFO] config.loader: File upload completed: 3434 bytes written
+2026-03-29T08:02:48.000Z [INFO] app.server: Health check passed: uptime=6583s
+2026-03-29T08:02:49.500Z [DEBUG] db.pool: Graceful shutdown signal received
+2026-03-29T08:02:51.000Z [INFO] auth.session: TLS handshake completed with cipher TLS_AES_256_GCM_SHA384
+2026-03-29T08:02:52.500Z [DEBUG] api.handler: Memory usage: heap_used=5307MB heap_total=4286MB
+2026-03-29T08:02:54.000Z [WARN] cache.redis: Garbage collection pause: 8942ms
+2026-03-29T08:02:55.500Z [INFO] worker.queue: HTTP/2 stream multiplexed: stream_id=5219
+2026-03-29T08:02:57.000Z [INFO] middleware.cors: JWT token validated: exp=3420
+2026-03-29T08:02:58.500Z [DEBUG] config.loader: Static asset served: /assets/bundle-7547.js
+2026-03-29T08:03:00.000Z [INFO] app.server: Request handled successfully
+2026-03-29T08:03:01.500Z [DEBUG] db.pool: Connection pool acquired connection #555
+2026-03-29T08:03:03.000Z [WARN] auth.session: Session token refreshed for user_id=7906
+2026-03-29T08:03:04.500Z [INFO] api.handler: Processing API request GET /api/v1/evidence/7184
+2026-03-29T08:03:06.000Z [INFO] cache.redis: Cache hit ratio: 8704%%
+2026-03-29T08:03:07.500Z [DEBUG] worker.queue: Background job enqueued: job_id=6414
+2026-03-29T08:03:09.000Z [INFO] middleware.cors: CORS preflight for origin https://app.example.com
+2026-03-29T08:03:10.500Z [DEBUG] config.loader: Configuration reloaded from environment
+2026-03-29T08:03:12.000Z [WARN] app.server: Database query executed in 5831ms
+2026-03-29T08:03:13.500Z [INFO] db.pool: WebSocket connection established: ws_id=5702
+2026-03-29T08:03:15.000Z [INFO] auth.session: Rate limiter: 6268 requests remaining for client 10.0.1.3560
+2026-03-29T08:03:16.500Z [DEBUG] api.handler: File upload completed: 5172 bytes written
+2026-03-29T08:03:18.000Z [INFO] cache.redis: Health check passed: uptime=2503s
+2026-03-29T08:03:19.500Z [DEBUG] worker.queue: Graceful shutdown signal received
+2026-03-29T08:03:21.000Z [WARN] middleware.cors: TLS handshake completed with cipher TLS_AES_256_GCM_SHA384
+2026-03-29T08:03:22.500Z [INFO] config.loader: Memory usage: heap_used=7144MB heap_total=7870MB
+2026-03-29T08:03:24.000Z [INFO] app.server: Garbage collection pause: 3976ms
+2026-03-29T08:03:25.500Z [DEBUG] db.pool: HTTP/2 stream multiplexed: stream_id=4853
+2026-03-29T08:03:27.000Z [INFO] auth.session: JWT token validated: exp=1000
+2026-03-29T08:03:28.500Z [DEBUG] api.handler: Static asset served: /assets/bundle-3246.js
+2026-03-29T08:03:30.000Z [WARN] cache.redis: Request handled successfully
+2026-03-29T08:03:31.500Z [INFO] worker.queue: Connection pool acquired connection #4922
+2026-03-29T08:03:33.000Z [INFO] middleware.cors: Session token refreshed for user_id=8419
+2026-03-29T08:03:34.500Z [DEBUG] config.loader: Processing API request GET /api/v1/evidence/7007
+2026-03-29T08:03:36.000Z [INFO] app.server: Cache hit ratio: 6634%%
+2026-03-29T08:03:37.500Z [DEBUG] db.pool: Background job enqueued: job_id=18
+2026-03-29T08:03:39.000Z [WARN] auth.session: CORS preflight for origin https://app.example.com
+2026-03-29T08:03:40.500Z [INFO] api.handler: Configuration reloaded from environment
+2026-03-29T08:03:42.000Z [INFO] cache.redis: Database query executed in 8524ms
+2026-03-29T08:03:43.500Z [DEBUG] worker.queue: WebSocket connection established: ws_id=6339
+2026-03-29T08:03:45.000Z [INFO] middleware.cors: Rate limiter: 1240 requests remaining for client 10.0.1.3902
+2026-03-29T08:03:46.500Z [DEBUG] config.loader: File upload completed: 4558 bytes written
+2026-03-29T08:03:48.000Z [WARN] app.server: Health check passed: uptime=6704s
+2026-03-29T08:03:49.500Z [INFO] db.pool: Graceful shutdown signal received
+2026-03-29T08:03:51.000Z [INFO] auth.session: TLS handshake completed with cipher TLS_AES_256_GCM_SHA384
+2026-03-29T08:03:52.500Z [DEBUG] api.handler: Memory usage: heap_used=6137MB heap_total=4994MB
+2026-03-29T08:03:54.000Z [INFO] cache.redis: Garbage collection pause: 9637ms
+2026-03-29T08:03:55.500Z [DEBUG] worker.queue: HTTP/2 stream multiplexed: stream_id=1072
+2026-03-29T08:03:57.000Z [WARN] middleware.cors: JWT token validated: exp=4559
+2026-03-29T08:03:58.500Z [INFO] config.loader: Static asset served: /assets/bundle-8771.js
+2026-03-29T08:04:00.000Z [INFO] app.server: Request handled successfully
+2026-03-29T08:04:01.500Z [DEBUG] db.pool: Connection pool acquired connection #9717
+2026-03-29T08:04:03.000Z [INFO] auth.session: Session token refreshed for user_id=5252
+2026-03-29T08:04:04.500Z [DEBUG] api.handler: Processing API request GET /api/v1/evidence/668
+2026-03-29T08:04:06.000Z [WARN] cache.redis: Cache hit ratio: 66%%
+2026-03-29T08:04:07.500Z [INFO] worker.queue: Background job enqueued: job_id=8249
+2026-03-29T08:04:09.000Z [INFO] middleware.cors: CORS preflight for origin https://app.example.com
+2026-03-29T08:04:10.500Z [DEBUG] config.loader: Configuration reloaded from environment
+2026-03-29T08:04:12.000Z [INFO] app.server: Database query executed in 536ms
+2026-03-29T08:04:13.500Z [DEBUG] db.pool: WebSocket connection established: ws_id=590
+2026-03-29T08:04:15.000Z [WARN] auth.session: Rate limiter: 7740 requests remaining for client 10.0.1.3644
+2026-03-29T08:04:16.500Z [INFO] api.handler: File upload completed: 4938 bytes written
+2026-03-29T08:04:18.000Z [INFO] cache.redis: Health check passed: uptime=8174s
+2026-03-29T08:04:19.500Z [DEBUG] worker.queue: Graceful shutdown signal received
+2026-03-29T08:04:21.000Z [INFO] middleware.cors: TLS handshake completed with cipher TLS_AES_256_GCM_SHA384
+2026-03-29T08:04:22.500Z [DEBUG] config.loader: Memory usage: heap_used=9696MB heap_total=4552MB
+2026-03-29T08:04:24.000Z [WARN] app.server: Garbage collection pause: 3152ms
+2026-03-29T08:04:25.500Z [INFO] db.pool: HTTP/2 stream multiplexed: stream_id=2476
+2026-03-29T08:04:27.000Z [INFO] auth.session: JWT token validated: exp=544
+2026-03-29T08:04:28.500Z [DEBUG] api.handler: Static asset served: /assets/bundle-1885.js
+2026-03-29T08:04:30.000Z [INFO] cache.redis: Request handled successfully
+2026-03-29T08:04:31.500Z [DEBUG] worker.queue: Connection pool acquired connection #1672
+2026-03-29T08:04:33.000Z [WARN] middleware.cors: Session token refreshed for user_id=2693
+2026-03-29T08:04:34.500Z [INFO] config.loader: Processing API request GET /api/v1/evidence/9016
+2026-03-29T08:04:36.000Z [INFO] app.server: Cache hit ratio: 652%%
+2026-03-29T08:04:37.500Z [DEBUG] db.pool: Background job enqueued: job_id=1105
+2026-03-29T08:04:39.000Z [INFO] auth.session: CORS preflight for origin https://app.example.com
+2026-03-29T08:04:40.500Z [DEBUG] api.handler: Configuration reloaded from environment
+2026-03-29T08:04:42.000Z [WARN] cache.redis: Database query executed in 8145ms
+2026-03-29T08:04:43.500Z [INFO] worker.queue: WebSocket connection established: ws_id=2243
+2026-03-29T08:04:45.000Z [INFO] middleware.cors: Rate limiter: 6198 requests remaining for client 10.0.1.3543
+2026-03-29T08:04:46.500Z [DEBUG] config.loader: File upload completed: 1929 bytes written
+2026-03-29T08:04:48.000Z [INFO] app.server: Health check passed: uptime=3270s
+2026-03-29T08:04:49.500Z [DEBUG] db.pool: Graceful shutdown signal received
+2026-03-29T08:04:51.000Z [WARN] auth.session: TLS handshake completed with cipher TLS_AES_256_GCM_SHA384
+2026-03-29T08:04:52.500Z [INFO] api.handler: Memory usage: heap_used=115MB heap_total=7187MB
+2026-03-29T08:04:54.000Z [INFO] cache.redis: Garbage collection pause: 6508ms
+2026-03-29T08:04:55.500Z [DEBUG] worker.queue: HTTP/2 stream multiplexed: stream_id=3564
+2026-03-29T08:04:57.000Z [INFO] middleware.cors: JWT token validated: exp=1445
+2026-03-29T08:04:58.500Z [DEBUG] config.loader: Static asset served: /assets/bundle-8844.js

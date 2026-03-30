@@ -1,0 +1,46 @@
+{
+  "testRun": {
+    "id": "run-20260329-001",
+    "timestamp": "2026-03-29T10:00:00Z",
+    "duration": 12450,
+    "environment": {
+      "node": "22.21.1",
+      "os": "linux",
+      "ci": true
+    }
+  },
+  "summary": {
+    "total": 24,
+    "passed": 22,
+    "failed": 1,
+    "skipped": 1
+  },
+  "tests": [
+    {
+      "name": "test_health_check",
+      "status": "passed",
+      "duration": 45
+    },
+    {
+      "name": "test_upload_bundle",
+      "status": "passed",
+      "duration": 1230
+    },
+    {
+      "name": "test_list_bundles",
+      "status": "passed",
+      "duration": 89
+    },
+    {
+      "name": "test_get_bundle_manifest",
+      "status": "failed",
+      "duration": 102,
+      "error": "AssertionError: Expected 200 but got 404"
+    },
+    {
+      "name": "test_delete_bundle",
+      "status": "skipped",
+      "reason": "Destructive test disabled in CI"
+    }
+  ]
+}

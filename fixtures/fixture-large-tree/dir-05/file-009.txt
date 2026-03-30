@@ -1,0 +1,3 @@
+Content of dir-05/file-009.txt
+Generated for large-tree fixture testing.
+Line 3 of sample content.
