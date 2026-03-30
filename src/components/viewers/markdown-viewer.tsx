@@ -30,13 +30,17 @@ function slugify(text: string): string {
     .replace(/[^\p{L}\p{N}\-]/gu, "");
 }
 
-// Allow className on code elements for syntax highlighting
+// Allow className on code elements for syntax highlighting.
+// Remove protocol restriction on img[src] so relative bundle-internal
+// paths (e.g. "screenshots/step-1.png") are not stripped by sanitization.
+const { src: _src, ...protocolsWithoutSrc } = defaultSchema.protocols ?? {};
 const sanitizeSchema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
     code: [...(defaultSchema.attributes?.code ?? []), "className"],
   },
+  protocols: protocolsWithoutSrc,
 };
 
 interface MarkdownViewerProps {
@@ -237,7 +241,7 @@ export function MarkdownViewer({
   };
 
   return (
-    <article className="prose prose-sm max-w-none dark:prose-invert px-1">
+    <article className="prose prose-sm max-w-none dark:prose-invert prose-code:before:content-none prose-code:after:content-none px-1">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[[rehypeSanitize, sanitizeSchema]]}
