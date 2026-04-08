@@ -2,12 +2,12 @@ schema_version: 1
 collected_at: 2026-04-08T02:14:28.847Z
 
 project:
-  id: PVT_kwHOAPiKdM4BR9-k
-  title: Moncher Blog Project
-  url: https://github.com/users/hojinzs/projects/7
+  id: PVT_kwHOAPiKdM4BUAK2
+  title: 🔎 Evidence Browser Project
+  url: https://github.com/users/hojinzs/projects/11
 
 status_field:
-  id: PVTSSF_lAHOAPiKdM4BR9-kzg_o6-I
+  id: PVTSSF_lAHOAPiKdM4BUAK2zhBLPuo
   name: Status
   columns:
     - id: f75ad846
@@ -37,47 +37,47 @@ status_field:
       confidence: high
 
 text_fields:
-  - id: PVTF_lAHOAPiKdM4BR9-kzg_o6-A
+  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPug
     name: Title
     data_type: TITLE
-  - id: PVTF_lAHOAPiKdM4BR9-kzg_o6-E
+  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPuk
     name: Assignees
     data_type: ASSIGNEES
-  - id: PVTF_lAHOAPiKdM4BR9-kzg_o6-M
+  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPus
     name: Labels
     data_type: LABELS
-  - id: PVTF_lAHOAPiKdM4BR9-kzg_o6-Q
+  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPuw
     name: Linked pull requests
     data_type: LINKED_PULL_REQUESTS
-  - id: PVTF_lAHOAPiKdM4BR9-kzg_o6-U
+  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPu0
     name: Milestone
     data_type: MILESTONE
-  - id: PVTF_lAHOAPiKdM4BR9-kzg_o6-Y
+  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPu4
     name: Repository
     data_type: REPOSITORY
-  - id: PVTF_lAHOAPiKdM4BR9-kzg_o6-c
+  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPu8
     name: Reviewers
     data_type: REVIEWERS
-  - id: PVTF_lAHOAPiKdM4BR9-kzg_o6-g
+  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPvA
     name: Parent issue
     data_type: PARENT_ISSUE
-  - id: PVTF_lAHOAPiKdM4BR9-kzg_o6-k
+  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPvE
     name: Sub-issues progress
     data_type: SUB_ISSUES_PROGRESS
-  - id: PVTF_lAHOAPiKdM4BR9-kzg_o7AE
+  - id: PVTF_lAHOAPiKdM4BUAK2zhBLQDM
     name: Estimate
     data_type: NUMBER
-  - id: PVTF_lAHOAPiKdM4BR9-kzg_o7AI
+  - id: PVTF_lAHOAPiKdM4BUAK2zhBLQDQ
     name: Start date
     data_type: DATE
-  - id: PVTF_lAHOAPiKdM4BR9-kzg_o7AM
+  - id: PVTF_lAHOAPiKdM4BUAK2zhBLQDU
     name: Target date
     data_type: DATE
 
 repositories:
   - owner: hojinzs
-    name: moncher-blog
-    clone_url: https://github.com/hojinzs/moncher-blog.git
+    name: evidence-browser
+    clone_url: https://github.com/hojinzs/evidence-browser.git
 
 detected_environment:
   packageManager: npm

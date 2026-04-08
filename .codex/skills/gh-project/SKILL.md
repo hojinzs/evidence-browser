@@ -22,7 +22,7 @@ create workpad comments, and handle follow-up issues.
 
 ## Column ID Quick Reference
 
-Status Field ID: `PVTSSF_lAHOAPiKdM4BR9-kzg_o6-I`
+Status Field ID: `PVTSSF_lAHOAPiKdM4BUAK2zhBLPuo`
 
 | Column Name | Role | Option ID |
 |-------------|------|-----------|
@@ -45,9 +45,9 @@ gh project item-list <project-number> --owner <owner> --format json \
 
 # Update the status field
 gh project item-edit \
-  --project-id PVT_kwHOAPiKdM4BR9-k \
+  --project-id PVT_kwHOAPiKdM4BUAK2 \
   --id <item-id> \
-  --field-id PVTSSF_lAHOAPiKdM4BR9-kzg_o6-I \
+  --field-id PVTSSF_lAHOAPiKdM4BUAK2zhBLPuo \
   --single-select-option-id <option-id-from-table-above>
 ```
 

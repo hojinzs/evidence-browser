@@ -1,7 +1,7 @@
 ---
 tracker:
   kind: github-project
-  project_id: PVT_kwHOAPiKdM4BR9-k
+  project_id: PVT_kwHOAPiKdM4BUAK2
   state_field: Status
   active_states:
     - Ready
