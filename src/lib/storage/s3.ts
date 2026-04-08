@@ -3,6 +3,7 @@ import {
   HeadObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
+  PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 import type { BundleInfo, StorageAdapter } from "./types";
@@ -96,5 +97,16 @@ export class S3Adapter implements StorageAdapter {
     // AWS SDK returns a Readable (Node stream) in Node.js environment
     const body = result.Body as Readable;
     return Readable.toWeb(body) as ReadableStream<Uint8Array>;
+  }
+
+  async putBundle(storageKey: string, data: Buffer): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: `${storageKey}.zip`,
+        Body: data,
+        ContentType: "application/zip",
+      })
+    );
   }
 }

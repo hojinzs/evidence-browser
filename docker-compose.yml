@@ -3,8 +3,10 @@ services:
     build: .
     ports:
       - "3000:3000"
-    env_file: .env
     volumes:
-      - ./data/bundles:/data/bundles
+      - ./data:/data
     environment:
+      - DATA_DIR=/data
+      - STORAGE_TYPE=local
       - STORAGE_LOCAL_PATH=/data/bundles
+      - AUTH_SECRET=change-me-to-a-random-secret

@@ -1,0 +1,117 @@
+import { NextRequest, NextResponse } from "next/server";
+import { findWorkspaceBySlug } from "@/lib/db/workspaces";
+import { listBundles, createBundle } from "@/lib/db/bundles";
+import {
+  requireAuthFromRequest,
+  requireAdminFromRequest,
+} from "@/lib/auth/require-auth";
+import { getStorageAdapter } from "@/lib/storage";
+import { storageKey } from "@/lib/url";
+import { extractBundle } from "@/lib/bundle/extractor";
+import { getEnv } from "@/config/env";
+import path from "path";
+import fs from "fs";
+import os from "os";
+
+interface RouteParams {
+  params: Promise<{ ws: string }>;
+}
+
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  const authResult = requireAuthFromRequest(request);
+  if (authResult instanceof Response) return authResult;
+
+  const { ws } = await params;
+  const workspace = findWorkspaceBySlug(ws);
+  if (!workspace) {
+    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+  }
+
+  const bundles = listBundles(workspace.id);
+  return NextResponse.json({ bundles });
+}
+
+export async function POST(request: NextRequest, { params }: RouteParams) {
+  const authResult = requireAdminFromRequest(request);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
+
+  const { ws } = await params;
+  const workspace = findWorkspaceBySlug(ws);
+  if (!workspace) {
+    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+  }
+
+  const formData = await request.formData().catch(() => null);
+  if (!formData) {
+    return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+  }
+
+  const file = formData.get("file") as File | null;
+  if (!file || !file.name.endsWith(".zip")) {
+    return NextResponse.json({ error: "A .zip file is required" }, { status: 400 });
+  }
+
+  const env = getEnv();
+  if (file.size > env.MAX_BUNDLE_SIZE) {
+    return NextResponse.json(
+      { error: `File too large (max ${env.MAX_BUNDLE_SIZE} bytes)` },
+      { status: 413 }
+    );
+  }
+
+  // Read file into buffer
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  // Save to temp to validate
+  const tmpDir = path.join(os.tmpdir(), "evidence-upload-" + Date.now());
+  const tmpZip = path.join(tmpDir, "upload.zip");
+  fs.mkdirSync(tmpDir, { recursive: true });
+
+  try {
+    fs.writeFileSync(tmpZip, buffer);
+
+    // Derive bundle ID from filename (strip .zip)
+    const bundleId = formData.get("bundleId") as string
+      || file.name.replace(/\.zip$/, "");
+
+    const key = storageKey(ws, bundleId);
+
+    // Store the bundle
+    const storage = getStorageAdapter();
+    if (!storage.putBundle) {
+      return NextResponse.json(
+        { error: "Storage adapter does not support upload" },
+        { status: 501 }
+      );
+    }
+    await storage.putBundle(key, buffer);
+
+    // Validate by extracting (this also validates manifest)
+    let title: string | null = null;
+    try {
+      const entry = await extractBundle(key);
+      title = entry.manifest.title;
+    } catch (error) {
+      // If extraction fails, the bundle is invalid — but it's already stored.
+      // We'll still record it; the viewer will show the error.
+      console.warn("Bundle validation warning:", error);
+    }
+
+    // Record in DB
+    const bundle = createBundle({
+      bundleId,
+      workspaceId: workspace.id,
+      title,
+      storageKey: key,
+      sizeBytes: file.size,
+      uploadedBy: user.id,
+    });
+
+    return NextResponse.json({ bundle }, { status: 201 });
+  } finally {
+    // Cleanup temp
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}

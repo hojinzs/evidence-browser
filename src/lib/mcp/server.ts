@@ -1,7 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod/v4";
 import { getEnv } from "@/config/env";
-import { getStorageAdapter } from "@/lib/storage/index";
+import { listWorkspaces } from "@/lib/db/workspaces";
+import { listBundles as dbListBundles } from "@/lib/db/bundles";
+import { findWorkspaceBySlug } from "@/lib/db/workspaces";
 import { generateLlmText } from "./llm-text";
 
 const BUNDLE_SCHEMA_TEXT = `## manifest.json
@@ -30,14 +32,23 @@ Example:
   └── screenshots/
       └── step-1.png
 
-## Bundle ID
+## Bundle ID & Storage Key
 
-Hierarchical, slash-separated:
-  org/repo/pr-42/run-1  →  stored as org/repo/pr-42/run-1.zip
+Bundles are organized under workspaces:
+  Storage key: {workspace-slug}/{bundleId}.zip
+  URL: /w/{workspace-slug}/b/{bundleId}
 
-Constraint: must not contain a bare "f" path segment.
+## Upload
 
-## Supported File Types (syntax highlighting)
+  POST /api/w/{workspace-slug}/bundle
+  Content-Type: multipart/form-data
+  Cookie: evidence_session=...
+
+  Form fields:
+    file: .zip file (required)
+    bundleId: custom bundle ID (optional, defaults to filename without .zip)
+
+## Supported File Types
 
 Code: .ts .tsx .js .jsx .py .rb .go .rs .java .kt .swift .css .scss
       .html .xml .yaml .toml .sh .bash .sql .graphql .json .dockerfile
@@ -48,13 +59,13 @@ Binary: all others (shown as download link)`;
 
 export function createMcpServer(): McpServer {
   const server = new McpServer(
-    { name: "evidence-browser", version: "0.1.0" },
+    { name: "evidence-browser", version: "0.2.0" },
     { capabilities: { tools: {} } }
   );
 
   server.tool(
     "get_bundle_schema",
-    "Returns the manifest.json schema and expected bundle zip structure for Evidence Browser",
+    "Returns the manifest.json schema, expected bundle zip structure, and upload instructions",
     async () => ({
       content: [{ type: "text" as const, text: BUNDLE_SCHEMA_TEXT }],
     })
@@ -93,28 +104,59 @@ export function createMcpServer(): McpServer {
   );
 
   server.tool(
-    "list_bundles",
-    "Lists available bundle IDs in storage",
-    { prefix: z.string().optional().describe("Optional prefix to filter results (e.g. 'org/repo/')") },
-    async ({ prefix }) => {
-      const adapter = getStorageAdapter();
-      if (typeof adapter.listBundles !== "function") {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: "list_bundles is not supported by the current storage adapter.",
-            },
-          ],
-          isError: true,
-        };
-      }
-      const bundles = await adapter.listBundles(prefix);
+    "list_workspaces",
+    "Lists all workspaces in Evidence Browser",
+    async () => {
+      const workspaces = listWorkspaces();
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({ bundles, count: bundles.length }, null, 2),
+            text: JSON.stringify(
+              { workspaces: workspaces.map((w) => ({ slug: w.slug, name: w.name, description: w.description })), count: workspaces.length },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "list_bundles",
+    "Lists bundles in a workspace",
+    {
+      workspace: z.string().describe("Workspace slug (required)"),
+    },
+    async ({ workspace }) => {
+      const ws = findWorkspaceBySlug(workspace);
+      if (!ws) {
+        return {
+          content: [{ type: "text" as const, text: `Workspace "${workspace}" not found.` }],
+          isError: true,
+        };
+      }
+      const bundles = dbListBundles(ws.id);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                workspace: ws.slug,
+                bundles: bundles.map((b) => ({
+                  bundleId: b.bundle_id,
+                  title: b.title,
+                  uploadedBy: b.uploader_username,
+                  createdAt: b.created_at,
+                  sizeBytes: b.size_bytes,
+                })),
+                count: bundles.length,
+              },
+              null,
+              2
+            ),
           },
         ],
       };

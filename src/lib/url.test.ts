@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { parseSegments } from "./url";
+import {
+  parseSegments,
+  bundleFileUrl,
+  bundleLandingUrl,
+  workspaceUrl,
+  apiBundleUrl,
+  storageKey,
+} from "./url";
 
 describe("parseSegments", () => {
   it("parses bundle landing (no /f/)", () => {
@@ -37,5 +44,37 @@ describe("parseSegments", () => {
       bundleId: "sample/basic",
       filePath: null,
     });
+  });
+});
+
+describe("workspace-aware URL helpers", () => {
+  it("bundleFileUrl includes workspace", () => {
+    expect(bundleFileUrl("infra", "pr-42", "logs/app.log")).toBe(
+      "/w/infra/b/pr-42/f/logs/app.log"
+    );
+  });
+
+  it("bundleLandingUrl includes workspace", () => {
+    expect(bundleLandingUrl("infra", "pr-42")).toBe("/w/infra/b/pr-42");
+  });
+
+  it("workspaceUrl", () => {
+    expect(workspaceUrl("infra")).toBe("/w/infra");
+  });
+
+  it("apiBundleUrl includes workspace", () => {
+    expect(apiBundleUrl("infra", "pr-42", "meta")).toBe(
+      "/api/w/infra/bundle/pr-42/meta"
+    );
+  });
+
+  it("apiBundleUrl encodes slashes in bundleId", () => {
+    expect(apiBundleUrl("infra", "org/repo/pr-42", "file")).toBe(
+      "/api/w/infra/bundle/org%2Frepo%2Fpr-42/file"
+    );
+  });
+
+  it("storageKey", () => {
+    expect(storageKey("infra", "pr-42")).toBe("infra/pr-42");
   });
 });

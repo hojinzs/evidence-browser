@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extractBundle, setTreePaths } from "@/lib/bundle/extractor";
+import { extractBundle } from "@/lib/bundle/extractor";
+import { storageKey } from "@/lib/url";
 import {
   BundleNotFoundError,
   BundleSizeLimitError,
@@ -11,13 +12,14 @@ import {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ bundleId: string }> }
+  { params }: { params: Promise<{ ws: string; bundleId: string }> }
 ) {
-  const { bundleId: rawBundleId } = await params;
+  const { ws, bundleId: rawBundleId } = await params;
   const bundleId = decodeURIComponent(rawBundleId);
+  const key = storageKey(ws, bundleId);
 
   try {
-    const entry = await extractBundle(bundleId);
+    const entry = await extractBundle(key);
     return NextResponse.json({
       manifest: entry.manifest,
       tree: entry.fileTree,
@@ -26,7 +28,7 @@ export async function GET(
     if (err instanceof BundleNotFoundError) {
       return NextResponse.json({ error: err.message }, { status: 404 });
     }
-    if (err instanceof BundleSizeLimitError) {
+    if (err instanceof BundleSizeLimitError || err instanceof FileCountLimitError) {
       return NextResponse.json({ error: err.message }, { status: 413 });
     }
     if (
@@ -36,13 +38,7 @@ export async function GET(
     ) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
-    if (err instanceof FileCountLimitError) {
-      return NextResponse.json({ error: err.message }, { status: 413 });
-    }
     console.error("Bundle meta error:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

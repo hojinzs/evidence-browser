@@ -13,6 +13,7 @@ interface TreeContextValue {
   expandedPaths: Set<string>;
   currentFilePath: string | null;
   bundleId: string;
+  workspaceSlug: string;
   toggleFolder: (path: string) => void;
 }
 
@@ -30,6 +31,7 @@ function getParentPaths(filePath: string): string[] {
 interface TreeProviderProps {
   children: ReactNode;
   bundleId: string;
+  workspaceSlug: string;
   currentFilePath: string | null;
   initialExpandedPaths?: string[];
 }
@@ -37,6 +39,7 @@ interface TreeProviderProps {
 export function TreeProvider({
   children,
   bundleId,
+  workspaceSlug,
   currentFilePath,
   initialExpandedPaths = [],
 }: TreeProviderProps) {
@@ -77,7 +80,7 @@ export function TreeProvider({
 
   return (
     <TreeContext.Provider
-      value={{ expandedPaths, currentFilePath, bundleId, toggleFolder }}
+      value={{ expandedPaths, currentFilePath, bundleId, workspaceSlug, toggleFolder }}
     >
       {children}
     </TreeContext.Provider>

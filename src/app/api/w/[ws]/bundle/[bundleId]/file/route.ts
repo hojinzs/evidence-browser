@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { extractBundle, getFileContent } from "@/lib/bundle/extractor";
 import { validatePathSafety, ensureWithinRoot } from "@/lib/bundle/security";
 import { getMimeType } from "@/lib/files/detect";
+import { storageKey } from "@/lib/url";
 import { BundleNotFoundError } from "@/lib/bundle/types";
 import path from "path";
 
@@ -10,36 +11,27 @@ const CSP_HEADER =
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ bundleId: string }> }
+  { params }: { params: Promise<{ ws: string; bundleId: string }> }
 ) {
-  const { bundleId: rawBundleId } = await params;
+  const { ws, bundleId: rawBundleId } = await params;
   const bundleId = decodeURIComponent(rawBundleId);
   const filePath = request.nextUrl.searchParams.get("path");
+  const key = storageKey(ws, bundleId);
 
   if (!filePath) {
-    return NextResponse.json(
-      { error: "Missing 'path' query parameter" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Missing 'path' query parameter" }, { status: 400 });
   }
 
-  // Security: validate path
   if (!validatePathSafety(filePath)) {
-    return NextResponse.json(
-      { error: "Invalid file path" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
   }
 
   try {
-    const entry = await extractBundle(bundleId);
+    const entry = await extractBundle(key);
     const fullPath = path.join(entry.cacheDir, filePath);
 
     if (!ensureWithinRoot(entry.cacheDir, fullPath)) {
-      return NextResponse.json(
-        { error: "Invalid file path" },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Invalid file path" }, { status: 403 });
     }
 
     const content = await getFileContent(entry.cacheDir, filePath);
@@ -56,20 +48,10 @@ export async function GET(
     if (err instanceof BundleNotFoundError) {
       return NextResponse.json({ error: err.message }, { status: 404 });
     }
-    if (
-      err instanceof Error &&
-      (err.message === "Invalid file path" ||
-        err.message.includes("ENOENT"))
-    ) {
-      return NextResponse.json(
-        { error: "File not found" },
-        { status: 404 }
-      );
+    if (err instanceof Error && (err.message === "Invalid file path" || err.message.includes("ENOENT"))) {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
     console.error("Bundle file error:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

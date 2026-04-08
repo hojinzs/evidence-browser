@@ -9,6 +9,7 @@ import { DownloadFallback } from "./download-fallback";
 import { getShikiLanguage } from "@/lib/files/detect";
 
 interface FileViewerProps {
+  workspaceSlug: string;
   bundleId: string;
   filePath: string;
   content?: string;
@@ -16,6 +17,7 @@ interface FileViewerProps {
 }
 
 export function FileViewer({
+  workspaceSlug,
   bundleId,
   filePath,
   content,
@@ -24,9 +26,9 @@ export function FileViewer({
   if (isBinary || content === undefined) {
     const fileType = detectFileType(filePath);
     if (fileType === "image") {
-      return <ImageViewer bundleId={bundleId} filePath={filePath} />;
+      return <ImageViewer workspaceSlug={workspaceSlug} bundleId={bundleId} filePath={filePath} />;
     }
-    return <DownloadFallback bundleId={bundleId} filePath={filePath} />;
+    return <DownloadFallback workspaceSlug={workspaceSlug} bundleId={bundleId} filePath={filePath} />;
   }
 
   const fileType = detectFileType(filePath);
@@ -36,6 +38,7 @@ export function FileViewer({
       return (
         <MarkdownViewer
           content={content}
+          workspaceSlug={workspaceSlug}
           bundleId={bundleId}
           currentFilePath={filePath}
         />
@@ -49,10 +52,10 @@ export function FileViewer({
         />
       );
     case "image":
-      return <ImageViewer bundleId={bundleId} filePath={filePath} />;
+      return <ImageViewer workspaceSlug={workspaceSlug} bundleId={bundleId} filePath={filePath} />;
     case "text":
       return <TextViewer content={content} />;
     default:
-      return <DownloadFallback bundleId={bundleId} filePath={filePath} />;
+      return <DownloadFallback workspaceSlug={workspaceSlug} bundleId={bundleId} filePath={filePath} />;
   }
 }
