@@ -5,7 +5,6 @@ describe("envSchema", () => {
   const validLocalEnv = {
     STORAGE_TYPE: "local",
     STORAGE_LOCAL_PATH: "./data/bundles",
-    AUTH_BYPASS: "true",
   };
 
   const validS3Env = {
@@ -13,7 +12,6 @@ describe("envSchema", () => {
     S3_BUCKET: "my-bucket",
     S3_ACCESS_KEY_ID: "key",
     S3_SECRET_ACCESS_KEY: "secret",
-    AUTH_BYPASS: "true",
   };
 
   it("parses valid local config", () => {
@@ -37,7 +35,6 @@ describe("envSchema", () => {
   it("fails when STORAGE_LOCAL_PATH missing for local type", () => {
     const result = envSchema.safeParse({
       STORAGE_TYPE: "local",
-      AUTH_BYPASS: "true",
     });
     expect(result.success).toBe(false);
   });
@@ -47,21 +44,6 @@ describe("envSchema", () => {
       STORAGE_TYPE: "s3",
       S3_ACCESS_KEY_ID: "key",
       S3_SECRET_ACCESS_KEY: "secret",
-      AUTH_BYPASS: "true",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("allows missing OIDC vars when AUTH_BYPASS=true", () => {
-    const result = envSchema.safeParse(validLocalEnv);
-    expect(result.success).toBe(true);
-  });
-
-  it("requires OIDC vars when AUTH_BYPASS=false", () => {
-    const result = envSchema.safeParse({
-      STORAGE_TYPE: "local",
-      STORAGE_LOCAL_PATH: "./data/bundles",
-      AUTH_BYPASS: "false",
     });
     expect(result.success).toBe(false);
   });
@@ -70,11 +52,13 @@ describe("envSchema", () => {
     const result = envSchema.safeParse(validLocalEnv);
     expect(result.success).toBe(true);
     if (result.success) {
+      expect(result.data.DATA_DIR).toBe("./data");
       expect(result.data.CACHE_TTL_MS).toBe(1_800_000);
       expect(result.data.CACHE_MAX_ENTRIES).toBe(50);
       expect(result.data.MAX_BUNDLE_SIZE).toBe(500 * 1024 * 1024);
       expect(result.data.MAX_FILE_COUNT).toBe(10_000);
       expect(result.data.S3_FORCE_PATH_STYLE).toBe(false);
+      expect(result.data.AUTH_SECRET).toBeDefined();
     }
   });
 
@@ -86,6 +70,28 @@ describe("envSchema", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.S3_FORCE_PATH_STYLE).toBe(true);
+    }
+  });
+
+  it("accepts custom DATA_DIR", () => {
+    const result = envSchema.safeParse({
+      ...validLocalEnv,
+      DATA_DIR: "/custom/data",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.DATA_DIR).toBe("/custom/data");
+    }
+  });
+
+  it("accepts custom AUTH_SECRET", () => {
+    const result = envSchema.safeParse({
+      ...validLocalEnv,
+      AUTH_SECRET: "my-secret-key",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.AUTH_SECRET).toBe("my-secret-key");
     }
   });
 });

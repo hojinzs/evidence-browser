@@ -57,7 +57,18 @@ export class LocalFSAdapter implements StorageAdapter {
       .filter((id) => !prefix || id.startsWith(prefix));
   }
 
-  private resolvePath(bundleId: string): string {
-    return path.join(this.basePath, `${bundleId}.zip`);
+  async putBundle(storageKey: string, data: Buffer): Promise<void> {
+    const zipPath = this.resolvePath(storageKey);
+    await fs.promises.mkdir(path.dirname(zipPath), { recursive: true });
+    await fs.promises.writeFile(zipPath, data);
+  }
+
+  private resolvePath(storageKey: string): string {
+    const base = path.resolve(this.basePath);
+    const resolved = path.resolve(base, `${storageKey}.zip`);
+    if (!resolved.startsWith(base + path.sep)) {
+      throw new Error("Invalid storage key: path traversal detected");
+    }
+    return resolved;
   }
 }

@@ -43,7 +43,7 @@ export const TreeNodeComponent = memo(function TreeNodeComponent({
   bundleId,
 }: TreeNodeProps) {
   const router = useRouter();
-  const { expandedPaths, currentFilePath, toggleFolder } = useTree();
+  const { expandedPaths, currentFilePath, workspaceSlug, toggleFolder } = useTree();
 
   const isDirectory = node.type === "directory";
   const isExpanded = expandedPaths.has(node.path);
@@ -54,7 +54,7 @@ export const TreeNodeComponent = memo(function TreeNodeComponent({
     if (isDirectory) {
       toggleFolder(node.path);
     } else {
-      router.push(bundleFileUrl(bundleId, node.path));
+      router.push(bundleFileUrl(workspaceSlug, bundleId, node.path));
     }
   };
 

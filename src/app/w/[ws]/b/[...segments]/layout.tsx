@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { auth } from "@/auth";
-import { parseSegments } from "@/lib/url";
+import { getOptionalAuth } from "@/lib/auth/require-auth";
+import { parseSegments, storageKey } from "@/lib/url";
 import { extractBundle } from "@/lib/bundle/extractor";
 import { BundleNotFoundError } from "@/lib/bundle/types";
 import { Header } from "@/components/layout/header";
@@ -10,10 +10,9 @@ import type { TreeNode } from "@/lib/bundle/types";
 
 interface LayoutProps {
   children: React.ReactNode;
-  params: Promise<{ segments: string[] }>;
+  params: Promise<{ ws: string; segments: string[] }>;
 }
 
-/** Collect first-level directory paths for initial expansion */
 function getFirstLevelDirs(tree: TreeNode[]): string[] {
   return tree
     .filter((node) => node.type === "directory")
@@ -21,17 +20,16 @@ function getFirstLevelDirs(tree: TreeNode[]): string[] {
 }
 
 export default async function BundleLayout({ children, params }: LayoutProps) {
-  const { segments } = await params;
+  const { ws, segments } = await params;
   const { bundleId, filePath } = parseSegments(segments);
+  const key = storageKey(ws, bundleId);
 
-  const session = await auth();
-  const userName =
-    session?.user?.name ??
-    (process.env.AUTH_BYPASS === "true" ? "dev" : null);
+  const user = await getOptionalAuth();
+  const userName = user?.username ?? null;
 
   let cacheEntry;
   try {
-    cacheEntry = await extractBundle(bundleId);
+    cacheEntry = await extractBundle(key);
   } catch (error) {
     if (error instanceof BundleNotFoundError) {
       notFound();
@@ -45,6 +43,7 @@ export default async function BundleLayout({ children, params }: LayoutProps) {
   const sidebar = (
     <TreeProvider
       bundleId={bundleId}
+      workspaceSlug={ws}
       currentFilePath={filePath}
       initialExpandedPaths={initialExpanded}
     >

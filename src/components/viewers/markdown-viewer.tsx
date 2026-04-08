@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import Link from "next/link";
-import { encodeBundleId, bundleFileUrl } from "@/lib/url";
+import { bundleFileUrl, apiBundleUrl } from "@/lib/url";
 import type { Components } from "react-markdown";
 
 function resolveRelativePath(currentFilePath: string, href: string): string {
@@ -45,16 +45,17 @@ const sanitizeSchema = {
 
 interface MarkdownViewerProps {
   content: string;
+  workspaceSlug: string;
   bundleId: string;
   currentFilePath: string;
 }
 
 export function MarkdownViewer({
   content,
+  workspaceSlug,
   bundleId,
   currentFilePath,
 }: MarkdownViewerProps) {
-  const encodedId = encodeBundleId(bundleId);
 
   const components: Components = {
     a({ href, children, ...props }) {
@@ -83,7 +84,7 @@ export function MarkdownViewer({
       // Internal bundle links
       const resolvedPath = resolveRelativePath(currentFilePath, href);
       return (
-        <Link href={bundleFileUrl(bundleId, resolvedPath)} {...props}>
+        <Link href={bundleFileUrl(workspaceSlug, bundleId, resolvedPath)} {...props}>
           {children}
         </Link>
       );
@@ -102,7 +103,7 @@ export function MarkdownViewer({
 
       // Internal images
       const resolvedPath = resolveRelativePath(currentFilePath, src);
-      const apiSrc = `/api/bundle/${encodedId}/file?path=${encodeURIComponent(resolvedPath)}`;
+      const apiSrc = `${apiBundleUrl(workspaceSlug, bundleId, "file")}?path=${encodeURIComponent(resolvedPath)}`;
       return (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={apiSrc} alt={alt ?? ""} className="max-w-full" {...props} />

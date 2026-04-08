@@ -16,6 +16,9 @@ const numberFromString = (defaultVal: number) =>
 
 const envSchema = z
   .object({
+    // Data directory (SQLite DB location)
+    DATA_DIR: z.string().optional().default("./data"),
+
     // Storage
     STORAGE_TYPE: z.enum(["local", "s3"]).default("local"),
     STORAGE_LOCAL_PATH: z.string().optional(),
@@ -32,14 +35,9 @@ const envSchema = z
     MCP_API_KEY: z.string().optional(),
 
     // Auth
-    AUTH_BYPASS: booleanFromString,
-    OIDC_ISSUER: z.string().optional(),
-    OIDC_CLIENT_ID: z.string().optional(),
-    OIDC_CLIENT_SECRET: z.string().optional(),
-    OIDC_PROVIDER_NAME: z.string().optional().default("OIDC"),
-    NEXTAUTH_URL: z.string().optional().default("http://localhost:3000"),
-    NEXTAUTH_SECRET: z.string().optional(),
-    AUTH_SECRET: z.string().optional(),
+    AUTH_SECRET: z.string().optional().default("evidence-browser-default-secret-change-me"),
+
+    NODE_ENV: z.enum(["development", "test", "production"]).optional().default("development"),
 
     // Cache
     CACHE_TTL_MS: numberFromString(1_800_000),
@@ -89,28 +87,14 @@ const envSchema = z
   )
   .refine(
     (data) => {
-      if (!data.AUTH_BYPASS) {
-        return !!data.OIDC_ISSUER && !!data.OIDC_CLIENT_ID && !!data.OIDC_CLIENT_SECRET;
+      if (data.NODE_ENV === "production" && data.AUTH_SECRET === "evidence-browser-default-secret-change-me") {
+        return false;
       }
       return true;
     },
     {
-      message:
-        "OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET are required when AUTH_BYPASS is not true",
-      path: ["OIDC_ISSUER"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (!data.AUTH_BYPASS) {
-        return !!(data.NEXTAUTH_SECRET || data.AUTH_SECRET);
-      }
-      return true;
-    },
-    {
-      message:
-        "NEXTAUTH_SECRET or AUTH_SECRET is required when AUTH_BYPASS is not true",
-      path: ["NEXTAUTH_SECRET"],
+      message: "AUTH_SECRET must be explicitly set in production (do not use the default value)",
+      path: ["AUTH_SECRET"],
     }
   );
 
@@ -131,6 +115,11 @@ export function getEnv(): Env {
   }
   _env = result.data;
   return _env;
+}
+
+/** Reset cached env (for testing) */
+export function resetEnv(): void {
+  _env = null;
 }
 
 export { envSchema };

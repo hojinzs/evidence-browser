@@ -23,17 +23,33 @@ export function encodeBundleId(bundleId: string): string {
   return encodeURIComponent(bundleId);
 }
 
-export function bundleFileUrl(bundleId: string, filePath: string): string {
-  return `/b/${bundleId}/f/${filePath}`;
+export function bundleFileUrl(workspace: string, bundleId: string, filePath: string): string {
+  return `/w/${workspace}/b/${bundleId}/f/${filePath}`;
 }
 
-export function bundleLandingUrl(bundleId: string): string {
-  return `/b/${bundleId}`;
+export function bundleLandingUrl(workspace: string, bundleId: string): string {
+  return `/w/${workspace}/b/${bundleId}`;
+}
+
+export function workspaceUrl(workspace: string): string {
+  return `/w/${workspace}`;
 }
 
 export function apiBundleUrl(
+  workspace: string,
   bundleId: string,
   endpoint: "meta" | "tree" | "file"
 ): string {
-  return `/api/bundle/${encodeBundleId(bundleId)}/${endpoint}`;
+  return `/api/w/${workspace}/bundle/${encodeBundleId(bundleId)}/${endpoint}`;
+}
+
+/** Construct the storage key for a bundle within a workspace */
+export function storageKey(workspace: string, bundleId: string): string {
+  if (!workspace || workspace.includes("..") || workspace.includes("/") || workspace.includes("\0")) {
+    throw new Error("Invalid workspace identifier");
+  }
+  if (!bundleId || bundleId.includes("..") || bundleId.includes("/") || bundleId.includes("\0")) {
+    throw new Error("Invalid bundle identifier");
+  }
+  return `${workspace}/${bundleId}`;
 }

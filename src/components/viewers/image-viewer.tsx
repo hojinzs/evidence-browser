@@ -1,15 +1,15 @@
 "use client";
 
-import { encodeBundleId } from "@/lib/url";
+import { apiBundleUrl } from "@/lib/url";
 
 interface ImageViewerProps {
+  workspaceSlug: string;
   bundleId: string;
   filePath: string;
 }
 
-export function ImageViewer({ bundleId, filePath }: ImageViewerProps) {
-  const encodedId = encodeBundleId(bundleId);
-  const src = `/api/bundle/${encodedId}/file?path=${encodeURIComponent(filePath)}`;
+export function ImageViewer({ workspaceSlug, bundleId, filePath }: ImageViewerProps) {
+  const src = `${apiBundleUrl(workspaceSlug, bundleId, "file")}?path=${encodeURIComponent(filePath)}`;
   const fileName = filePath.includes("/")
     ? filePath.slice(filePath.lastIndexOf("/") + 1)
     : filePath;
