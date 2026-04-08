@@ -26,11 +26,11 @@ Status Field ID: `PVTSSF_lAHOAPiKdM4BUAK2zhBLPuo`
 
 | Column Name | Role | Option ID |
 |-------------|------|-----------|
-| Backlog | unknown | `f75ad846` |
-| Ready | unknown | `61e4505c` |
-| In progress | unknown | `47fc9ee4` |
-| In review | unknown | `df73e18b` |
-| Done | unknown | `98236657` |
+| Backlog | wait | `f75ad846` |
+| Ready | active | `61e4505c` |
+| In progress | active | `47fc9ee4` |
+| In review | wait | `df73e18b` |
+| Done | terminal | `98236657` |
 
 ## Operations
 
