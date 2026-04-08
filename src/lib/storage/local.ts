@@ -64,6 +64,11 @@ export class LocalFSAdapter implements StorageAdapter {
   }
 
   private resolvePath(storageKey: string): string {
-    return path.join(this.basePath, `${storageKey}.zip`);
+    const base = path.resolve(this.basePath);
+    const resolved = path.resolve(base, `${storageKey}.zip`);
+    if (!resolved.startsWith(base + path.sep)) {
+      throw new Error("Invalid storage key: path traversal detected");
+    }
+    return resolved;
   }
 }

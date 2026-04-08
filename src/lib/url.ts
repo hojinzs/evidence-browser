@@ -45,5 +45,11 @@ export function apiBundleUrl(
 
 /** Construct the storage key for a bundle within a workspace */
 export function storageKey(workspace: string, bundleId: string): string {
+  if (!workspace || workspace.includes("..") || workspace.includes("/") || workspace.includes("\0")) {
+    throw new Error("Invalid workspace identifier");
+  }
+  if (!bundleId || bundleId.includes("..") || bundleId.includes("/") || bundleId.includes("\0")) {
+    throw new Error("Invalid bundle identifier");
+  }
   return `${workspace}/${bundleId}`;
 }

@@ -7,6 +7,7 @@ import {
   listWorkspacesWithBundleCount,
   createWorkspace,
   findWorkspaceBySlug,
+  deleteWorkspace,
 } from "@/lib/db/workspaces";
 
 export async function GET(request: NextRequest) {
@@ -52,4 +53,21 @@ export async function POST(request: NextRequest) {
   );
 
   return NextResponse.json({ workspace }, { status: 201 });
+}
+
+export async function DELETE(request: NextRequest) {
+  const authResult = requireAdminFromRequest(request);
+  if (authResult instanceof Response) return authResult;
+
+  const body = await request.json().catch(() => null);
+  if (!body?.id) {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
+  }
+
+  const deleted = deleteWorkspace(body.id);
+  if (!deleted) {
+    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ success: true });
 }

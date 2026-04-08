@@ -73,8 +73,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     fs.writeFileSync(tmpZip, buffer);
 
     // Derive bundle ID from filename (strip .zip)
-    const bundleId = formData.get("bundleId") as string
+    const bundleId = (formData.get("bundleId") as string)
       || file.name.replace(/\.zip$/, "");
+
+    if (!bundleId || bundleId.includes("..") || bundleId.includes("/") || bundleId.includes("\0")) {
+      return NextResponse.json({ error: "Invalid bundleId" }, { status: 400 });
+    }
 
     const key = storageKey(ws, bundleId);
 

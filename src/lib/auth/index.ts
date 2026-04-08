@@ -1,4 +1,5 @@
 import { createHmac } from "crypto";
+import { getEnv } from "@/config/env";
 import {
   findUserByUsername,
   verifyPassword,
@@ -14,10 +15,7 @@ import type { AuthUser } from "./types";
 export const SESSION_COOKIE_NAME = "evidence_session";
 
 function getAuthSecret(): string {
-  return (
-    process.env.AUTH_SECRET ||
-    "evidence-browser-default-secret-change-me"
-  );
+  return getEnv().AUTH_SECRET;
 }
 
 /** Sign a session ID with HMAC-SHA256 */
@@ -113,9 +111,10 @@ export function setSessionCookie(
   signedSessionId: string
 ): void {
   const maxAge = 7 * 24 * 60 * 60; // 7 days
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   headers.append(
     "Set-Cookie",
-    `${SESSION_COOKIE_NAME}=${encodeURIComponent(signedSessionId)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(signedSessionId)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`
   );
 }
 

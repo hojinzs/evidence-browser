@@ -37,6 +37,8 @@ const envSchema = z
     // Auth
     AUTH_SECRET: z.string().optional().default("evidence-browser-default-secret-change-me"),
 
+    NODE_ENV: z.enum(["development", "test", "production"]).optional().default("development"),
+
     // Cache
     CACHE_TTL_MS: numberFromString(1_800_000),
     CACHE_MAX_ENTRIES: numberFromString(50),
@@ -81,6 +83,18 @@ const envSchema = z
       message:
         "S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY are required when STORAGE_TYPE=s3",
       path: ["S3_ACCESS_KEY_ID"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.NODE_ENV === "production" && data.AUTH_SECRET === "evidence-browser-default-secret-change-me") {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "AUTH_SECRET must be explicitly set in production (do not use the default value)",
+      path: ["AUTH_SECRET"],
     }
   );
 
