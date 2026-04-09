@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, FolderOpen } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import type { Workspace } from "@/lib/db/workspaces";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 interface WorkspaceManagerProps {
   workspaces: Workspace[];
@@ -59,27 +61,33 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
 
   return (
     <div className="space-y-3">
-      <div className="space-y-1">
+      <Card className="overflow-hidden p-0">
+        <div className="grid grid-cols-[minmax(0,2fr)_180px_180px_180px_180px_120px] border-b border-border bg-white/3 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          <span>Name</span>
+          <span>Slug</span>
+          <span>Created</span>
+          <span>Updated</span>
+          <span>Owner</span>
+          <span />
+        </div>
         {workspaces.map((ws) => (
           <div
             key={ws.id}
-            className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+            className="grid grid-cols-[minmax(0,2fr)_180px_180px_180px_180px_120px] items-center border-b border-border px-4 py-3 last:border-b-0"
           >
-            <div className="flex items-center gap-2">
-              <FolderOpen className="size-4 text-muted-foreground" />
-              <span className="text-sm font-medium">{ws.name}</span>
-              <span className="text-xs text-muted-foreground font-mono">{ws.slug}</span>
+            <span className="truncate text-[14px]">{ws.name}</span>
+            <span className="truncate font-mono text-[13px] text-muted-foreground">{ws.slug}</span>
+            <span className="truncate text-[13px] text-muted-foreground">{ws.created_at}</span>
+            <span className="truncate text-[13px] text-muted-foreground">{ws.updated_at}</span>
+            <span className="truncate text-[13px] text-muted-foreground">{ws.created_by}</span>
+            <div className="flex justify-end">
+              <Button variant="ghost" size="sm" onClick={() => handleDelete(ws.id)}>
+                <Trash2 className="size-4 text-destructive" />
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleDelete(ws.id)}
-            >
-              <Trash2 className="size-4 text-destructive" />
-            </Button>
           </div>
         ))}
-      </div>
+      </Card>
 
       {!showForm ? (
         <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
@@ -87,28 +95,27 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
           워크스페이스 추가
         </Button>
       ) : (
-        <form onSubmit={handleCreate} className="space-y-3 rounded-md border border-border p-3">
+        <Card className="p-4">
+        <form onSubmit={handleCreate} className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <input
+            <Input
               placeholder="Slug (e.g. my-team)"
               value={slug}
               onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
               required
-              className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-mono"
+              className="font-mono"
             />
-            <input
+            <Input
               placeholder="이름"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
             />
           </div>
-          <input
+          <Input
             placeholder="설명 (선택)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
           />
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={loading}>
@@ -120,6 +127,7 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
         </form>
+        </Card>
       )}
     </div>
   );

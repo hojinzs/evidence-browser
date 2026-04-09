@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 interface UploadFormProps {
   workspaceSlug: string;
@@ -93,13 +94,13 @@ export function UploadForm({ workspaceSlug }: UploadFormProps) {
   }
 
   return (
-    <div
+    <Card
       className={`relative rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
         dragOver
-          ? "border-primary bg-primary/5"
+          ? "border-primary bg-primary/8"
           : state === "error"
-            ? "border-destructive/50"
-            : "border-border hover:border-muted-foreground/50"
+            ? "border-destructive/50 bg-destructive/5"
+            : "surface-card-hover border-border bg-card"
       }`}
       onDragOver={(e) => {
         e.preventDefault();
@@ -117,17 +118,20 @@ export function UploadForm({ workspaceSlug }: UploadFormProps) {
       />
 
       {state === "idle" && (
-        <div className="space-y-2">
-          <Upload className="size-8 text-muted-foreground mx-auto" />
+        <div className="space-y-3">
+          <Upload className="mx-auto size-8 text-muted-foreground" />
+          <p className="text-[14px] text-foreground">Drop a ZIP bundle here</p>
           <p className="text-sm text-muted-foreground">
-            ZIP 파일을 드래그하거나{" "}
             <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="text-primary underline underline-offset-2 hover:text-primary/80"
+              className="font-medium text-primary transition-colors duration-150 hover:text-primary/80"
             >
-              파일 선택
+              Select file
             </button>
+            {" "}or drag and drop
           </p>
+          <p className="text-xs text-[oklch(0.55_0_0)]">.zip only</p>
         </div>
       )}
 
@@ -135,7 +139,7 @@ export function UploadForm({ workspaceSlug }: UploadFormProps) {
         <div className="space-y-2">
           <Loader2 className="size-8 text-primary mx-auto animate-spin" />
           <p className="text-sm text-muted-foreground">업로드 중... {progress}%</p>
-          <div className="mx-auto w-48 h-1.5 bg-muted rounded-full overflow-hidden">
+          <div className="mx-auto h-1.5 w-48 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full bg-primary transition-all duration-200"
               style={{ width: `${progress}%` }}
@@ -146,14 +150,14 @@ export function UploadForm({ workspaceSlug }: UploadFormProps) {
 
       {state === "success" && (
         <div className="space-y-2">
-          <CheckCircle className="size-8 text-green-500 mx-auto" />
-          <p className="text-sm text-green-600">업로드 완료!</p>
+          <CheckCircle className="mx-auto size-8 text-success" />
+          <p className="text-sm text-success">업로드 완료!</p>
         </div>
       )}
 
       {state === "error" && (
         <div className="space-y-2">
-          <XCircle className="size-8 text-destructive mx-auto" />
+          <XCircle className="mx-auto size-8 text-destructive" />
           <p className="text-sm text-destructive">{error}</p>
           <Button
             variant="outline"
@@ -164,6 +168,6 @@ export function UploadForm({ workspaceSlug }: UploadFormProps) {
           </Button>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

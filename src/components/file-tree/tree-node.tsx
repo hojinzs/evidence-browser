@@ -75,9 +75,9 @@ export const TreeNodeComponent = memo(function TreeNodeComponent({
     <li role="treeitem" aria-expanded={isDirectory ? isExpanded : undefined}>
       <div
         className={cn(
-          "flex items-center gap-1.5 py-1 pr-2 cursor-pointer rounded-sm",
-          "hover:bg-accent/50 transition-colors",
-          isActive && "bg-accent text-accent-foreground font-medium"
+          "flex cursor-pointer items-center gap-1.5 rounded-md py-1.5 pr-2 text-[13px] transition-colors duration-150",
+          "hover:bg-white/4",
+          isActive && "bg-white/7 font-medium text-foreground shadow-[inset_2px_0_0_0_var(--primary)]"
         )}
         style={{ paddingLeft }}
         onClick={handleClick}
@@ -98,7 +98,7 @@ export const TreeNodeComponent = memo(function TreeNodeComponent({
         <FileIcon
           className={cn(
             "size-4 flex-shrink-0",
-            isDirectory ? "text-blue-500" : "text-muted-foreground"
+            isDirectory ? "text-primary" : "text-muted-foreground"
           )}
         />
         <span className="truncate">{node.name}</span>

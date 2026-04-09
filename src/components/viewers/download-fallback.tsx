@@ -17,7 +17,7 @@ export function DownloadFallback({ workspaceSlug, bundleId, filePath }: Download
     : filePath;
 
   return (
-    <div className="flex flex-col items-center justify-center gap-6 py-16">
+    <div className="surface-card flex flex-col items-center justify-center gap-6 py-16">
       <FileQuestion className="size-16 text-muted-foreground/50" />
       <div className="text-center space-y-2">
         <p className="text-muted-foreground">

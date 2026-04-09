@@ -1,28 +1,31 @@
-import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/require-auth";
-import { ArrowLeft, Settings } from "lucide-react";
+import { Header } from "@/components/layout";
+import { SidebarNavItem } from "@/components/ui/sidebar-nav-item";
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  await requireAdmin();
+  const user = await requireAdmin();
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background px-4 py-3 lg:px-6">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="size-4" />
-          </Link>
-          <Settings className="size-4 text-muted-foreground" />
-          <h1 className="text-lg font-semibold">관리자</h1>
-        </div>
-      </header>
-      <main className="mx-auto max-w-4xl p-4 lg:p-6">
-        {children}
-      </main>
+      <Header title="Admin" userName={user.username} />
+      <div className="flex min-h-[calc(100vh-3rem)]">
+        <aside className="hidden w-60 shrink-0 border-r border-border bg-sidebar lg:block">
+          <div className="px-4 py-6">
+            <p className="eyebrow-label mb-3">Administration</p>
+            <nav className="space-y-1">
+              <SidebarNavItem label="Users" active />
+              <SidebarNavItem label="Workspaces" />
+              <SidebarNavItem label="Settings" />
+              <SidebarNavItem label="Audit Log" />
+            </nav>
+          </div>
+        </aside>
+        <main className="min-w-0 flex-1 px-6 py-6 lg:px-8">{children}</main>
+      </div>
     </div>
   );
 }

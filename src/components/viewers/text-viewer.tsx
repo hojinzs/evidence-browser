@@ -9,14 +9,14 @@ export function TextViewer({ content }: TextViewerProps) {
   const gutterWidth = String(lines.length).length;
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-[0_12px_32px_rgba(0,0,0,0.24)]">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <tbody>
             {lines.map((line, i) => (
-              <tr key={i} className="hover:bg-muted/50">
+              <tr key={i} className="transition-colors duration-150 hover:bg-white/3">
                 <td
-                  className="sticky left-0 select-none border-r border-border bg-muted/30 px-3 py-0 text-right font-mono text-xs text-muted-foreground align-top"
+                  className="sticky left-0 select-none border-r border-border bg-white/3 px-3 py-0 text-right font-mono text-xs text-muted-foreground align-top"
                   style={{ minWidth: `${gutterWidth + 2}ch` }}
                 >
                   {i + 1}
