@@ -45,7 +45,7 @@ export function AppShell({ sidebar, children, filePath }: AppShellProps) {
   return (
     <div className="flex h-full min-h-0 flex-1">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:border-border lg:bg-muted/30">
+      <aside className="hidden lg:flex lg:w-60 lg:flex-col lg:border-r lg:border-border lg:bg-sidebar">
         {sidebar}
       </aside>
 
@@ -53,13 +53,13 @@ export function AppShell({ sidebar, children, filePath }: AppShellProps) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile file path bar */}
         {filePath && (
-          <div className="sm:hidden border-b border-border bg-muted/30 px-3 py-1.5">
+          <div className="sm:hidden border-b border-border bg-sidebar px-3 py-1.5">
             <p className="text-xs font-mono text-muted-foreground truncate">
               {filePath}
             </p>
           </div>
         )}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto bg-background">{children}</main>
       </div>
     </div>
   );

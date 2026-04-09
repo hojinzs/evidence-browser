@@ -242,7 +242,7 @@ export function MarkdownViewer({
   };
 
   return (
-    <article className="prose prose-sm max-w-none dark:prose-invert prose-code:before:content-none prose-code:after:content-none px-1">
+    <article className="prose prose-sm max-w-none rounded-xl border border-border bg-card px-6 py-8 text-foreground shadow-[0_12px_32px_rgba(0,0,0,0.24)] prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-li:text-muted-foreground prose-code:before:content-none prose-code:after:content-none dark:prose-invert">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[[rehypeSanitize, sanitizeSchema]]}

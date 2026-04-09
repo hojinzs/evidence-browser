@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FileArchive } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface BundleCardProps {
   title: string;
@@ -35,23 +36,31 @@ export function BundleCard({
   createdAt,
   sizeBytes,
 }: BundleCardProps) {
+  const state = /fail|error/i.test(`${title} ${bundleId}`)
+    ? "failed"
+    : /pass|success/i.test(`${title} ${bundleId}`)
+      ? "passed"
+      : "bundle";
+
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-accent/50 transition-colors"
+      className="surface-card-hover flex items-center gap-4 border-b border-border px-5 py-3.5 last:border-b-0"
     >
-      <FileArchive className="size-5 text-muted-foreground shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{title}</p>
-        <p className="text-xs text-muted-foreground font-mono truncate">{bundleId}</p>
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/6">
+        <FileArchive className="size-4 text-muted-foreground" />
       </div>
-      <div className="text-right shrink-0">
-        <p className="text-xs text-muted-foreground">{uploadedBy}</p>
-        <p className="text-xs text-muted-foreground">
-          {formatDate(createdAt)}
-          {sizeBytes != null && ` · ${formatSize(sizeBytes)}`}
-        </p>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[14px] font-medium">{title}</p>
+        <p className="truncate text-[13px] text-muted-foreground">Uploaded by {uploadedBy}</p>
       </div>
+      <div className="hidden text-right text-xs text-muted-foreground md:block">
+        {sizeBytes != null && <p>{formatSize(sizeBytes)}</p>}
+        <p>{formatDate(createdAt)}</p>
+      </div>
+      <Badge variant={state === "passed" ? "green" : state === "failed" ? "red" : "neutral"}>
+        {state}
+      </Badge>
     </Link>
   );
 }

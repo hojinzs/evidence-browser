@@ -4,8 +4,10 @@ import { getOptionalAuth } from "@/lib/auth/require-auth";
 import { countAdmins } from "@/lib/db/users";
 import { listWorkspacesWithBundleCount } from "@/lib/db/workspaces";
 import { WorkspaceCard } from "@/components/workspace/workspace-card";
-import { FolderOpen, Plus, Settings } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Header } from "@/components/layout";
+import { Card } from "@/components/ui/card";
 
 export default async function Home() {
   const adminCount = countAdmins();
@@ -23,48 +25,47 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-background px-4 py-3 lg:px-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FolderOpen className="size-5 text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Evidence Browser</h1>
-          </div>
-          <div className="flex items-center gap-2">
+      <Header
+        title="Workspaces"
+        userName={user.username}
+        nav={
+          <>
+            <span className="rounded-md bg-white/7 px-3 py-2 text-[20px] font-medium text-foreground sm:text-[13px]">
+              Workspaces
+            </span>
+            <span className="px-3 py-2 text-[13px] text-muted-foreground">Bundles</span>
             {isAdmin && (
-              <Link href="/admin">
-                <Button variant="ghost" size="sm">
-                  <Settings className="size-4 mr-1" />
-                  관리
-                </Button>
+              <Link href="/admin" className="px-3 py-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:text-foreground">
+                Admin
               </Link>
             )}
-            <span className="text-xs text-muted-foreground">{user.username}</span>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
-      <main className="mx-auto max-w-4xl p-4 lg:p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-muted-foreground">
-            워크스페이스 ({workspaces.length})
-          </h2>
+      <main className="app-fade-up page-frame py-12">
+        <div className="mb-7 flex items-end gap-6">
+          <div>
+            <h2 className="text-[20px] font-semibold">Workspaces</h2>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              Browse and manage your evidence workspaces.
+            </p>
+          </div>
+          <div className="h-px flex-1 bg-border" />
           {isAdmin && (
             <Link href="/admin">
-              <Button variant="outline" size="sm">
-                <Plus className="size-4 mr-1" />
-                워크스페이스 추가
+              <Button size="default">
+                <Plus className="mr-1 size-4" />
+                New Workspace
               </Button>
             </Link>
           )}
         </div>
 
         {workspaces.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <FolderOpen className="size-12 text-muted-foreground/30 mb-4" />
-            <p className="text-muted-foreground">워크스페이스가 없습니다</p>
-          </div>
+          <Card className="p-10 text-center text-muted-foreground">워크스페이스가 없습니다</Card>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <Card className="overflow-hidden p-0">
             {workspaces.map((ws) => (
               <WorkspaceCard
                 key={ws.id}
@@ -74,7 +75,7 @@ export default async function Home() {
                 bundleCount={ws.bundle_count}
               />
             ))}
-          </div>
+          </Card>
         )}
       </main>
     </div>

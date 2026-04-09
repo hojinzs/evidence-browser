@@ -3,7 +3,9 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { LogIn } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { BrandMark } from "@/components/layout";
 
 function LoginForm() {
   const router = useRouter();
@@ -48,7 +50,7 @@ function LoginForm() {
         <label htmlFor="username" className="text-sm font-medium">
           Username
         </label>
-        <input
+        <Input
           id="username"
           type="text"
           value={username}
@@ -56,7 +58,7 @@ function LoginForm() {
           required
           autoFocus
           autoComplete="username"
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          placeholder="your-username"
         />
       </div>
 
@@ -64,14 +66,14 @@ function LoginForm() {
         <label htmlFor="password" className="text-sm font-medium">
           Password
         </label>
-        <input
+        <Input
           id="password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
           autoComplete="current-password"
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          placeholder="••••••••"
         />
       </div>
 
@@ -79,9 +81,8 @@ function LoginForm() {
         <p className="text-sm text-destructive">{error}</p>
       )}
 
-      <Button type="submit" size="lg" className="w-full gap-2" disabled={loading}>
-        <LogIn className="h-4 w-4" />
-        {loading ? "로그인 중..." : "로그인"}
+      <Button type="submit" size="lg" className="w-full" disabled={loading}>
+        {loading ? "로그인 중..." : "Sign in"}
       </Button>
     </form>
   );
@@ -89,18 +90,27 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6 p-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold">Evidence Browser</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            로그인하여 evidence bundle을 확인하세요.
+    <div className="app-fade-up relative flex min-h-screen items-center justify-center overflow-hidden px-6">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,color-mix(in_oklch,var(--primary)_12%,transparent)_0%,transparent_28%)]" />
+      <Card className="relative z-10 w-full max-w-sm">
+        <CardHeader className="pb-5">
+          <BrandMark />
+          <div className="pt-8">
+            <CardTitle>Sign in to your workspace</CardTitle>
+            <CardDescription className="mt-2">
+              Enter your credentials to access your workspace.
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <Suspense>
+            <LoginForm />
+          </Suspense>
+          <p className="text-center text-xs text-[oklch(0.55_0_0)]">
+            Access is restricted to authorized users only.
           </p>
-        </div>
-        <Suspense>
-          <LoginForm />
-        </Suspense>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

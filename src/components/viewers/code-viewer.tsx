@@ -19,7 +19,7 @@ export function CodeViewer({ content, filePath, language }: CodeViewerProps) {
 
     codeToHtml(content, {
       lang: language || "text",
-      theme: "github-light",
+      theme: "github-dark",
     })
       .then((html) => {
         if (!cancelled) {
@@ -30,7 +30,7 @@ export function CodeViewer({ content, filePath, language }: CodeViewerProps) {
       .catch(() => {
         // Fallback: if language is unsupported, try with "text"
         if (!cancelled) {
-          codeToHtml(content, { lang: "text", theme: "github-light" })
+          codeToHtml(content, { lang: "text", theme: "github-dark" })
             .then((html) => {
               if (!cancelled) {
                 setHighlightedHtml(html);
@@ -57,11 +57,11 @@ export function CodeViewer({ content, filePath, language }: CodeViewerProps) {
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-border bg-muted/30">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-[0_12px_32px_rgba(0,0,0,0.24)]">
         <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted-foreground">
           <span className="font-mono">{fileName}</span>
           {language && (
-            <span className="ml-auto rounded bg-muted px-1.5 py-0.5 uppercase">
+            <span className="ml-auto rounded bg-white/6 px-1.5 py-0.5 uppercase">
               {language}
             </span>
           )}
@@ -76,11 +76,11 @@ export function CodeViewer({ content, filePath, language }: CodeViewerProps) {
   }
 
   return (
-    <div className="rounded-lg border border-border bg-white">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-[0_12px_32px_rgba(0,0,0,0.24)]">
       <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted-foreground">
         <span className="font-mono">{fileName}</span>
         {language && (
-          <span className="ml-auto rounded bg-muted px-1.5 py-0.5 uppercase">
+          <span className="ml-auto rounded bg-white/6 px-1.5 py-0.5 uppercase">
             {language}
           </span>
         )}

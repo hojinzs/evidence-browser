@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Trash2, Shield, User } from "lucide-react";
+import { UserPlus, Trash2 } from "lucide-react";
 import type { UserPublic } from "@/lib/db/users";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 interface UserListProps {
   users: UserPublic[];
@@ -64,24 +67,26 @@ export function UserList({ users }: UserListProps) {
 
   return (
     <div className="space-y-3">
-      <div className="space-y-1">
+      <Card className="overflow-hidden p-0">
+        <div className="grid grid-cols-[minmax(0,2fr)_140px_140px_180px_180px_180px] border-b border-border bg-white/3 px-4 py-3 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          <span>Username</span>
+          <span>Role</span>
+          <span>Status</span>
+          <span>Created</span>
+          <span>Updated</span>
+          <span />
+        </div>
         {users.map((u) => (
           <div
             key={u.id}
-            className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+            className="grid grid-cols-[minmax(0,2fr)_140px_140px_180px_180px_180px] items-center border-b border-border px-4 py-3 last:border-b-0"
           >
-            <div className="flex items-center gap-2">
-              {u.role === "admin" ? (
-                <Shield className="size-4 text-primary" />
-              ) : (
-                <User className="size-4 text-muted-foreground" />
-              )}
-              <span className="text-sm font-medium">{u.username}</span>
-              <span className="text-xs text-muted-foreground px-1.5 py-0.5 rounded bg-muted">
-                {u.role}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
+            <span className="truncate text-[14px]">{u.username}</span>
+            <Badge variant={u.role === "admin" ? "blue" : "neutral"}>{u.role}</Badge>
+            <Badge variant="green">active</Badge>
+            <span className="truncate text-[13px] text-muted-foreground">{u.created_at}</span>
+            <span className="truncate text-[13px] text-muted-foreground">{u.updated_at}</span>
+            <div className="flex justify-end gap-2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -90,17 +95,13 @@ export function UserList({ users }: UserListProps) {
               >
                 {u.role === "admin" ? "Demote" : "Promote"}
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDelete(u.id)}
-              >
+              <Button variant="ghost" size="sm" onClick={() => handleDelete(u.id)}>
                 <Trash2 className="size-4 text-destructive" />
               </Button>
             </div>
           </div>
         ))}
-      </div>
+      </Card>
 
       {!showForm ? (
         <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
@@ -108,29 +109,28 @@ export function UserList({ users }: UserListProps) {
           사용자 추가
         </Button>
       ) : (
-        <form onSubmit={handleCreateUser} className="space-y-3 rounded-md border border-border p-3">
+        <Card className="p-4">
+        <form onSubmit={handleCreateUser} className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <input
+            <Input
               placeholder="Username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
             />
-            <input
+            <Input
               type="password"
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
             />
           </div>
           <div className="flex items-center gap-2">
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as "admin" | "user")}
-              className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+              className="h-9 rounded-lg border border-input bg-black/30 px-3 text-[13px] text-foreground outline-none transition-colors duration-150 focus:border-primary focus:ring-3 focus:ring-ring"
             >
               <option value="user">User</option>
               <option value="admin">Admin</option>
@@ -144,6 +144,7 @@ export function UserList({ users }: UserListProps) {
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
         </form>
+        </Card>
       )}
     </div>
   );
