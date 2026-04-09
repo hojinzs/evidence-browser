@@ -4,6 +4,59 @@ Vercel-style professional SaaS 디자인 시스템
 
 ---
 
+## Figma 참조
+
+**파일**: `https://www.figma.com/design/1okB3xycCchoKGB18tvGT7`
+
+### 페이지 구조
+
+| 페이지 | 역할 |
+|--------|------|
+| `🎨 Design System` | 색상 팔레트 + 타이포그래피 문서화 |
+| `🧩 Components` | Button, Badge, Input, Card, Sidebar Nav Item |
+| `📱 Screens` | Login / Home / Workspace / Bundle Viewer / Admin |
+
+### Figma 변수 ↔ CSS 변수 매핑
+
+Figma 요소를 inspect할 때 나오는 변수명과 코드의 CSS 변수명이 다릅니다. 아래 표로 대조하세요.
+
+| Figma 변수 | CSS 변수 | 다크 값 | 용도 |
+|-----------|---------|--------|------|
+| `Background/Base` | `--background` | `oklch(0.06 0 0)` | 페이지 최하단 배경 |
+| `Background/Card` | `--card` | `oklch(0.115 0 0)` | 카드, 컨테이너 |
+| `Background/Elevated` | (인라인) | `oklch(0.15 0 0)` | hover, 중첩 카드 |
+| `Background/Sidebar` | `--sidebar` | `oklch(0.09 0 0)` | 사이드바 배경 |
+| `Background/Secondary` | `--secondary` | `oklch(0.18 0 0)` | secondary 버튼 bg |
+| `Background/Hover` | (인라인) | `oklch(0.14 0 0)` | hover state bg |
+| `Text/Primary` | `--foreground` | `oklch(0.985 0 0)` | 주요 텍스트 |
+| `Text/Secondary` | `--muted-foreground` | `oklch(0.71 0 0)` | 보조 텍스트 |
+| `Text/Tertiary` | (인라인) | `oklch(0.55 0 0)` | caption, placeholder |
+| `Border/Default` | `--border` | `oklch(1 0 0 / 8%)` | 기본 경계선 |
+| `Border/Hover` | (인라인) | `oklch(1 0 0 / 16%)` | hover 경계선 |
+| `Border/Focus` | `--primary` | `oklch(0.585 0.21 256)` | focus 경계선 |
+| `Accent/Blue` | `--primary` | `oklch(0.585 0.21 256)` | CTA, 링크 |
+| `Accent/Red` | `--destructive` | `oklch(0.62 0.22 25)` | 에러, 삭제 |
+| `Accent/Green` | `--success` | `oklch(0.72 0.19 145)` | 성공, 완료 |
+| `Accent/Amber` | `--warning` | `oklch(0.85 0.17 85)` | 경고 |
+| `Effect/Ring-Blue` | `--ring` | `oklch(0.585 0.21 256 / 50%)` | focus ring |
+
+> **주의**: Figma 화면의 대부분 요소는 변수 바인딩 없이 하드코딩된 색상으로 구성되어 있습니다.
+> Figma inspect 값이 위 표와 일치하면 해당 CSS 변수를 사용하세요. 코드 작성 시에는 CSS 변수명을 직접 참조하는 것이 기준입니다.
+
+### Figma에서 표현되지 않는 동작
+
+Figma는 정적 스냅샷입니다. 아래 항목은 구현 시 반드시 추가해야 합니다.
+
+| 항목 | 구현 스펙 |
+|------|----------|
+| Header 배경 | `bg-background/80 backdrop-blur-md` |
+| 모든 인터랙티브 요소 | `transition-colors duration-150` |
+| 카드/행 hover | `hover:border-[oklch(1_0_0/16%)] hover:bg-[oklch(0.14_0_0)]` |
+| Input focus | `focus:border-primary focus:ring-3 focus:ring-ring` |
+| 페이지 진입 | `fade-up 200ms ease` (애니메이션 섹션 참조) |
+
+---
+
 ## 디자인 철학
 
 ### 핵심 원칙
@@ -126,14 +179,16 @@ Vercel-style professional SaaS 디자인 시스템
 
 ## 타이포그래피
 
-### 폰트 패밀리 (현행 유지)
+### 폰트 패밀리
 
 ```css
 --font-sans: var(--font-geist-sans), var(--font-pretendard), sans-serif;
 --font-mono: var(--font-geist-mono);
 ```
 
-> Geist는 Vercel 자체 폰트이므로 그대로 유지
+**구현**: `geist` 패키지 또는 `next/font`로 Geist를 로드하고, 한글은 Pretendard로 fallback합니다.
+
+> **Figma 참고**: Figma 파일은 **Inter**를 사용합니다. Geist가 Figma 내에서 라이선스 제한으로 지원되지 않아 시각적으로 유사한 Inter로 대체된 것입니다. 실제 구현은 항상 **Geist + Pretendard**를 기준으로 하고, Figma의 폰트는 레이아웃 참조용으로만 활용하세요.
 
 ### 크기 계층
 
