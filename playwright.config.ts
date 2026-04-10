@@ -1,7 +1,19 @@
 import { defineConfig } from "@playwright/test";
 
+/**
+ * Two projects:
+ * - `visual`  → pixel-diff specs in tests/visual/ that use expectToMatchFigma
+ * - `e2e`     → behavioral specs in tests/e2e/ (no figma snapshot expectations)
+ *
+ * The webServer is shared by both projects, so it runs once per `playwright test`
+ * invocation regardless of which project(s) are selected.
+ *
+ * Run examples:
+ *   npx playwright test --project=visual
+ *   npx playwright test --project=e2e
+ *   npx playwright test                    # runs both projects
+ */
 export default defineConfig({
-  testDir: "./tests/visual",
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
   use: {
@@ -19,7 +31,13 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "chromium",
+      name: "visual",
+      testDir: "./tests/visual",
+      use: { browserName: "chromium" },
+    },
+    {
+      name: "e2e",
+      testDir: "./tests/e2e",
       use: { browserName: "chromium" },
     },
   ],

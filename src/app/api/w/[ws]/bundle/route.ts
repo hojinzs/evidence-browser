@@ -8,6 +8,11 @@ import {
 import { getStorageAdapter } from "@/lib/storage";
 import { storageKey } from "@/lib/url";
 import { validateBundleZip } from "@/lib/bundle/extractor";
+import {
+  validateUploadedFile,
+  validateBundleSize,
+  deriveAndValidateBundleId,
+} from "@/lib/bundle/upload-validation";
 import { getEnv } from "@/config/env";
 import path from "path";
 import fs from "fs";
@@ -47,18 +52,37 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
   }
 
-  const file = formData.get("file") as File | null;
-  if (!file || !file.name.endsWith(".zip")) {
-    return NextResponse.json({ error: "A .zip file is required" }, { status: 400 });
-  }
-
-  const env = getEnv();
-  if (file.size > env.MAX_BUNDLE_SIZE) {
+  const rawFile = formData.get("file") as File | null;
+  const fileResult = validateUploadedFile(rawFile);
+  if (!fileResult.ok) {
     return NextResponse.json(
-      { error: `File too large (max ${env.MAX_BUNDLE_SIZE} bytes)` },
-      { status: 413 }
+      { error: fileResult.error.message },
+      { status: fileResult.error.status }
     );
   }
+  const file = fileResult.value;
+
+  const env = getEnv();
+  const sizeResult = validateBundleSize(file.size, env.MAX_BUNDLE_SIZE);
+  if (!sizeResult.ok) {
+    return NextResponse.json(
+      { error: sizeResult.error.message },
+      { status: sizeResult.error.status }
+    );
+  }
+
+  // Derive and validate bundle ID before touching the filesystem.
+  const bundleIdResult = deriveAndValidateBundleId(
+    formData.get("bundleId") as string | null,
+    file.name
+  );
+  if (!bundleIdResult.ok) {
+    return NextResponse.json(
+      { error: bundleIdResult.error.message },
+      { status: bundleIdResult.error.status }
+    );
+  }
+  const bundleId = bundleIdResult.value;
 
   // Read file into buffer
   const arrayBuffer = await file.arrayBuffer();
@@ -71,14 +95,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   try {
     fs.writeFileSync(tmpZip, buffer);
-
-    // Derive bundle ID from filename (strip .zip)
-    const bundleId = (formData.get("bundleId") as string)
-      || file.name.replace(/\.zip$/, "");
-
-    if (!bundleId || bundleId.includes("..") || bundleId.includes("/") || bundleId.includes("\0")) {
-      return NextResponse.json({ error: "Invalid bundleId" }, { status: 400 });
-    }
 
     const key = storageKey(ws, bundleId);
 
