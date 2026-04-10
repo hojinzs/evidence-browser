@@ -3,6 +3,8 @@ RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --include=dev
+# Force rebuild of native modules from source for Alpine (musl libc)
+RUN npm rebuild better-sqlite3 --build-from-source
 COPY . .
 RUN npm run build
 
