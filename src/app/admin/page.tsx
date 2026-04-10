@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { listUsers } from "@/lib/db/users";
 import { listWorkspaces } from "@/lib/db/workspaces";
 import { UserList } from "@/components/admin/user-list";

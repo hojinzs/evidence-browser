@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { countAdmins } from "@/lib/db/users";
 import { listWorkspaces } from "@/lib/db/workspaces";
