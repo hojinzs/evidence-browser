@@ -36,4 +36,4 @@ ENV STORAGE_LOCAL_PATH=/data/bundles
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-CMD ["sh", "-c", "echo '[start] arch='$(uname -m)' node='$(node --version) && node -e 'require(\"better-sqlite3\"); console.log(\"[ok] better-sqlite3\")' && node server.js"]
+CMD ["node", "server.js"]
