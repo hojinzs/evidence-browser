@@ -1,0 +1,14 @@
+node_modules
+.next
+.env*
+!.env.example
+.git
+.github
+tests
+fixtures
+scripts
+docs
+*.md
+!README.md
+playwright-report
+.claude
