@@ -1,0 +1,5 @@
+# Ignore all QA evidence artifacts — these are ephemeral and uploaded to the
+# Evidence Browser itself. Only this .gitignore is tracked so the directory
+# exists for the qa-engineer agent on fresh clones.
+*
+!.gitignore

@@ -321,3 +321,9 @@ eb bundle upload report.zip \
 - [ ] 번들 ID 중복 시 동작: 오류 vs 덮어쓰기 (`--overwrite` 플래그?)
 - [ ] `eb bundle create` 에서 `.ebignore` 지원 여부
 - [ ] 패키지명: `@evidence-browser/cli` vs `eb` vs 다른 이름
+- [ ] **bundleId `/` 허용 여부** — 현재 스펙은 계층 구조 허용(`pr-42/run-1`)이지만 서버 `src/app/api/w/[ws]/bundle/route.ts:79` 는 `/` 거부. 둘 중 하나를 바꿔야 함. URL 경로 segment 재설계 또는 `-`/`__` 치환 규약 도입 검토.
+
+## 구현 전제
+
+- **모노리포 전환(npm workspaces) 전제**. `manifest.json` 스키마(`src/lib/bundle/extractor.ts::validateBundleZip`), `storageKey`/`parseSegments`(`src/lib/url.ts`), bundleId 검증 규칙을 웹앱과 CLI가 공유해야 하므로 `packages/web` + `packages/cli` + `packages/shared` 구조로 재배치. 현재 `package-lock.json` 사용 중이므로 가장 가벼운 경로는 npm workspaces. CLI 구현 태스크가 올라올 때 첫 단계로 이 전환을 수행하고 shared 로직을 추출한다.
+- **선행 구현물**: `scripts/qa-evidence-upload.ts` 및 이를 래핑한 `/evidence-upload` skill(`.claude/skills/evidence-upload/SKILL.md`)이 `eb bundle create` + `eb bundle upload` 의 프로토타입 역할. CLI 도입 시 skill 본문의 Bash 호출만 `eb` 로 교체하고 skill 인터페이스(`/evidence-upload <dir>`)는 그대로 유지한다.
