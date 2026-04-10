@@ -21,7 +21,7 @@ const envSchema = z
 
     // Storage
     STORAGE_TYPE: z.enum(["local", "s3"]).default("local"),
-    STORAGE_LOCAL_PATH: z.string().optional(),
+    STORAGE_LOCAL_PATH: z.string().optional().default("./data/bundles"),
 
     // S3
     S3_BUCKET: z.string().optional(),

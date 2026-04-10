@@ -7,13 +7,16 @@ import { pipeline } from "stream/promises";
 import * as yauzl from "yauzl-promise";
 import { getStorageAdapter } from "@/lib/storage";
 import { getEnv } from "@/config/env";
-import { parseManifest } from "./manifest";
+import { parseManifest, ManifestSchema } from "./manifest";
 import { validatePathSafety, ensureWithinRoot } from "./security";
 import type { CacheEntry, TreeNode } from "./types";
 import {
   BundleNotFoundError,
   BundleSizeLimitError,
   FileCountLimitError,
+  ManifestNotFoundError,
+  ManifestValidationError,
+  IndexFileNotFoundError,
 } from "./types";
 
 const CACHE_BASE = path.join(os.tmpdir(), "evidence-bundles");
@@ -201,4 +204,55 @@ export async function getFileContent(
   }
 
   return fs.promises.readFile(fullPath);
+}
+
+/**
+ * ZIP 파일을 직접 열어 manifest를 검증합니다.
+ * 스토리지 저장 전 업로드 유효성 검사에 사용합니다.
+ */
+export async function validateBundleZip(zipPath: string): Promise<{ title: string }> {
+  const zipFile = await yauzl.open(zipPath);
+  let manifestContent: string | null = null;
+  const filenames = new Set<string>();
+
+  try {
+    for await (const entry of zipFile) {
+      if (entry.filename.endsWith("/")) continue;
+      filenames.add(entry.filename);
+
+      if (entry.filename === "manifest.json") {
+        const readStream = await entry.openReadStream();
+        const chunks: Buffer[] = [];
+        for await (const chunk of readStream) {
+          chunks.push(Buffer.from(chunk));
+        }
+        manifestContent = Buffer.concat(chunks).toString("utf-8");
+      }
+    }
+  } finally {
+    await zipFile.close();
+  }
+
+  if (!manifestContent) {
+    throw new ManifestNotFoundError();
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(manifestContent);
+  } catch {
+    throw new ManifestValidationError("유효한 JSON이 아닙니다");
+  }
+
+  const result = ManifestSchema.safeParse(parsed);
+  if (!result.success) {
+    const missing = result.error.issues.map((i) => i.path.join(".")).join(", ");
+    throw new ManifestValidationError(`필수 필드 누락: ${missing}`);
+  }
+
+  if (!filenames.has(result.data.index)) {
+    throw new IndexFileNotFoundError(result.data.index);
+  }
+
+  return { title: result.data.title };
 }

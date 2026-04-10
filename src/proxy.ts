@@ -7,9 +7,6 @@ import {
 import { countAdmins } from "@/lib/db/users";
 import { listWorkspaces } from "@/lib/db/workspaces";
 
-// Use Node.js runtime for crypto.createHmac and better-sqlite3 support
-export const runtime = "nodejs";
-
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout", "/api/health"];
 const SETUP_PATHS = ["/setup", "/api/setup/"];
 const MCP_PATHS = ["/api/mcp", "/llm.txt"];
@@ -37,7 +34,7 @@ function isStaticPath(pathname: string): boolean {
   );
 }
 
-export default function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Static assets — always pass through

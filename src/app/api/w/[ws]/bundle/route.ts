@@ -7,7 +7,7 @@ import {
 } from "@/lib/auth/require-auth";
 import { getStorageAdapter } from "@/lib/storage";
 import { storageKey } from "@/lib/url";
-import { extractBundle } from "@/lib/bundle/extractor";
+import { validateBundleZip } from "@/lib/bundle/extractor";
 import { getEnv } from "@/config/env";
 import path from "path";
 import fs from "fs";
@@ -82,6 +82,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const key = storageKey(ws, bundleId);
 
+    // Validate manifest before storing
+    let title: string | null = null;
+    try {
+      const validated = await validateBundleZip(tmpZip);
+      title = validated.title;
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "번들 검증 실패" },
+        { status: 400 }
+      );
+    }
+
     // Store the bundle
     const storage = getStorageAdapter();
     if (!storage.putBundle) {
@@ -91,17 +103,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
     await storage.putBundle(key, buffer);
-
-    // Validate by extracting (this also validates manifest)
-    let title: string | null = null;
-    try {
-      const entry = await extractBundle(key);
-      title = entry.manifest.title;
-    } catch (error) {
-      // If extraction fails, the bundle is invalid — but it's already stored.
-      // We'll still record it; the viewer will show the error.
-      console.warn("Bundle validation warning:", error);
-    }
 
     // Record in DB
     const bundle = createBundle({
