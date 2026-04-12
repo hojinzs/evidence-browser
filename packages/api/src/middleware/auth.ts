@@ -44,10 +44,23 @@ export const authenticate = createMiddleware<{ Variables: AppVariables }>(async 
 });
 
 export const requireAdmin = createMiddleware<{ Variables: AppVariables }>(async (c, next) => {
-  await authenticate(c, async () => undefined);
-  const user = c.get("user");
-  if (!user) return;
+  const token = extractBearerToken(c.req.header("authorization"));
+  if (token?.startsWith("eb_")) {
+    const apiKeyUser = getApiKeyUser(token);
+    if (!apiKeyUser) return c.json({ error: "Unauthorized" }, 401);
+    if (apiKeyUser.scope !== "admin") {
+      return c.json({ error: "Forbidden: insufficient scope" }, 403);
+    }
+    c.set("user", apiKeyUser.user);
+    c.set("apiKeyScope", apiKeyUser.scope);
+    await next();
+    return;
+  }
+
+  const user = validateSessionFromRequest(c.req.raw);
+  if (!user) return c.json({ error: "Unauthorized" }, 401);
   if (user.role !== "admin") return c.json({ error: "Forbidden" }, 403);
+  c.set("user", user);
   await next();
 });
 

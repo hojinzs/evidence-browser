@@ -72,7 +72,7 @@ ${storageSection}
     curl -X POST http://localhost:3000/api/w/my-workspace/bundle \\
       -b "evidence_session=..." \\
       -F "file=@bundle.zip" \\
-      -F "bundleId=pr-42/run-1"
+      -F "bundleId=pr-42-run-1"
 
 ### Manual Upload
 

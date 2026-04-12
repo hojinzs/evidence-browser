@@ -1,7 +1,8 @@
 import { Hono } from "hono";
+import { setCookie } from "hono/cookie";
 import { countAdmins, createUser } from "@/lib/db/users";
 import { createSession } from "@/lib/db/sessions";
-import { signSessionId, setSessionCookie } from "@/lib/auth";
+import { signSessionId, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { requireAdmin, type AppVariables } from "@/middleware/auth";
 import { createWorkspace, findWorkspaceBySlug } from "@/lib/db/workspaces";
 import { getStorageAdapter } from "@/lib/storage";
@@ -28,9 +29,14 @@ setup.post("/admin", async (c) => {
     const session = createSession(user.id);
     const signedSessionId = signSessionId(session.id);
 
-    const response = c.json({ user });
-    setSessionCookie(response.headers, signedSessionId);
-    return response;
+    setCookie(c, SESSION_COOKIE_NAME, signedSessionId, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "Lax",
+      maxAge: 7 * 24 * 60 * 60,
+      secure: process.env.NODE_ENV === "production",
+    });
+    return c.json({ user });
   } catch (err) {
     if (err instanceof Error && err.message.includes("UNIQUE")) {
       return c.json({ error: "Username already exists" }, 409);
