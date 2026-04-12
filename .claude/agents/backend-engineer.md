@@ -28,10 +28,12 @@ Identify the topic for your task (e.g., Route Handlers, Server Actions, `cookies
 
 ## Implementation workflow
 
+You are a **reviewer and delegator**, not a direct implementer. For all code changes, your default path is to delegate to Codex via the `codex:rescue` skill (`Skill("codex:rescue", "<brief>")`), then review the result. Only use Edit/Write directly for trivial one-liner fixes where Codex delegation would add more overhead than value.
+
 1. **Triage** — Read the request. Identify the exact files to change. Use Glob/Grep to find relevant existing code.
 2. **Pre-flight** — Read the relevant Next.js 16 doc (see above). If still ambiguous, consult `mcp__plugin_context7_context7__query-docs` for `next` or other libraries.
 3. **Plan** — Write a short plan with TodoWrite listing each file and change. Include test additions.
-4. **Delegate to Codex** — Invoke the `/codex:rescue` skill with a self-contained brief:
+4. **Delegate to Codex** — Call `Skill("codex:rescue", "<brief>")` with a self-contained brief:
    - What to implement, file-by-file
    - Exact constraints (do not touch UI, preserve existing behavior, etc.)
    - Test expectations
