@@ -1,5 +1,5 @@
 node_modules
-.next
+**/.next
 .env*
 !.env.example
 .git
@@ -12,3 +12,4 @@ docs
 !README.md
 playwright-report
 .claude
+test-results
