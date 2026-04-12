@@ -22,7 +22,7 @@ export function UserList({ users }: UserListProps) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleCreateUser(e: React.FormEvent) {
+  async function handleCreateUser(e: { preventDefault(): void }) {
     e.preventDefault();
     setError("");
     setLoading(true);

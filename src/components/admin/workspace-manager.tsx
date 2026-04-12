@@ -21,7 +21,7 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: { preventDefault(): void }) {
     e.preventDefault();
     setError("");
     setLoading(true);

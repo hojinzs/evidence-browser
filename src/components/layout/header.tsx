@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ReactNode } from "react";
 import { BrandMark } from "./brand";
@@ -66,6 +66,11 @@ export function Header({
           {userName && (
             <span className="hidden text-[13px] text-muted-foreground sm:inline">{userName}</span>
           )}
+          <Link href="/settings" aria-label="Settings">
+            <Button variant="ghost" size="icon-sm">
+              <Settings className="size-4" />
+            </Button>
+          </Link>
           <Button variant="secondary" size="icon-sm" onClick={handleLogout} aria-label="Sign out">
             <LogOut className="size-4" />
           </Button>
