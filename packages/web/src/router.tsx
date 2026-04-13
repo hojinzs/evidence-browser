@@ -42,11 +42,11 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   React.useEffect(() => {
-    if (!auth.isLoading && !auth.isAuthenticated) {
-      const callbackUrl = `${location.pathname}${location.search}${location.hash}`;
+    if (!auth.isLoading && !auth.isAuthenticated && location.pathname !== "/login") {
+      const callbackUrl = location.pathname + location.searchStr + location.hash;
       void navigate({ to: "/login", search: { callbackUrl } });
     }
-  }, [auth.isAuthenticated, auth.isLoading, location.hash, location.pathname, location.search, navigate]);
+  }, [auth.isAuthenticated, auth.isLoading, location.hash, location.pathname, location.searchStr, navigate]);
 
   if (auth.isLoading) return <div className="min-h-screen bg-background" />;
   if (!auth.isAuthenticated) return null;
