@@ -3,6 +3,7 @@ RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY package*.json ./
 COPY packages/api/package.json ./packages/api/
+COPY packages/cli/package.json ./packages/cli/
 COPY packages/legacy/package.json ./packages/legacy/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/web/package.json ./packages/web/
@@ -22,6 +23,7 @@ RUN adduser --system --uid 1001 appuser
 # Copy package manifests for npm prune
 COPY package*.json ./
 COPY packages/api/package.json ./packages/api/
+COPY packages/cli/package.json ./packages/cli/
 COPY packages/legacy/package.json ./packages/legacy/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/web/package.json ./packages/web/
