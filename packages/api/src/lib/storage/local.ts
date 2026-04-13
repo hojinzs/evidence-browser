@@ -81,7 +81,9 @@ export class LocalFSAdapter implements StorageAdapter {
 
     while (currentPath.startsWith(base + path.sep)) {
       try {
-        await fs.promises.rmdir(currentPath);
+        const entries = await fs.promises.readdir(currentPath);
+        if (entries.length > 0) return;
+        await fs.promises.rm(currentPath, { recursive: true, force: false });
       } catch (error) {
         const code = (error as NodeJS.ErrnoException).code;
         if (code === "ENOTEMPTY" || code === "ENOENT") return;
