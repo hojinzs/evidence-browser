@@ -21,7 +21,7 @@ const envSchema = z
 
     // Storage
     STORAGE_TYPE: z.enum(["local", "s3"]).default("local"),
-    STORAGE_LOCAL_PATH: z.string().optional(),
+    STORAGE_LOCAL_PATH: z.string().optional().default("./data/bundles"),
 
     // S3
     S3_BUCKET: z.string().optional(),
@@ -48,18 +48,6 @@ const envSchema = z
     MAX_FILE_COUNT: numberFromString(10_000),
     MAX_SINGLE_FILE_SIZE: numberFromString(100 * 1024 * 1024),
   })
-  .refine(
-    (data) => {
-      if (data.STORAGE_TYPE === "local") {
-        return !!data.STORAGE_LOCAL_PATH;
-      }
-      return true;
-    },
-    {
-      message: "STORAGE_LOCAL_PATH is required when STORAGE_TYPE=local",
-      path: ["STORAGE_LOCAL_PATH"],
-    }
-  )
   .refine(
     (data) => {
       if (data.STORAGE_TYPE === "s3") {

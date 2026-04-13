@@ -96,4 +96,20 @@ export const api = {
       method: "DELETE",
       body: JSON.stringify({ id }),
     }),
+  setupStatus: () =>
+    apiFetch<{ needsSetup: boolean; hasAdmin: boolean; hasWorkspace: boolean }>("/api/setup/status"),
+  setupAdmin: (username: string, password: string) =>
+    apiFetch<{ user: AuthUser }>("/api/setup/admin", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    }),
+  setupVerifyStorage: () =>
+    apiFetch<{ ok: boolean; storageType?: string; bundleCount?: number; error?: string }>("/api/setup/verify-storage", {
+      method: "POST",
+    }),
+  setupWorkspace: (slug: string, name: string, description?: string) =>
+    apiFetch<{ workspace: Workspace }>("/api/setup/workspace", {
+      method: "POST",
+      body: JSON.stringify({ slug, name, description }),
+    }),
 };
