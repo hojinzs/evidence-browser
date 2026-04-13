@@ -61,22 +61,30 @@ function buildEndpoint(baseUrl: string, apiPath: string): string {
 }
 
 async function parseErrorResponse(res: Response): Promise<string> {
-  const json = await res.json().catch(() => null) as { error?: string } | null;
-  if (json?.error) {
-    return json.error;
+  const text = await res.text().catch(() => "");
+  if (!text) {
+    return res.statusText;
   }
 
-  const text = await res.text().catch(() => "");
-  return text || res.statusText;
+  try {
+    const json = JSON.parse(text) as { error?: string } | null;
+    if (json?.error) {
+      return json.error;
+    }
+  } catch {
+    // Fall through to the raw body text below.
+  }
+
+  return text;
 }
 
 async function requestJson<T>(apiPath: string, opts: ServerRequestOptions, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set("Authorization", `Bearer ${opts.apiKey}`);
+
   const res = await fetch(buildEndpoint(opts.url, apiPath), {
     ...init,
-    headers: {
-      Authorization: `Bearer ${opts.apiKey}`,
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
 
   if (!res.ok) {

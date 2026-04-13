@@ -1,6 +1,15 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+function restoreEnv(name, previousValue) {
+  if (previousValue === undefined) {
+    delete process.env[name];
+    return;
+  }
+
+  process.env[name] = previousValue;
+}
+
 test("resolveServerOptions falls back to environment variables", async () => {
   const previousUrl = process.env.EB_URL;
   const previousApiKey = process.env.EB_API_KEY;
@@ -14,8 +23,8 @@ test("resolveServerOptions falls back to environment variables", async () => {
       apiKey: "eb_test",
     });
   } finally {
-    process.env.EB_URL = previousUrl;
-    process.env.EB_API_KEY = previousApiKey;
+    restoreEnv("EB_URL", previousUrl);
+    restoreEnv("EB_API_KEY", previousApiKey);
   }
 });
 
@@ -25,7 +34,8 @@ test("listBundles sends bearer auth to the bundle list endpoint", async () => {
 
   global.fetch = async (url, init) => {
     assert.equal(url, "https://eb.example.com/api/w/demo/bundle");
-    assert.equal(init.headers.Authorization, "Bearer eb_read");
+    assert.ok(init.headers instanceof Headers);
+    assert.equal(init.headers.get("Authorization"), "Bearer eb_read");
     return new Response(JSON.stringify({ bundles: [{ bundle_id: "bundle-1" }] }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -39,6 +49,30 @@ test("listBundles sends bearer auth to the bundle list endpoint", async () => {
       workspace: "demo",
     });
     assert.deepEqual(result, { bundles: [{ bundle_id: "bundle-1" }] });
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("listBundles preserves plain text error bodies", async () => {
+  const { listBundles } = require("../dist/lib/api-client.js");
+  const previousFetch = global.fetch;
+
+  global.fetch = async () =>
+    new Response("workspace missing", {
+      status: 404,
+      headers: { "Content-Type": "text/plain" },
+    });
+
+  try {
+    await assert.rejects(
+      listBundles({
+        url: "https://eb.example.com",
+        apiKey: "eb_read",
+        workspace: "demo",
+      }),
+      /Request failed \(404\): workspace missing/
+    );
   } finally {
     global.fetch = previousFetch;
   }
@@ -101,8 +135,8 @@ test("bundle tree command uses environment-backed server options and prints a tr
     await createCli().parseAsync(["node", "eb", "bundle", "tree", "demo", "bundle-1"]);
     assert.deepEqual(lines, ["└── docs\n    └── intro.md"]);
   } finally {
-    process.env.EB_URL = previousUrl;
-    process.env.EB_API_KEY = previousApiKey;
+    restoreEnv("EB_URL", previousUrl);
+    restoreEnv("EB_API_KEY", previousApiKey);
     global.fetch = previousFetch;
     console.log = previousLog;
   }
