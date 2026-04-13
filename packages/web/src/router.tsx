@@ -492,18 +492,26 @@ function SetupPage() {
     retry: false,
   });
 
-  const skipAdmin = setupQuery.data?.hasAdmin ?? false;
+  const auth = useAuth();
   const [step, setStep] = React.useState<SetupStep | null>(null);
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Determine initial step once status is known
   React.useEffect(() => {
-    if (setupQuery.isLoading || step !== null) return;
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, []);
+
+  // Determine initial step once status and auth are known
+  React.useEffect(() => {
+    if (setupQuery.isLoading || auth.isLoading || step !== null) return;
     if (setupQuery.data && !setupQuery.data.needsSetup) {
       void navigate({ to: "/" });
+    } else if (setupQuery.data?.hasAdmin && !auth.isAuthenticated) {
+      // Admin exists but not logged in — must authenticate before completing setup
+      void navigate({ to: "/login", search: { callbackUrl: "/setup" } });
     } else {
       setStep(setupQuery.data?.hasAdmin ? "storage" : "admin");
     }
-  }, [setupQuery.isLoading, setupQuery.data, step, navigate]);
+  }, [setupQuery.isLoading, setupQuery.data, auth.isLoading, auth.isAuthenticated, step, navigate]);
 
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -533,7 +541,9 @@ function SetupPage() {
     try {
       const data = await api.setupVerifyStorage();
       setStorageResult(data);
-      if (data.ok) setTimeout(() => setStep("workspace"), 800);
+      if (data.ok) {
+        timerRef.current = setTimeout(() => setStep("workspace"), 800);
+      }
     } catch (err) {
       setStorageResult({ ok: false, error: err instanceof Error ? err.message : "Network error" });
     } finally { setLoading(false); }
@@ -545,7 +555,7 @@ function SetupPage() {
       await api.setupWorkspace(wsSlug, wsName, wsDesc || undefined);
       setStep("done");
       await queryClient.invalidateQueries({ queryKey: ["setup", "status"] });
-      setTimeout(() => { void navigate({ to: "/" }); }, 1500);
+      timerRef.current = setTimeout(() => { void navigate({ to: "/" }); }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create workspace");
     } finally { setLoading(false); }
