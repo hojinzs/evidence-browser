@@ -4,11 +4,21 @@ import { countAdmins, createUser } from "@/lib/db/users";
 import { createSession } from "@/lib/db/sessions";
 import { signSessionId, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { requireAdmin, type AppVariables } from "@/middleware/auth";
-import { createWorkspace, findWorkspaceBySlug } from "@/lib/db/workspaces";
+import { createWorkspace, findWorkspaceBySlug, listWorkspaces } from "@/lib/db/workspaces";
 import { getStorageAdapter } from "@/lib/storage";
 import { getEnv } from "@/config/env";
 
 const setup = new Hono<{ Variables: AppVariables }>();
+
+setup.get("/status", (c) => {
+  const hasAdmin = countAdmins() > 0;
+  const hasWorkspace = listWorkspaces().length > 0;
+  return c.json({
+    needsSetup: !hasAdmin || !hasWorkspace,
+    hasAdmin,
+    hasWorkspace,
+  });
+});
 
 setup.post("/admin", async (c) => {
   if (countAdmins() > 0) {

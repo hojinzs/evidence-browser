@@ -10,7 +10,7 @@ import {
   useLocation,
   useNavigate,
 } from "@tanstack/react-router";
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { TanStackRouterDevtools } from "@tanstack/router-devtools";
 import { AppShell, MobileSidebarTrigger } from "@/components/layout/app-shell";
 import { Header } from "@/components/layout/header";
@@ -76,11 +76,32 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function CheckSetup({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const setupQuery = useQuery({
+    queryKey: ["setup", "status"],
+    queryFn: () => api.setupStatus(),
+    retry: false,
+    staleTime: 60_000,
+  });
+
+  React.useEffect(() => {
+    if (!setupQuery.isLoading && setupQuery.data?.needsSetup && !location.pathname.startsWith("/setup")) {
+      void navigate({ to: "/setup" });
+    }
+  }, [setupQuery.isLoading, setupQuery.data?.needsSetup, location.pathname, navigate]);
+
+  return <>{children}</>;
+}
+
 function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Outlet />
+        <CheckSetup>
+          <Outlet />
+        </CheckSetup>
         <TanStackRouterDevtools position="bottom-right" />
       </AuthProvider>
     </QueryClientProvider>
@@ -460,6 +481,206 @@ function SettingsPage() {
   );
 }
 
+type SetupStep = "admin" | "storage" | "workspace" | "done";
+
+function SetupPage() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const setupQuery = useQuery({
+    queryKey: ["setup", "status"],
+    queryFn: () => api.setupStatus(),
+    retry: false,
+  });
+
+  const auth = useAuth();
+  const [step, setStep] = React.useState<SetupStep | null>(null);
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, []);
+
+  // Determine initial step once status and auth are known
+  React.useEffect(() => {
+    if (setupQuery.isLoading || auth.isLoading || step !== null) return;
+    if (setupQuery.data && !setupQuery.data.needsSetup) {
+      void navigate({ to: "/" });
+    } else if (setupQuery.data?.hasAdmin && !auth.isAuthenticated) {
+      // Admin exists but not logged in — must authenticate before completing setup
+      void navigate({ to: "/login", search: { callbackUrl: "/setup" } });
+    } else {
+      setStep(setupQuery.data?.hasAdmin ? "storage" : "admin");
+    }
+  }, [setupQuery.isLoading, setupQuery.data, auth.isLoading, auth.isAuthenticated, step, navigate]);
+
+  const [error, setError] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [username, setUsername] = React.useState("admin");
+  const [password, setPassword] = React.useState("");
+  const [passwordConfirm, setPasswordConfirm] = React.useState("");
+  const [wsSlug, setWsSlug] = React.useState("default");
+  const [wsName, setWsName] = React.useState("Default");
+  const [wsDesc, setWsDesc] = React.useState("");
+  const [storageResult, setStorageResult] = React.useState<{ ok: boolean; storageType?: string; bundleCount?: number; error?: string } | null>(null);
+
+  async function handleCreateAdmin() {
+    if (password !== passwordConfirm) { setError("비밀번호가 일치하지 않습니다"); return; }
+    if (password.length < 4) { setError("비밀번호는 4자 이상이어야 합니다"); return; }
+    setError(""); setLoading(true);
+    try {
+      await api.setupAdmin(username, password);
+      await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      setStep("storage");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create admin");
+    } finally { setLoading(false); }
+  }
+
+  async function handleVerifyStorage() {
+    setError(""); setLoading(true);
+    try {
+      const data = await api.setupVerifyStorage();
+      setStorageResult(data);
+      if (data.ok) {
+        timerRef.current = setTimeout(() => setStep("workspace"), 800);
+      }
+    } catch (err) {
+      setStorageResult({ ok: false, error: err instanceof Error ? err.message : "Network error" });
+    } finally { setLoading(false); }
+  }
+
+  async function handleCreateWorkspace() {
+    setError(""); setLoading(true);
+    try {
+      await api.setupWorkspace(wsSlug, wsName, wsDesc || undefined);
+      setStep("done");
+      await queryClient.invalidateQueries({ queryKey: ["setup", "status"] });
+      timerRef.current = setTimeout(() => { void navigate({ to: "/" }); }, 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create workspace");
+    } finally { setLoading(false); }
+  }
+
+  const steps: { key: SetupStep; label: string }[] = [
+    { key: "admin", label: "관리자 계정" },
+    { key: "storage", label: "스토리지" },
+    { key: "workspace", label: "워크스페이스" },
+  ];
+  const stepOrder: SetupStep[] = ["admin", "storage", "workspace", "done"];
+  const currentIndex = step ? stepOrder.indexOf(step) : 0;
+
+  if (setupQuery.isLoading || step === null) {
+    return <div className="min-h-screen bg-background" />;
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="mx-auto w-full max-w-lg p-6">
+        <div className="space-y-8">
+          <div className="text-center">
+            <BrandMark />
+            <h1 className="mt-6 text-2xl font-bold">Evidence Browser Setup</h1>
+            <p className="mt-2 text-sm text-muted-foreground">초기 설정을 완료해주세요</p>
+          </div>
+
+          <div className="flex items-center justify-center gap-2">
+            {steps.map((s, i) => {
+              const done = currentIndex > i || step === "done";
+              const active = s.key === step;
+              return (
+                <div key={s.key} className="flex items-center gap-2">
+                  <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium ${done ? "bg-primary text-primary-foreground" : active ? "border-2 border-primary text-primary" : "border border-muted-foreground/30 text-muted-foreground"}`}>
+                    {done ? "✓" : i + 1}
+                  </div>
+                  <span className={`hidden text-xs sm:inline ${active ? "text-foreground" : "text-muted-foreground"}`}>{s.label}</span>
+                  {i < steps.length - 1 && <span className="text-muted-foreground">›</span>}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="rounded-lg border border-border p-6 space-y-4">
+            {step === "admin" && (
+              <>
+                <p className="text-sm font-medium">관리자 계정 생성</p>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label htmlFor="setup-username" className="text-sm">Username</label>
+                    <input id="setup-username" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="setup-password" className="text-sm">Password</label>
+                    <input id="setup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="setup-password-confirm" className="text-sm">Password 확인</label>
+                    <input id="setup-password-confirm" type="password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <button onClick={handleCreateAdmin} disabled={loading} className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                  {loading ? "처리 중..." : "다음"}
+                </button>
+              </>
+            )}
+
+            {step === "storage" && (
+              <>
+                <p className="text-sm font-medium">스토리지 연결 확인</p>
+                <p className="text-xs text-muted-foreground">환경변수로 설정된 스토리지를 확인합니다. 변경하려면 환경변수 수정 후 재시작하세요.</p>
+                {storageResult && (
+                  <div className={`rounded-md p-3 text-sm ${storageResult.ok ? "bg-green-950 text-green-300" : "bg-destructive/10 text-destructive"}`}>
+                    {storageResult.ok ? `연결 성공 (번들 ${storageResult.bundleCount}개 발견, type: ${storageResult.storageType})` : `연결 실패: ${storageResult.error}`}
+                  </div>
+                )}
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <button onClick={handleVerifyStorage} disabled={loading} className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                  {loading ? "확인 중..." : "연결 확인"}
+                </button>
+                <button onClick={() => setStep("workspace")} className="w-full rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
+                  건너뛰기
+                </button>
+              </>
+            )}
+
+            {step === "workspace" && (
+              <>
+                <p className="text-sm font-medium">첫 워크스페이스 생성</p>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label htmlFor="ws-slug" className="text-sm">Slug (URL 경로)</label>
+                    <input id="ws-slug" value={wsSlug} onChange={(e) => setWsSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="my-workspace" className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="ws-name" className="text-sm">이름</label>
+                    <input id="ws-name" value={wsName} onChange={(e) => setWsName(e.target.value)} placeholder="My Workspace" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="ws-desc" className="text-sm">설명 (선택)</label>
+                    <input id="ws-desc" value={wsDesc} onChange={(e) => setWsDesc(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <button onClick={handleCreateWorkspace} disabled={loading} className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                  {loading ? "생성 중..." : "완료"}
+                </button>
+              </>
+            )}
+
+            {step === "done" && (
+              <div className="py-4 text-center space-y-2">
+                <div className="text-4xl">✓</div>
+                <p className="font-medium">설정 완료!</p>
+                <p className="text-sm text-muted-foreground">대시보드로 이동합니다...</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const rootRoute = createRootRoute({ component: RootLayout });
 const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: WorkspacesPage });
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: "/login", validateSearch: (search: Record<string, unknown>) => ({ callbackUrl: typeof search.callbackUrl === "string" ? search.callbackUrl : undefined }), component: LoginPage });
@@ -468,7 +689,8 @@ const bundleRoute = createRoute({ getParentRoute: () => rootRoute, path: "/w/$ws
 const bundleFileRoute = createRoute({ getParentRoute: () => rootRoute, path: "/w/$ws/b/$bundleId/f", validateSearch: (search: Record<string, unknown>) => ({ path: typeof search.path === "string" ? search.path : "" }), component: BundleFileRoutePage });
 const adminRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin", component: AdminPage });
 const settingsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/settings", component: SettingsPage });
-const routeTree = rootRoute.addChildren([homeRoute, loginRoute, workspaceRoute, bundleRoute, bundleFileRoute, adminRoute, settingsRoute]);
+const setupRoute = createRoute({ getParentRoute: () => rootRoute, path: "/setup", component: SetupPage });
+const routeTree = rootRoute.addChildren([homeRoute, loginRoute, workspaceRoute, bundleRoute, bundleFileRoute, adminRoute, settingsRoute, setupRoute]);
 const router = createRouter({ routeTree, defaultPreload: "intent" });
 
 declare module "@tanstack/react-router" {

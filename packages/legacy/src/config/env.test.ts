@@ -32,11 +32,14 @@ describe("envSchema", () => {
     }
   });
 
-  it("fails when STORAGE_LOCAL_PATH missing for local type", () => {
+  it("uses default STORAGE_LOCAL_PATH when not provided for local type", () => {
     const result = envSchema.safeParse({
       STORAGE_TYPE: "local",
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.STORAGE_LOCAL_PATH).toBe("./data/bundles");
+    }
   });
 
   it("fails when S3_BUCKET missing for s3 type", () => {
