@@ -63,6 +63,37 @@ export class LocalFSAdapter implements StorageAdapter {
     await fs.promises.writeFile(zipPath, data);
   }
 
+  async deleteBundle(storageKey: string): Promise<void> {
+    const zipPath = this.resolvePath(storageKey);
+    try {
+      await fs.promises.unlink(zipPath);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT") throw error;
+      return;
+    }
+
+    await this.removeEmptyParents(path.dirname(zipPath));
+  }
+
+  private async removeEmptyParents(currentPath: string): Promise<void> {
+    const base = path.resolve(this.basePath);
+
+    while (currentPath.startsWith(base + path.sep)) {
+      try {
+        const entries = await fs.promises.readdir(currentPath);
+        if (entries.length > 0) return;
+        await fs.promises.rm(currentPath, { recursive: true, force: false });
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "ENOTEMPTY" || code === "ENOENT") return;
+        throw error;
+      }
+
+      currentPath = path.dirname(currentPath);
+    }
+  }
+
   private resolvePath(storageKey: string): string {
     const base = path.resolve(this.basePath);
     const resolved = path.resolve(base, `${storageKey}.zip`);

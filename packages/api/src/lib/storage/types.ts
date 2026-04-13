@@ -10,4 +10,5 @@ export interface StorageAdapter {
   getBundleStream(storageKey: string): Promise<ReadableStream<Uint8Array>>;
   listBundles?(prefix?: string): Promise<string[]>;
   putBundle?(storageKey: string, data: Buffer): Promise<void>;
+  deleteBundle?(storageKey: string): Promise<void>;
 }

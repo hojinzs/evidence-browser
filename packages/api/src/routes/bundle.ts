@@ -1,10 +1,10 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { authenticate, requireUpload, type AppVariables } from "@/middleware/auth";
 import { findWorkspaceBySlug } from "@/lib/db/workspaces";
-import { listBundles, createBundle } from "@/lib/db/bundles";
+import { findBundle, listBundles, createBundle, deleteBundle } from "@/lib/db/bundles";
 import { getStorageAdapter } from "@/lib/storage";
 import { storageKey } from "@/lib/url";
 import { validateBundleZip, extractBundle, getFileContent } from "@/lib/bundle/extractor";
@@ -34,6 +34,35 @@ bundle.get("/:ws/bundle", authenticate, (c) => {
   if (!workspace) return c.json({ error: "Workspace not found" }, 404);
   return c.json({ bundles: listBundles(workspace.id) });
 });
+
+async function deleteBundleRoute(c: Context<{ Variables: AppVariables }>) {
+  const ws = c.req.param("ws");
+  const bundleId = c.req.param("bundleId");
+  if (!ws) return c.json({ error: "Workspace not found" }, 404);
+  if (!bundleId) return c.json({ error: "Bundle not found" }, 404);
+  const workspace = findWorkspaceBySlug(ws);
+  if (!workspace) return c.json({ error: "Workspace not found" }, 404);
+
+  const existing = findBundle(workspace.id, bundleId);
+  if (!existing) return c.json({ error: "Bundle not found" }, 404);
+
+  const storage = getStorageAdapter();
+  if (!storage.deleteBundle) {
+    return c.json({ error: "Storage adapter does not support delete" }, 501);
+  }
+
+  const deleted = deleteBundle(existing.id);
+  if (!deleted) {
+    return c.json({ error: "Bundle not found" }, 404);
+  }
+
+  await storage.deleteBundle(existing.storage_key);
+
+  return c.body(null, 204);
+}
+
+bundle.delete("/:ws/bundle/:bundleId", requireUpload, deleteBundleRoute);
+bundle.delete("/:ws/bundles/:bundleId", requireUpload, deleteBundleRoute);
 
 bundle.post("/:ws/bundle", requireUpload, async (c) => {
   const user = c.get("user");
