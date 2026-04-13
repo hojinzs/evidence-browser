@@ -10,7 +10,7 @@ import {
   useLocation,
   useNavigate,
 } from "@tanstack/react-router";
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { TanStackRouterDevtools } from "@tanstack/router-devtools";
 import { AppShell, MobileSidebarTrigger } from "@/components/layout/app-shell";
 import { Header } from "@/components/layout/header";
@@ -195,8 +195,11 @@ function WorkspacePage() {
   const auth = useAuth();
   const { ws } = workspaceRoute.useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const workspacesQuery = useQuery({ queryKey: ["workspaces"], queryFn: api.getWorkspaces, enabled: auth.isAuthenticated });
   const bundlesQuery = useQuery({ queryKey: ["bundles", ws], queryFn: () => api.getBundles(ws), enabled: auth.isAuthenticated });
+  const [bundleError, setBundleError] = React.useState("");
+  const [deletingBundleId, setDeletingBundleId] = React.useState<string | null>(null);
   const workspace = workspacesQuery.data?.workspaces.find((item) => item.slug === ws);
 
   React.useEffect(() => {
@@ -204,6 +207,26 @@ function WorkspacePage() {
       void navigate({ to: "/" });
     }
   }, [navigate, workspace, workspacesQuery.isLoading]);
+
+  async function refreshWorkspaceBundles() {
+    await queryClient.invalidateQueries({ queryKey: ["bundles", ws] });
+    await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+  }
+
+  async function handleDeleteBundle(bundleId: string) {
+    if (!window.confirm(`번들 '${bundleId}'를 삭제하시겠습니까?`)) return;
+
+    setBundleError("");
+    setDeletingBundleId(bundleId);
+    try {
+      await api.deleteBundle(ws, bundleId);
+      await refreshWorkspaceBundles();
+    } catch (err) {
+      setBundleError(err instanceof ApiError ? err.message : "Network error");
+    } finally {
+      setDeletingBundleId(null);
+    }
+  }
 
   return (
     <RequireAuth>
@@ -222,12 +245,24 @@ function WorkspacePage() {
             {auth.user?.role === "admin" && <UploadForm workspaceSlug={ws} onUploaded={() => void queryClient.invalidateQueries({ queryKey: ["bundles", ws] })} />}
             <section>
               <h3 className="mb-3 text-lg font-semibold">Recent Bundles</h3>
+              {bundleError && <p className="mb-3 text-sm text-destructive">{bundleError}</p>}
               {bundlesQuery.isLoading ? (
                 <Card className="p-10 text-center text-muted-foreground">Loading bundles...</Card>
               ) : bundlesQuery.data?.bundles.length ? (
                 <Card className="overflow-hidden p-0">
                   {bundlesQuery.data.bundles.map((bundle) => (
-                    <BundleCard key={bundle.id} title={bundle.title || bundle.bundle_id} bundleId={bundle.bundle_id} href={bundleLandingUrl(ws, bundle.bundle_id)} uploadedBy={bundle.uploader_username} createdAt={bundle.created_at} sizeBytes={bundle.size_bytes} />
+                    <BundleCard
+                      key={bundle.id}
+                      title={bundle.title || bundle.bundle_id}
+                      bundleId={bundle.bundle_id}
+                      href={bundleLandingUrl(ws, bundle.bundle_id)}
+                      uploadedBy={bundle.uploader_username}
+                      createdAt={bundle.created_at}
+                      sizeBytes={bundle.size_bytes}
+                      canDelete={auth.user?.role === "admin"}
+                      isDeleting={deletingBundleId === bundle.bundle_id}
+                      onDelete={handleDeleteBundle}
+                    />
                   ))}
                 </Card>
               ) : (

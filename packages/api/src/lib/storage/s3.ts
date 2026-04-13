@@ -4,6 +4,7 @@ import {
   GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 import type { BundleInfo, StorageAdapter } from "./types";
@@ -106,6 +107,15 @@ export class S3Adapter implements StorageAdapter {
         Key: `${storageKey}.zip`,
         Body: data,
         ContentType: "application/zip",
+      })
+    );
+  }
+
+  async deleteBundle(storageKey: string): Promise<void> {
+    await this.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: `${storageKey}.zip`,
       })
     );
   }
