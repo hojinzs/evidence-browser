@@ -1,0 +1,51 @@
+{
+  "name": "@evidence-browser/shared",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./url": {
+      "types": "./dist/url.d.ts",
+      "default": "./dist/url.js"
+    },
+    "./bundle/manifest": {
+      "types": "./dist/bundle/manifest.d.ts",
+      "default": "./dist/bundle/manifest.js"
+    },
+    "./bundle/security": {
+      "types": "./dist/bundle/security.d.ts",
+      "default": "./dist/bundle/security.js"
+    },
+    "./bundle/types": {
+      "types": "./dist/bundle/types.d.ts",
+      "default": "./dist/bundle/types.js"
+    },
+    "./bundle/upload-validation": {
+      "types": "./dist/bundle/upload-validation.d.ts",
+      "default": "./dist/bundle/upload-validation.js"
+    },
+    "./bundle/validate-zip": {
+      "types": "./dist/bundle/validate-zip.d.ts",
+      "default": "./dist/bundle/validate-zip.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run src",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "yauzl-promise": "^4.0.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5",
+    "vitest": "^4.1.2"
+  }
+}

@@ -99,9 +99,12 @@ Every QA run produces a directory under `.evidence/`. This directory is git-igno
 Example: `20260410-1430-feat-bundle-upload-attempt1`
 
 **Constraints** — the session ID doubles as the `bundleId` for upload, so it must not contain:
-- `/` (rejected by API)
-- `..` (rejected by API)
-- `\0` (rejected by API)
+- `/` or `\`
+- `..`
+- `\0`
+- spaces
+- uppercase letters
+- percent-encoded input such as `%2F`
 
 ### `manifest.json` minimum
 
@@ -122,7 +125,7 @@ Schema authority: `src/lib/bundle/extractor.ts::validateBundleZip`. If this mani
 - **Auth**: admin session cookie required (`requireAdminFromRequest`)
 - **Body**: multipart form data
   - `file` — ZIP file, must end with `.zip`
-  - `bundleId` — optional; defaults to filename stem; must not contain `/`, `..`, `\0`
+  - `bundleId` — optional; defaults to filename stem; must match the flat slug rule (`^[a-z0-9][a-z0-9._-]{0,127}$`)
 - **Size cap**: `MAX_BUNDLE_SIZE` env (default 500MB)
 - **Response**: `{ bundle: { ... } }` on 201, or `{ error: "..." }` on 4xx
 
@@ -138,9 +141,17 @@ Agents **must** upload through the `/evidence-upload` skill (`.claude/skills/evi
 
 Routing every upload through the skill keeps the agent contracts decoupled from the current script and lets the implementation swap out cleanly.
 
-### Caveat: bundleId `/` conflict
+### bundleId convention
 
-`docs/CLI.md:129-131` allows hierarchical bundleIds like `pr-42/run-1`, but `src/app/api/w/[ws]/bundle/route.ts:79` currently rejects any bundleId containing `/`. **The team workflow follows the server constraint** — session IDs must be flat, hyphen-separated strings. This conflict is tracked in `docs/CLI.md` 미결 사항 and must be resolved before the `eb` CLI can ship.
+The team workflow uses flat, lowercase bundle IDs by default. Recommended formats:
+
+- `{YYYYMMDD-HHmm}-{branch-slug}-attempt{N}`
+- `pr-{number}-run-{runNumber}`
+
+Examples:
+
+- `20260410-1430-feat-bundle-upload-attempt1`
+- `pr-42-run-17`
 
 ## Recursive loop state machine
 

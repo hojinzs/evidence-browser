@@ -118,7 +118,7 @@ eb bundle upload report.zip --workspace ci-results
 
 eb bundle upload report.zip \
   --workspace ci-results \
-  --id "pr-42/run-1"
+  --id "pr-42-run-1"
 
 # CI 환경 (환경변수 사용)
 EB_SERVER=https://evidence.example.com \
@@ -127,8 +127,9 @@ eb bundle upload dist/report.zip --workspace nightly
 ```
 
 **번들 ID 규칙:**
-- `/`로 계층 구조 표현 가능 (`pr-42/run-1`)
-- `..`, 공백, `\0` 불가
+- flat slug만 허용 (`pr-42-run-1`)
+- 권장 정규식: `^[a-z0-9][a-z0-9._-]{0,127}$`
+- `/`, `\\`, 공백, `..`, `\0`, `%2F` 같은 퍼센트 인코딩 입력값, 대문자 불가
 
 ---
 
@@ -212,8 +213,8 @@ eb bundle list --workspace <slug> [options]
 eb bundle list --workspace ci-results
 
 # BUNDLE ID              TITLE                  UPLOADED
-# pr-42/run-1            PR #42 테스트 결과      2026-04-10 14:32
-# pr-41/run-2            PR #41 재실행           2026-04-09 11:20
+# pr-42-run-1            PR #42 테스트 결과      2026-04-10 14:32
+# pr-41-run-2            PR #41 재실행           2026-04-09 11:20
 ```
 
 ---
@@ -294,7 +295,7 @@ eb user create bob --role admin --password hunter2
     eb bundle validate dist/report.zip
     eb bundle upload dist/report.zip \
       --workspace ci-results \
-      --id "pr-${{ github.event.pull_request.number }}/run-${{ github.run_number }}"
+      --id "pr-${{ github.event.pull_request.number }}-run-${{ github.run_number }}"
 ```
 
 ### curl 대비 장점
@@ -304,12 +305,12 @@ eb user create bob --role admin --password hunter2
 curl -X POST $SERVER/api/w/ci-results/bundle \
   -b "evidence_session=$TOKEN" \
   -F "file=@report.zip" \
-  -F "bundleId=pr-42/run-1"
+  -F "bundleId=pr-42-run-1"
 
 # eb 사용
 eb bundle upload report.zip \
   --workspace ci-results \
-  --id pr-42/run-1
+  --id pr-42-run-1
 ```
 
 ---
@@ -321,9 +322,9 @@ eb bundle upload report.zip \
 - [ ] 번들 ID 중복 시 동작: 오류 vs 덮어쓰기 (`--overwrite` 플래그?)
 - [ ] `eb bundle create` 에서 `.ebignore` 지원 여부
 - [ ] 패키지명: `@evidence-browser/cli` vs `eb` vs 다른 이름
-- [ ] **bundleId `/` 허용 여부** — 현재 스펙은 계층 구조 허용(`pr-42/run-1`)이지만 서버 `src/app/api/w/[ws]/bundle/route.ts:79` 는 `/` 거부. 둘 중 하나를 바꿔야 함. URL 경로 segment 재설계 또는 `-`/`__` 치환 규약 도입 검토.
+- [ ] bundle ID 자동 생성 규칙 표준화: `pr-42-run-1`, `{date}-attempt1`, `org-repo-pr-42-run-1` 중 어떤 템플릿을 기본값으로 둘지 결정
 
 ## 구현 전제
 
-- **모노리포 전환(npm workspaces) 전제**. `manifest.json` 스키마(`src/lib/bundle/extractor.ts::validateBundleZip`), `storageKey`/`parseSegments`(`src/lib/url.ts`), bundleId 검증 규칙을 웹앱과 CLI가 공유해야 하므로 `packages/web` + `packages/cli` + `packages/shared` 구조로 재배치. 현재 `package-lock.json` 사용 중이므로 가장 가벼운 경로는 npm workspaces. CLI 구현 태스크가 올라올 때 첫 단계로 이 전환을 수행하고 shared 로직을 추출한다.
+- **모노리포 전환(npm workspaces) 전제**. `manifest.json` 스키마(`src/lib/bundle/extractor.ts::validateBundleZip`), `storageKey`/URL helper, bundleId 검증 규칙을 웹앱과 CLI가 공유해야 하므로 `packages/web` + `packages/cli` + `packages/shared` 구조로 재배치. 현재 `package-lock.json` 사용 중이므로 가장 가벼운 경로는 npm workspaces. CLI 구현 태스크가 올라올 때 첫 단계로 이 전환을 수행하고 shared 로직을 추출한다.
 - **선행 구현물**: `scripts/qa-evidence-upload.ts` 및 이를 래핑한 `/evidence-upload` skill(`.claude/skills/evidence-upload/SKILL.md`)이 `eb bundle create` + `eb bundle upload` 의 프로토타입 역할. CLI 도입 시 skill 본문의 Bash 호출만 `eb` 로 교체하고 skill 인터페이스(`/evidence-upload <dir>`)는 그대로 유지한다.
