@@ -15,6 +15,7 @@ jobs:
       contents: write       # Version Packages PR 생성 및 GitHub Release 태그
       pull-requests: write  # "Version Packages" PR 열기
       packages: write       # ghcr.io push
+      id-token: write       # npm Trusted Publisher (OIDC)
 
     steps:
       - name: Checkout
@@ -45,7 +46,6 @@ jobs:
           commit: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # publish 후 v{version} 태그를 push → docker.yml 이 semver 태그로 이미지를 빌드
       - name: Push git tag for Docker release
