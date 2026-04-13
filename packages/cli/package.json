@@ -1,11 +1,8 @@
 {
-  "name": "@evidence-browser/cli",
+  "name": "evidence-browser-cli",
   "version": "0.1.0",
   "description": "CLI tool for uploading bundles to Evidence Browser",
   "license": "MIT",
-  "publishConfig": {
-    "access": "public"
-  },
   "type": "commonjs",
   "main": "./dist/index.js",
   "bin": {
