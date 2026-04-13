@@ -1,20 +1,109 @@
 import fs from "fs";
 import path from "path";
 
+export interface ServerRequestOptions {
+  url: string;
+  apiKey: string;
+}
+
+export interface BundleSummary {
+  id: string;
+  bundle_id: string;
+  workspace_id: string;
+  title: string | null;
+  storage_key: string;
+  size_bytes: number | null;
+  uploaded_by: string;
+  created_at: string;
+  uploader_username: string;
+}
+
+export interface TreeNode {
+  name: string;
+  type: "file" | "directory";
+  path: string;
+  children?: TreeNode[];
+}
+
+export interface BundleMeta {
+  manifest: {
+    version: number;
+    title: string;
+    index: string;
+    [key: string]: unknown;
+  };
+  tree: TreeNode[];
+}
+
 export interface UploadOptions {
   filePath: string;
-  url: string;
   workspace: string;
-  apiKey: string;
   bundleId?: string;
+  url: string;
+  apiKey: string;
 }
 
 export interface UploadResult {
   bundleId: string;
 }
 
+export interface BundleRequestOptions extends ServerRequestOptions {
+  workspace: string;
+  bundleId: string;
+}
+
+export interface BundleFileRequestOptions extends BundleRequestOptions {
+  filePath: string;
+}
+
+function buildEndpoint(baseUrl: string, apiPath: string): string {
+  return `${baseUrl.replace(/\/$/, "")}${apiPath}`;
+}
+
+async function parseErrorResponse(res: Response): Promise<string> {
+  const json = await res.json().catch(() => null) as { error?: string } | null;
+  if (json?.error) {
+    return json.error;
+  }
+
+  const text = await res.text().catch(() => "");
+  return text || res.statusText;
+}
+
+async function requestJson<T>(apiPath: string, opts: ServerRequestOptions, init?: RequestInit): Promise<T> {
+  const res = await fetch(buildEndpoint(opts.url, apiPath), {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${opts.apiKey}`,
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  if (!res.ok) {
+    const message = await parseErrorResponse(res);
+    throw new Error(`Request failed (${res.status}): ${message}`);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+async function requestBuffer(apiPath: string, opts: ServerRequestOptions): Promise<Buffer> {
+  const res = await fetch(buildEndpoint(opts.url, apiPath), {
+    headers: {
+      Authorization: `Bearer ${opts.apiKey}`,
+    },
+  });
+
+  if (!res.ok) {
+    const message = await parseErrorResponse(res);
+    throw new Error(`Request failed (${res.status}): ${message}`);
+  }
+
+  return Buffer.from(await res.arrayBuffer());
+}
+
 export async function uploadBundle(opts: UploadOptions): Promise<UploadResult> {
-  const endpoint = `${opts.url.replace(/\/$/, "")}/api/w/${opts.workspace}/bundle`;
+  const endpoint = buildEndpoint(opts.url, `/api/w/${encodeURIComponent(opts.workspace)}/bundle`);
 
   const fileBuffer = fs.readFileSync(opts.filePath);
   const filename = path.basename(opts.filePath);
@@ -45,4 +134,36 @@ export async function uploadBundle(opts: UploadOptions): Promise<UploadResult> {
     throw new Error("Upload succeeded but server did not return a bundleId");
   }
   return { bundleId };
+}
+
+export async function listBundles(
+  opts: ServerRequestOptions & { workspace: string }
+): Promise<{ bundles: BundleSummary[] }> {
+  return requestJson(`/api/w/${encodeURIComponent(opts.workspace)}/bundle`, opts);
+}
+
+export async function getBundleMeta(opts: BundleRequestOptions): Promise<BundleMeta> {
+  return requestJson(
+    `/api/w/${encodeURIComponent(opts.workspace)}/bundles/${encodeURIComponent(opts.bundleId)}/meta`,
+    opts
+  );
+}
+
+export async function getBundleTree(opts: BundleRequestOptions): Promise<{ tree: TreeNode[] }> {
+  return requestJson(
+    `/api/w/${encodeURIComponent(opts.workspace)}/bundles/${encodeURIComponent(opts.bundleId)}/tree`,
+    opts
+  );
+}
+
+export async function downloadBundleFile(
+  opts: BundleFileRequestOptions
+): Promise<{ content: Buffer }> {
+  const content = await requestBuffer(
+    `/api/w/${encodeURIComponent(opts.workspace)}/bundles/${encodeURIComponent(
+      opts.bundleId
+    )}/file?path=${encodeURIComponent(opts.filePath)}`,
+    opts
+  );
+  return { content };
 }

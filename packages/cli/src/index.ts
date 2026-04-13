@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { registerBundle } from "./commands/bundle";
 import { registerUpload } from "./commands/upload";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -11,6 +12,7 @@ export function createCli(): Command {
     .version(version);
 
   registerUpload(program);
+  registerBundle(program);
 
   return program;
 }

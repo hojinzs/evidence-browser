@@ -2,16 +2,21 @@ import { Command } from "commander";
 import fs from "fs";
 import path from "path";
 import { uploadBundle } from "../lib/api-client";
+import { addServerOptions, resolveServerOptions, type ServerOptionsInput } from "../lib/command-options";
+
+interface UploadCommandOptions extends ServerOptionsInput {
+  workspace: string;
+  bundleId?: string;
+}
 
 export function registerUpload(program: Command): void {
-  program
-    .command("upload <file>")
-    .description("Upload a bundle ZIP to an Evidence Browser instance")
-    .requiredOption("--url <url>", "Base URL of the Evidence Browser instance (e.g. https://eb.example.com)")
-    .requiredOption("--workspace <slug>", "Workspace slug")
-    .requiredOption("--api-key <key>", "API key with upload or admin scope (eb_...)")
-    .option("--bundle-id <id>", "Override bundle ID (default: derived from filename)")
-    .action(async (file: string, opts: { url: string; workspace: string; apiKey: string; bundleId?: string }) => {
+  addServerOptions(
+    program
+      .command("upload <file>")
+      .description("Upload a bundle ZIP to an Evidence Browser instance")
+      .requiredOption("--workspace <slug>", "Workspace slug")
+      .option("--bundle-id <id>", "Override bundle ID (default: derived from filename)")
+  ).action(async (file: string, opts: UploadCommandOptions) => {
       const absPath = path.resolve(file);
 
       if (!fs.existsSync(absPath)) {
@@ -24,15 +29,16 @@ export function registerUpload(program: Command): void {
       }
 
       try {
+        const server = resolveServerOptions(opts);
         const result = await uploadBundle({
           filePath: absPath,
-          url: opts.url,
+          url: server.url,
           workspace: opts.workspace,
-          apiKey: opts.apiKey,
+          apiKey: server.apiKey,
           bundleId: opts.bundleId,
         });
         console.log(`Uploaded: ${result.bundleId}`);
-        console.log(`  View: ${opts.url.replace(/\/$/, "")}/w/${opts.workspace}/${result.bundleId}`);
+        console.log(`  View: ${server.url.replace(/\/$/, "")}/w/${opts.workspace}/${result.bundleId}`);
       } catch (err) {
         console.error(err instanceof Error ? err.message : String(err));
         process.exit(1);
