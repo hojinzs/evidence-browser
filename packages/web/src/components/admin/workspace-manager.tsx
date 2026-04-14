@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import type { WorkspaceWithBundleCount } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -23,13 +23,18 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editError, setEditError] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
 
   async function refreshWorkspaces() {
     await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
     await queryClient.invalidateQueries({ queryKey: ["admin", "workspaces"] });
   }
 
-  async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
+  async function handleCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setLoading(true);
@@ -58,6 +63,38 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
     }
   }
 
+  function handleStartEdit(workspace: WorkspaceWithBundleCount) {
+    setShowForm(false);
+    setEditingId(workspace.id);
+    setEditName(workspace.name);
+    setEditDescription(workspace.description);
+    setEditError("");
+  }
+
+  function handleCancelEdit() {
+    setEditingId(null);
+    setEditName("");
+    setEditDescription("");
+    setEditError("");
+    setEditLoading(false);
+  }
+
+  async function handleUpdate(e: FormEvent<HTMLFormElement>, id: string) {
+    e.preventDefault();
+    setEditError("");
+    setEditLoading(true);
+
+    try {
+      await api.updateWorkspace(id, { name: editName, description: editDescription });
+      handleCancelEdit();
+      await refreshWorkspaces();
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : "Network error");
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
       <Card className="overflow-hidden p-0">
@@ -74,21 +111,52 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
           <div className="px-4 py-8 text-center text-[13px] text-muted-foreground">워크스페이스가 없습니다.</div>
         ) : (
           workspaces.map((workspace) => (
-            <div
-              key={workspace.id}
-              className="grid grid-cols-[minmax(0,2fr)_180px_180px_180px_180px_120px_80px] items-center border-b border-border px-4 py-3 last:border-b-0"
-            >
-              <span className="truncate text-[14px]">{workspace.name}</span>
-              <span className="truncate font-mono text-[13px] text-muted-foreground">{workspace.slug}</span>
-              <span className="truncate text-[13px] text-muted-foreground">{workspace.bundle_count}</span>
-              <span className="truncate text-[13px] text-muted-foreground">{formatDate(workspace.created_at)}</span>
-              <span className="truncate text-[13px] text-muted-foreground">{formatDate(workspace.updated_at)}</span>
-              <span className="truncate text-[13px] text-muted-foreground">{workspace.created_by}</span>
-              <div className="flex justify-end">
-                <Button variant="ghost" size="sm" onClick={() => handleDelete(workspace.id)}>
-                  <Trash2 className="size-4 text-destructive" />
-                </Button>
+            <div key={workspace.id} className="border-b border-border last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,2fr)_180px_180px_180px_180px_120px_80px] items-center px-4 py-3">
+                <span className="truncate text-[14px]">{workspace.name}</span>
+                <span className="truncate font-mono text-[13px] text-muted-foreground">{workspace.slug}</span>
+                <span className="truncate text-[13px] text-muted-foreground">{workspace.bundle_count}</span>
+                <span className="truncate text-[13px] text-muted-foreground">{formatDate(workspace.created_at)}</span>
+                <span className="truncate text-[13px] text-muted-foreground">{formatDate(workspace.updated_at)}</span>
+                <span className="truncate text-[13px] text-muted-foreground">{workspace.created_by}</span>
+                <div className="flex justify-end gap-1">
+                  <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleStartEdit(workspace)} aria-label={`Edit ${workspace.name}`}>
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => handleDelete(workspace.id)}>
+                    <Trash2 className="size-4 text-destructive" />
+                  </Button>
+                </div>
               </div>
+              {editingId === workspace.id && (
+                <form onSubmit={(e) => void handleUpdate(e, workspace.id)} className="border-t border-border bg-white/2 px-4 py-4">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="이름"
+                      required
+                    />
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder="설명"
+                      className="min-h-[92px] w-full rounded-lg border border-input bg-black/30 px-3 py-2 text-[13px] text-foreground placeholder:text-[oklch(0.55_0_0)] transition-colors duration-150 outline-none focus:border-primary focus:ring-3 focus:ring-ring"
+                    />
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button type="submit" size="sm" disabled={editLoading}>
+                      <Check className="mr-1 size-4" />
+                      {editLoading ? "저장 중" : "저장"}
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={handleCancelEdit}>
+                      <X className="mr-1 size-4" />
+                      취소
+                    </Button>
+                  </div>
+                  {editError && <p className="mt-3 text-sm text-destructive">{editError}</p>}
+                </form>
+              )}
             </div>
           ))
         )}

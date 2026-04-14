@@ -93,6 +93,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  updateWorkspace: (id: string, body: { name?: string; description?: string }) =>
+    apiFetch<{ workspace: Workspace }>(`/api/w/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
   deleteWorkspace: (id: string) =>
     apiFetch<{ success: true }>("/api/w", {
       method: "DELETE",
