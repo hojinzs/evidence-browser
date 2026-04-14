@@ -90,6 +90,35 @@ describe("workspaces DAO", () => {
     expect(found!.description).toBe("New desc");
   });
 
+  it("updates only the provided field", () => {
+    const ws = createWorkspace("partial", "Original", "Original desc", userId);
+
+    const renamed = updateWorkspace(ws.id, { name: "Renamed" });
+    expect(renamed).toBe(true);
+    expect(findWorkspaceById(ws.id)).toMatchObject({
+      name: "Renamed",
+      description: "Original desc",
+    });
+
+    const described = updateWorkspace(ws.id, { description: "" });
+    expect(described).toBe(true);
+    expect(findWorkspaceById(ws.id)).toMatchObject({
+      name: "Renamed",
+      description: "",
+    });
+  });
+
+  it("does not update when no fields are provided", () => {
+    const ws = createWorkspace("noop", "Noop", "No changes", userId);
+
+    const updated = updateWorkspace(ws.id, {});
+    expect(updated).toBe(false);
+    expect(findWorkspaceById(ws.id)).toMatchObject({
+      name: "Noop",
+      description: "No changes",
+    });
+  });
+
   it("deletes workspace", () => {
     const ws = createWorkspace("del", "Del", "", userId);
     const deleted = deleteWorkspace(ws.id);
