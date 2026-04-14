@@ -163,7 +163,14 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
       </Card>
 
       {!showForm ? (
-        <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            handleCancelEdit();
+            setShowForm(true);
+          }}
+        >
           <Plus className="mr-1 size-4" />
           워크스페이스 추가
         </Button>
