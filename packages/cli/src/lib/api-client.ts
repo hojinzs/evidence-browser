@@ -18,6 +18,17 @@ export interface BundleSummary {
   uploader_username: string;
 }
 
+export interface WorkspaceSummary {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  bundle_count?: number;
+}
+
 export interface TreeNode {
   name: string;
   type: "file" | "directory";
@@ -54,6 +65,16 @@ export interface BundleRequestOptions extends ServerRequestOptions {
 
 export interface BundleFileRequestOptions extends BundleRequestOptions {
   filePath: string;
+}
+
+export interface WorkspaceCreateOptions extends ServerRequestOptions {
+  slug: string;
+  name: string;
+  description?: string;
+}
+
+export interface WorkspaceDeleteOptions extends ServerRequestOptions {
+  slug: string;
 }
 
 function buildEndpoint(baseUrl: string, apiPath: string): string {
@@ -148,6 +169,47 @@ export async function listBundles(
   opts: ServerRequestOptions & { workspace: string }
 ): Promise<{ bundles: BundleSummary[] }> {
   return requestJson(`/api/w/${encodeURIComponent(opts.workspace)}/bundle`, opts);
+}
+
+export async function listWorkspaces(
+  opts: ServerRequestOptions
+): Promise<{ workspaces: WorkspaceSummary[] }> {
+  return requestJson("/api/w", opts);
+}
+
+export async function createWorkspace(
+  opts: WorkspaceCreateOptions
+): Promise<{ workspace: WorkspaceSummary }> {
+  return requestJson("/api/w", opts, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      slug: opts.slug,
+      name: opts.name,
+      description: opts.description ?? "",
+    }),
+  });
+}
+
+export async function deleteWorkspace(
+  opts: WorkspaceDeleteOptions
+): Promise<{ success: true }> {
+  const { workspaces } = await listWorkspaces(opts);
+  const workspace = workspaces.find((entry) => entry.slug === opts.slug);
+
+  if (!workspace) {
+    throw new Error(`Workspace not found: ${opts.slug}`);
+  }
+
+  return requestJson("/api/w", opts, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ id: workspace.id }),
+  });
 }
 
 export async function getBundleMeta(opts: BundleRequestOptions): Promise<BundleMeta> {
