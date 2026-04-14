@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { PassThrough } = require("node:stream");
 
 function restoreEnv(name, previousValue) {
   if (previousValue === undefined) {
@@ -104,6 +105,47 @@ test("downloadBundleFile encodes the nested file path", async () => {
   }
 });
 
+test("deleteBundle sends bearer auth to the bundle delete endpoint", async () => {
+  const { deleteBundle } = require("../dist/lib/api-client.js");
+  const previousFetch = global.fetch;
+
+  global.fetch = async (url, init) => {
+    assert.equal(url, "https://eb.example.com/api/w/demo/bundles/bundle-1");
+    assert.equal(init.method, "DELETE");
+    assert.ok(init.headers instanceof Headers);
+    assert.equal(init.headers.get("Authorization"), "Bearer eb_write");
+    return new Response(null, { status: 204 });
+  };
+
+  try {
+    await deleteBundle({
+      url: "https://eb.example.com/",
+      apiKey: "eb_write",
+      workspace: "demo",
+      bundleId: "bundle-1",
+    });
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("confirmBundleDeletion accepts yes input", async () => {
+  const { confirmBundleDeletion } = require("../dist/commands/bundle.js");
+  const input = new PassThrough();
+  const output = new PassThrough();
+  let prompt = "";
+
+  output.on("data", (chunk) => {
+    prompt += chunk.toString("utf8");
+  });
+
+  const confirmation = confirmBundleDeletion("demo", "bundle-1", input, output);
+  input.end("yes\n");
+
+  assert.equal(await confirmation, true);
+  assert.equal(prompt, 'Delete bundle "bundle-1" from workspace "demo"? [y/N] ');
+});
+
 test("bundle tree command uses environment-backed server options and prints a tree", async () => {
   const previousUrl = process.env.EB_URL;
   const previousApiKey = process.env.EB_API_KEY;
@@ -137,6 +179,40 @@ test("bundle tree command uses environment-backed server options and prints a tr
   } finally {
     restoreEnv("EB_URL", previousUrl);
     restoreEnv("EB_API_KEY", previousApiKey);
+    global.fetch = previousFetch;
+    console.log = previousLog;
+  }
+});
+
+test("bundle delete command deletes immediately with --force", async () => {
+  const previousFetch = global.fetch;
+  const previousLog = console.log;
+  const lines = [];
+
+  console.log = (value) => lines.push(value);
+  global.fetch = async (url, init) => {
+    assert.equal(url, "https://eb.example.com/api/w/demo/bundles/bundle-1");
+    assert.equal(init.method, "DELETE");
+    return new Response(null, { status: 204 });
+  };
+
+  try {
+    const { createCli } = require("../dist/index.js");
+    await createCli().parseAsync([
+      "node",
+      "eb",
+      "bundle",
+      "delete",
+      "demo",
+      "bundle-1",
+      "--url",
+      "https://eb.example.com",
+      "--api-key",
+      "eb_write",
+      "--force",
+    ]);
+    assert.deepEqual(lines, ["Deleted bundle: bundle-1"]);
+  } finally {
     global.fetch = previousFetch;
     console.log = previousLog;
   }

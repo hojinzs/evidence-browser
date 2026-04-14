@@ -78,7 +78,11 @@ async function parseErrorResponse(res: Response): Promise<string> {
   return text;
 }
 
-async function requestJson<T>(apiPath: string, opts: ServerRequestOptions, init?: RequestInit): Promise<T> {
+async function request(
+  apiPath: string,
+  opts: ServerRequestOptions,
+  init?: RequestInit
+): Promise<Response> {
   const headers = new Headers(init?.headers);
   headers.set("Authorization", `Bearer ${opts.apiKey}`);
 
@@ -92,22 +96,29 @@ async function requestJson<T>(apiPath: string, opts: ServerRequestOptions, init?
     throw new Error(`Request failed (${res.status}): ${message}`);
   }
 
+  return res;
+}
+
+async function requestJson<T>(
+  apiPath: string,
+  opts: ServerRequestOptions,
+  init?: RequestInit
+): Promise<T> {
+  const res = await request(apiPath, opts, init);
   return res.json() as Promise<T>;
 }
 
 async function requestBuffer(apiPath: string, opts: ServerRequestOptions): Promise<Buffer> {
-  const res = await fetch(buildEndpoint(opts.url, apiPath), {
-    headers: {
-      Authorization: `Bearer ${opts.apiKey}`,
-    },
-  });
-
-  if (!res.ok) {
-    const message = await parseErrorResponse(res);
-    throw new Error(`Request failed (${res.status}): ${message}`);
-  }
-
+  const res = await request(apiPath, opts);
   return Buffer.from(await res.arrayBuffer());
+}
+
+async function requestVoid(
+  apiPath: string,
+  opts: ServerRequestOptions,
+  init?: RequestInit
+): Promise<void> {
+  await request(apiPath, opts, init);
 }
 
 export async function uploadBundle(opts: UploadOptions): Promise<UploadResult> {
@@ -161,6 +172,14 @@ export async function getBundleTree(opts: BundleRequestOptions): Promise<{ tree:
   return requestJson(
     `/api/w/${encodeURIComponent(opts.workspace)}/bundles/${encodeURIComponent(opts.bundleId)}/tree`,
     opts
+  );
+}
+
+export async function deleteBundle(opts: BundleRequestOptions): Promise<void> {
+  await requestVoid(
+    `/api/w/${encodeURIComponent(opts.workspace)}/bundles/${encodeURIComponent(opts.bundleId)}`,
+    opts,
+    { method: "DELETE" }
   );
 }
 
