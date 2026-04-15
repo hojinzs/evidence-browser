@@ -112,15 +112,15 @@ Example: `20260410-1430-feat-bundle-upload-attempt1`
 {
   "version": 1,
   "title": "QA Run: {session}",
-  "indexFile": "index.md"
+  "index": "index.md"
 }
 ```
 
-Schema authority: `src/lib/bundle/extractor.ts::validateBundleZip`. If this manifest doesn't validate there, the upload returns 400.
+Schema authority: `packages/shared/src/bundle/validate-zip.ts::validateBundleZip`. Both runtime extractor modules re-export that shared validator, so the schema SSOT lives in `packages/shared`.
 
 ## Upload API contract
 
-`POST /api/w/{ws}/bundle` (see `src/app/api/w/[ws]/bundle/route.ts`)
+`POST /api/w/{ws}/bundle` (served by the current local app in `packages/legacy`; `packages/api/src/routes/bundle.ts` mirrors the same contract for the extracted API package)
 
 - **Auth**: admin session cookie required (`requireAdminFromRequest`)
 - **Body**: multipart form data
@@ -131,9 +131,9 @@ Schema authority: `src/lib/bundle/extractor.ts::validateBundleZip`. If this mani
 
 ### Canonical upload interface: `/evidence-upload` skill
 
-Agents **must** upload through the `/evidence-upload` skill (`.claude/skills/evidence-upload/SKILL.md`), not by calling the script directly. The skill currently wraps `scripts/qa-evidence-upload.ts`, which handles login + ZIP + POST in one step.
+Agents **must** upload through the `/evidence-upload` skill (`.claude/skills/evidence-upload/SKILL.md`), not by calling the script directly. The skill currently wraps `packages/legacy/scripts/qa-evidence-upload.ts`, which handles login + ZIP + POST in one step against the local legacy app.
 
-**Why the skill layer**: `scripts/qa-evidence-upload.ts` is the **precursor implementation** of the future `eb bundle create` + `eb bundle upload` commands defined in `docs/CLI.md`. When the `eb` CLI lands:
+**Why the skill layer**: `packages/legacy/scripts/qa-evidence-upload.ts` is the **precursor implementation** of the future `eb bundle create` + `eb bundle upload` commands defined in `docs/CLI.md`. When the `eb` CLI lands:
 
 - The script can be replaced with a thin call to `eb`
 - The skill interface (`/evidence-upload <dir>`) stays stable
@@ -162,7 +162,7 @@ loop:
   qa-engineer.runAttempt(attempt)
     → build .evidence/{session}/ where session includes "attempt{N}"
     → run TCs + edge cases
-    → upload via scripts/qa-evidence-upload.ts
+    → upload via packages/legacy/scripts/qa-evidence-upload.ts
     → open uploaded bundle URL via Playwright MCP
     → verify render
 
@@ -214,9 +214,10 @@ If any pre-condition is missing, the agent should fail fast and tell the user ra
 ## References
 
 - `.claude/agents/*.md` — agent specs
-- `scripts/qa-evidence-upload.ts` — upload helper
-- `src/lib/bundle/extractor.ts` — manifest schema authority
-- `src/app/api/w/[ws]/bundle/route.ts` — upload API contract
+- `packages/legacy/scripts/qa-evidence-upload.ts` — current upload helper used by the skill
+- `packages/shared/src/bundle/validate-zip.ts` — manifest schema authority
+- legacy Next.js upload route for `POST /api/w/{ws}/bundle` in `packages/legacy` — current local upload API contract
+- `packages/api/src/routes/bundle.ts` — extracted API-package upload contract mirror
 - `docs/DESIGN_GUIDE.md` — frontend SSOT
-- `playwright.config.ts` — existing E2E patterns
+- `packages/legacy/playwright.config.ts` — existing E2E patterns
 - `/home/hojinzs/.claude/plans/snoopy-wobbling-brooks.md` — original team setup plan
