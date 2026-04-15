@@ -54,6 +54,7 @@ function patchWorkspace(
 
 describe("workspace routes", () => {
   beforeEach(() => {
+    testDb = createTestDb();
     vi.clearAllMocks();
   });
 
@@ -134,5 +135,24 @@ describe("workspace routes", () => {
     expect(stored).toBeDefined();
     expect(stored!.name).toBe("Updated Infrastructure");
     expect(stored!.description).toBe("Updated description");
+  });
+
+  it("supports partial updates", async () => {
+    const { workspace, adminKey } = await setup();
+    const app = createTestApp();
+
+    const res = await patchWorkspace(
+      app,
+      workspace.id,
+      { name: "Renamed only" },
+      `Bearer ${adminKey}`
+    );
+
+    expect(res.status).toBe(200);
+    const payload = (await res.json()) as { workspace: { name: string; description: string } };
+    expect(payload.workspace).toMatchObject({
+      name: "Renamed only",
+      description: "Old description",
+    });
   });
 });

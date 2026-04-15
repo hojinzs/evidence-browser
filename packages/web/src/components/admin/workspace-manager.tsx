@@ -123,13 +123,23 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
                   <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleStartEdit(workspace)} aria-label={`Edit ${workspace.name}`}>
                     <Pencil className="size-4" />
                   </Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => handleDelete(workspace.id)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(workspace.id)}
+                    aria-label={`Delete ${workspace.name}`}
+                  >
                     <Trash2 className="size-4 text-destructive" />
                   </Button>
                 </div>
               </div>
               {editingId === workspace.id && (
-                <form onSubmit={(e) => void handleUpdate(e, workspace.id)} className="border-t border-border bg-white/2 px-4 py-4">
+                <form
+                  onSubmit={(e) => void handleUpdate(e, workspace.id)}
+                  className="border-t border-border bg-white/2 px-4 py-4"
+                  aria-label={`${workspace.name} workspace settings`}
+                >
                   <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
                     <Input
                       value={editName}

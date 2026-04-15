@@ -4,7 +4,6 @@ import {
   listWorkspacesWithBundleCount,
   createWorkspace,
   findWorkspaceBySlug,
-  findWorkspaceById,
   deleteWorkspace,
   updateWorkspace,
 } from "@/lib/db/workspaces";
@@ -75,13 +74,15 @@ workspace.patch("/:id", requireAdmin, async (c) => {
     updates.description = description;
   }
 
-  const updated = updateWorkspace(c.req.param("id"), updates);
-  if (!updated) return c.json({ error: "Workspace not found" }, 404);
+  const result = updateWorkspace(c.req.param("id"), updates);
+  if (result.status === "not_found") {
+    return c.json({ error: "Workspace not found" }, 404);
+  }
+  if (result.status === "no_fields") {
+    return c.json({ error: "At least one of name or description is required" }, 400);
+  }
 
-  const workspace = findWorkspaceById(c.req.param("id"));
-  if (!workspace) return c.json({ error: "Workspace not found" }, 404);
-
-  return c.json({ workspace });
+  return c.json({ workspace: result.workspace });
 });
 
 export const workspaceRoutes = workspace;

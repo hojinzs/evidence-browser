@@ -83,7 +83,14 @@ describe("workspaces DAO", () => {
   it("updates workspace", () => {
     const ws = createWorkspace("upd", "Old", "Old desc", userId);
     const updated = updateWorkspace(ws.id, { name: "New", description: "New desc" });
-    expect(updated).toBe(true);
+    expect(updated).toMatchObject({
+      status: "updated",
+      workspace: {
+        id: ws.id,
+        name: "New",
+        description: "New desc",
+      },
+    });
 
     const found = findWorkspaceById(ws.id);
     expect(found!.name).toBe("New");
@@ -94,14 +101,14 @@ describe("workspaces DAO", () => {
     const ws = createWorkspace("partial", "Original", "Original desc", userId);
 
     const renamed = updateWorkspace(ws.id, { name: "Renamed" });
-    expect(renamed).toBe(true);
+    expect(renamed).toMatchObject({ status: "updated" });
     expect(findWorkspaceById(ws.id)).toMatchObject({
       name: "Renamed",
       description: "Original desc",
     });
 
     const described = updateWorkspace(ws.id, { description: "" });
-    expect(described).toBe(true);
+    expect(described).toMatchObject({ status: "updated" });
     expect(findWorkspaceById(ws.id)).toMatchObject({
       name: "Renamed",
       description: "",
@@ -112,10 +119,16 @@ describe("workspaces DAO", () => {
     const ws = createWorkspace("noop", "Noop", "No changes", userId);
 
     const updated = updateWorkspace(ws.id, {});
-    expect(updated).toBe(false);
+    expect(updated).toEqual({ status: "no_fields" });
     expect(findWorkspaceById(ws.id)).toMatchObject({
       name: "Noop",
       description: "No changes",
+    });
+  });
+
+  it("reports missing workspaces distinctly", () => {
+    expect(updateWorkspace("missing-id", { name: "Renamed" })).toEqual({
+      status: "not_found",
     });
   });
 

@@ -60,7 +60,7 @@ export function listWorkspacesWithBundleCount(): WorkspaceWithBundleCount[] {
 export function updateWorkspace(
   id: string,
   data: { name?: string; description?: string }
-): boolean {
+): { status: "updated"; workspace: Workspace } | { status: "not_found" } | { status: "no_fields" } {
   const fields: string[] = [];
   const values: unknown[] = [];
 
@@ -72,16 +72,17 @@ export function updateWorkspace(
     fields.push("description = ?");
     values.push(data.description);
   }
-  if (fields.length === 0) return false;
+  if (fields.length === 0) return { status: "no_fields" };
 
   fields.push("updated_at = datetime('now')");
   values.push(id);
 
   const stmt = db().prepare(
-    `UPDATE workspaces SET ${fields.join(", ")} WHERE id = ?`
+    `UPDATE workspaces SET ${fields.join(", ")} WHERE id = ? RETURNING *`
   );
-  const result = stmt.run(...values);
-  return result.changes > 0;
+  const workspace = stmt.get(...values) as Workspace | undefined;
+  if (!workspace) return { status: "not_found" };
+  return { status: "updated", workspace };
 }
 
 export function deleteWorkspace(id: string): boolean {
