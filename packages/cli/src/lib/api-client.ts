@@ -191,35 +191,28 @@ export async function listWorkspaces(
 export async function createWorkspace(
   opts: WorkspaceCreateOptions
 ): Promise<{ workspace: WorkspaceSummary }> {
+  const body: { slug: string; name: string; description?: string } = {
+    slug: opts.slug,
+    name: opts.name,
+  };
+  if (opts.description !== undefined) {
+    body.description = opts.description;
+  }
+
   return requestJson("/api/w", opts, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      slug: opts.slug,
-      name: opts.name,
-      description: opts.description ?? "",
-    }),
+    body: JSON.stringify(body),
   });
 }
 
 export async function deleteWorkspace(
   opts: WorkspaceDeleteOptions
 ): Promise<{ success: true }> {
-  const { workspaces } = await listWorkspaces(opts);
-  const workspace = workspaces.find((entry) => entry.slug === opts.slug);
-
-  if (!workspace) {
-    throw new Error(`Workspace not found: ${opts.slug}`);
-  }
-
-  return requestJson("/api/w", opts, {
+  return requestJson(`/api/w/${encodeURIComponent(opts.slug)}`, opts, {
     method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ id: workspace.id }),
   });
 }
 

@@ -90,3 +90,9 @@ export function deleteWorkspace(id: string): boolean {
   const result = stmt.run(id);
   return result.changes > 0;
 }
+
+export function deleteWorkspaceBySlug(slug: string): boolean {
+  const stmt = db().prepare(`DELETE FROM workspaces WHERE slug = ?`);
+  const result = stmt.run(slug);
+  return result.changes > 0;
+}
