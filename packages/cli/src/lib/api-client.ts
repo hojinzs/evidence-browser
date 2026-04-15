@@ -18,6 +18,17 @@ export interface BundleSummary {
   uploader_username: string;
 }
 
+export interface WorkspaceSummary {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  bundle_count?: number;
+}
+
 export interface TreeNode {
   name: string;
   type: "file" | "directory";
@@ -54,6 +65,16 @@ export interface BundleRequestOptions extends ServerRequestOptions {
 
 export interface BundleFileRequestOptions extends BundleRequestOptions {
   filePath: string;
+}
+
+export interface WorkspaceCreateOptions extends ServerRequestOptions {
+  slug: string;
+  name: string;
+  description?: string;
+}
+
+export interface WorkspaceDeleteOptions extends ServerRequestOptions {
+  slug: string;
 }
 
 function buildEndpoint(baseUrl: string, apiPath: string): string {
@@ -159,6 +180,40 @@ export async function listBundles(
   opts: ServerRequestOptions & { workspace: string }
 ): Promise<{ bundles: BundleSummary[] }> {
   return requestJson(`/api/w/${encodeURIComponent(opts.workspace)}/bundle`, opts);
+}
+
+export async function listWorkspaces(
+  opts: ServerRequestOptions
+): Promise<{ workspaces: WorkspaceSummary[] }> {
+  return requestJson("/api/w", opts);
+}
+
+export async function createWorkspace(
+  opts: WorkspaceCreateOptions
+): Promise<{ workspace: WorkspaceSummary }> {
+  const body: { slug: string; name: string; description?: string } = {
+    slug: opts.slug,
+    name: opts.name,
+  };
+  if (opts.description !== undefined) {
+    body.description = opts.description;
+  }
+
+  return requestJson("/api/w", opts, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteWorkspace(
+  opts: WorkspaceDeleteOptions
+): Promise<{ success: true }> {
+  return requestJson(`/api/w/${encodeURIComponent(opts.slug)}`, opts, {
+    method: "DELETE",
+  });
 }
 
 export async function getBundleMeta(opts: BundleRequestOptions): Promise<BundleMeta> {

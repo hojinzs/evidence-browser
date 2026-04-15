@@ -29,6 +29,7 @@ import {
   listWorkspacesWithBundleCount,
   updateWorkspace,
   deleteWorkspace,
+  deleteWorkspaceBySlug,
 } from "./workspaces";
 
 describe("workspaces DAO", () => {
@@ -135,6 +136,15 @@ describe("workspaces DAO", () => {
   it("deletes workspace", () => {
     const ws = createWorkspace("del", "Del", "", userId);
     const deleted = deleteWorkspace(ws.id);
+    expect(deleted).toBe(true);
+
+    const found = findWorkspaceById(ws.id);
+    expect(found).toBeUndefined();
+  });
+
+  it("deletes workspace by slug", () => {
+    const ws = createWorkspace("slug-del", "Slug Del", "", userId);
+    const deleted = deleteWorkspaceBySlug("slug-del");
     expect(deleted).toBe(true);
 
     const found = findWorkspaceById(ws.id);
