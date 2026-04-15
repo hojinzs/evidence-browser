@@ -1,8 +1,8 @@
 ---
 name: evidence-upload
-description: Package a .evidence/{session}/ directory into a ZIP, log in as the QA admin, upload it to the local Evidence Browser instance via POST /api/w/{ws}/bundle, and return the bundle URL. Use this whenever an agent (or user) needs to surface test artifacts, QA runs, debug screenshots, or any structured evidence through Evidence Browser's own viewer. This is the canonical upload interface for the project — do NOT call scripts/qa-evidence-upload.ts directly; go through this skill so pre-conditions, session-ID rules, and manifest validation stay in one place.
+description: Package a .evidence/{session}/ directory into a ZIP, log in as the QA admin, upload it to the local Evidence Browser instance via POST /api/w/{ws}/bundle, and return the bundle URL. Use this whenever an agent (or user) needs to surface test artifacts, QA runs, debug screenshots, or any structured evidence through Evidence Browser's own viewer. This is the canonical upload interface for the project — do NOT call `packages/legacy/scripts/qa-evidence-upload.ts` directly; go through this skill so pre-conditions, session-ID rules, and manifest validation stay in one place.
 argument-hint: <path-to-.evidence/session-dir>
-allowed-tools: Bash(npx tsx scripts/qa-evidence-upload.ts:*), Read
+allowed-tools: Bash(npx tsx packages/legacy/scripts/qa-evidence-upload.ts:*), Read
 ---
 
 # /evidence-upload
@@ -28,7 +28,7 @@ Upload a prepared `.evidence/{session}/` directory to the local Evidence Browser
    - `QA_ADMIN_USERNAME` (required — matches `POST /api/auth/login { username }`)
    - `QA_ADMIN_PASSWORD` (required)
 4. **`.evidence/{session}/` directory exists** and contains at minimum:
-   - `manifest.json` — `{ "version": 1, "title": "...", "index": "index.md" }` (validated per `src/lib/bundle/extractor.ts`)
+   - `manifest.json` — `{ "version": 1, "title": "...", "index": "index.md" }` (validated by `packages/shared/src/bundle/validate-zip.ts`, re-exported from both runtime extractors)
    - `index.md` — landing page
 
 ## Session ID / bundleId rules
@@ -42,7 +42,7 @@ Recommended format: `{YYYYMMDD-HHmm}-{branch-slug}-attempt{N}` — e.g. `2026041
 Run exactly this command from the project root, replacing `$ARGUMENTS` with the path to the session directory:
 
 ```bash
-npx tsx scripts/qa-evidence-upload.ts $ARGUMENTS
+npx tsx packages/legacy/scripts/qa-evidence-upload.ts $ARGUMENTS
 ```
 
 The script:
@@ -68,7 +68,7 @@ On success, parse `bundleUrl` from stdout and return it to the caller. On non-ze
 **Failure (exit 1)** — stderr contains `[qa-evidence-upload] <reason>`. Common causes:
 - `Login failed: 401` → wrong `QA_ADMIN_USERNAME`/`QA_ADMIN_PASSWORD`, or admin account not seeded yet
 - `Upload failed: 403` → admin role missing on the account
-- `Upload failed: 400 — 번들 검증 실패` → `manifest.json` schema invalid; run `src/lib/bundle/extractor.ts::validateBundleZip` locally to see the specific field
+- `Upload failed: 400 — 번들 검증 실패` → `manifest.json` schema invalid; run `packages/shared/src/bundle/validate-zip.ts::validateBundleZip` locally to see the specific field
 - `Missing required file: manifest.json` → session dir is incomplete
 - `fetch failed` → server not running
 
@@ -78,7 +78,7 @@ On success, parse `bundleUrl` from stdout and return it to the caller. On non-ze
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `Login response did not include a set-cookie header` | Login succeeded but cookie format changed | Check `src/lib/auth/index.ts::SESSION_COOKIE_NAME` still equals `evidence_session` |
+| `Login response did not include a set-cookie header` | Login succeeded but cookie format changed | Check `packages/legacy/src/lib/auth/index.ts::SESSION_COOKIE_NAME` still equals `evidence_session` |
 | `Invalid session ID "..." : must not contain '/'` | Session dir name has slashes | Rename per the session ID format above |
 | `Upload failed: 413` | ZIP exceeds `MAX_BUNDLE_SIZE` | Trim the session dir (drop oversized logs/screenshots) or raise the env cap |
 | `ENOENT` on archiver | `archiver` not installed | Already in devDependencies; run `npm install` |
@@ -86,7 +86,7 @@ On success, parse `bundleUrl` from stdout and return it to the caller. On non-ze
 ## Relationship to the future `eb` CLI
 
 This skill is the **precursor** to the planned `eb bundle create` + `eb bundle upload` commands defined in `docs/CLI.md`. When the `eb` CLI lands:
-- The underlying script `scripts/qa-evidence-upload.ts` can be replaced with a thin call to `eb bundle create` + `eb bundle upload`
+- The underlying script `packages/legacy/scripts/qa-evidence-upload.ts` can be replaced with a thin call to `eb bundle create` + `eb bundle upload`
 - **This SKILL.md stays as the stable interface** — agents and users continue to call `/evidence-upload`
 - Only the implementation behind it swaps out
 
@@ -94,8 +94,8 @@ This is why agents must route through the skill rather than calling the script d
 
 ## References
 
-- `scripts/qa-evidence-upload.ts` — current implementation
-- `src/app/api/w/[ws]/bundle/route.ts` — upload API contract (size cap, bundleId rules, admin auth)
-- `src/lib/bundle/extractor.ts::validateBundleZip` — manifest schema authority
+- `packages/legacy/scripts/qa-evidence-upload.ts` — current implementation
+- `packages/legacy/src/app/api/w/[ws]/bundle/route.ts` — current upload API contract (size cap, bundleId rules, admin auth)
+- `packages/shared/src/bundle/validate-zip.ts::validateBundleZip` — manifest schema authority
 - `docs/TEAM_WORKFLOW.md` — session ID format, recursive loop spec
 - `docs/CLI.md` — future `eb` CLI spec this skill will eventually wrap
