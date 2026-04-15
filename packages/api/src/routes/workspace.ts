@@ -5,12 +5,22 @@ import {
   createWorkspace,
   findWorkspaceBySlug,
   deleteWorkspace,
+  deleteWorkspaceBySlug,
 } from "@/lib/db/workspaces";
 
 const workspace = new Hono<{ Variables: AppVariables }>();
 
 workspace.get("/", authenticate, (c) => {
   return c.json({ workspaces: listWorkspacesWithBundleCount() });
+});
+
+workspace.get("/:slug", authenticate, (c) => {
+  const workspace = findWorkspaceBySlug(c.req.param("slug"));
+  if (!workspace) {
+    return c.json({ error: "Workspace not found" }, 404);
+  }
+
+  return c.json({ workspace });
 });
 
 workspace.post("/", requireAdmin, async (c) => {
@@ -38,6 +48,15 @@ workspace.delete("/", requireAdmin, async (c) => {
 
   const deleted = deleteWorkspace(body.id);
   if (!deleted) return c.json({ error: "Workspace not found" }, 404);
+  return c.json({ success: true });
+});
+
+workspace.delete("/:slug", requireAdmin, (c) => {
+  const deleted = deleteWorkspaceBySlug(c.req.param("slug"));
+  if (!deleted) {
+    return c.json({ error: "Workspace not found" }, 404);
+  }
+
   return c.json({ success: true });
 });
 
