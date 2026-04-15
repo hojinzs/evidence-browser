@@ -1,5 +1,7 @@
 import { Command } from "commander";
+import type { Readable, Writable } from "stream";
 import {
+  deleteBundle,
   downloadBundleFile,
   getBundleMeta,
   getBundleTree,
@@ -10,6 +12,7 @@ import { addServerOptions, resolveServerOptions, type ServerOptionsInput } from 
 
 interface BundleCommandOptions extends ServerOptionsInput {
   file?: string;
+  force?: boolean;
 }
 
 function printJson(value: unknown): void {
@@ -34,6 +37,38 @@ function formatTree(nodes: TreeNode[], prefix = ""): string[] {
 function handleCommandError(err: unknown): never {
   console.error(err instanceof Error ? err.message : String(err));
   process.exit(1);
+}
+
+export async function confirmBundleDeletion(
+  workspace: string,
+  bundleId: string,
+  input: Readable = process.stdin,
+  output: Writable = process.stdout
+): Promise<boolean> {
+  output.write(`Delete bundle "${bundleId}" from workspace "${workspace}"? [y/N] `);
+  input.setEncoding("utf8");
+  input.resume();
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      input.off("data", onData);
+      input.off("end", onEnd);
+    };
+
+    const onData = (chunk: string | Buffer) => {
+      cleanup();
+      const answer = String(chunk).trim().toLowerCase();
+      resolve(answer === "y" || answer === "yes");
+    };
+
+    const onEnd = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    input.once("data", onData);
+    input.once("end", onEnd);
+  });
 }
 
 export function registerBundle(program: Command): void {
@@ -101,6 +136,30 @@ export function registerBundle(program: Command): void {
         filePath: opts.file!,
       });
       process.stdout.write(result.content);
+    } catch (err) {
+      handleCommandError(err);
+    }
+  });
+
+  addServerOptions(
+    bundle
+      .command("delete <workspace> <bundleId>")
+      .description("Delete a bundle from a workspace")
+      .option("--force", "Skip confirmation prompt")
+  ).action(async (workspace: string, bundleId: string, opts: BundleCommandOptions) => {
+    try {
+      const server = resolveServerOptions(opts);
+
+      if (!opts.force) {
+        const confirmed = await confirmBundleDeletion(workspace, bundleId);
+        if (!confirmed) {
+          console.log("Deletion cancelled.");
+          return;
+        }
+      }
+
+      await deleteBundle({ ...server, workspace, bundleId });
+      console.log(`Deleted bundle: ${bundleId}`);
     } catch (err) {
       handleCommandError(err);
     }
