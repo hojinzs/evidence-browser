@@ -29,6 +29,23 @@ export interface WorkspaceSummary {
   bundle_count?: number;
 }
 
+export type ApiKeyScope = "read" | "upload" | "admin";
+
+export interface ApiKeySummary {
+  id: string;
+  name: string;
+  key_prefix: string;
+  user_id: string;
+  scope: ApiKeyScope;
+  expires_at: string | null;
+  last_used_at: string | null;
+  created_at: string;
+}
+
+export interface AdminApiKeySummary extends ApiKeySummary {
+  username: string;
+}
+
 export interface TreeNode {
   name: string;
   type: "file" | "directory";
@@ -81,6 +98,11 @@ export interface WorkspaceUpdateOptions extends ServerRequestOptions {
   slug: string;
   name?: string;
   description?: string;
+}
+
+export interface ApiKeyCreateOptions extends ServerRequestOptions {
+  name: string;
+  scope: ApiKeyScope;
 }
 
 function buildEndpoint(baseUrl: string, apiPath: string): string {
@@ -244,6 +266,41 @@ export async function updateWorkspace(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
+  });
+}
+
+export async function listApiKeys(
+  opts: ServerRequestOptions
+): Promise<{ keys: ApiKeySummary[] }> {
+  return requestJson("/api/api-keys", opts);
+}
+
+export async function listAdminApiKeys(
+  opts: ServerRequestOptions
+): Promise<{ keys: AdminApiKeySummary[] }> {
+  return requestJson("/api/admin/api-keys", opts);
+}
+
+export async function createApiKey(
+  opts: ApiKeyCreateOptions
+): Promise<{ key: string; record: ApiKeySummary }> {
+  return requestJson("/api/api-keys", opts, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: opts.name,
+      scope: opts.scope,
+    }),
+  });
+}
+
+export async function deleteApiKey(
+  opts: ServerRequestOptions & { keyId: string }
+): Promise<void> {
+  await requestVoid(`/api/api-keys/${encodeURIComponent(opts.keyId)}`, opts, {
+    method: "DELETE",
   });
 }
 

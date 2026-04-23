@@ -14,8 +14,8 @@ This project uses a Claude Code sub-agent team. Do not try to do everything from
 | Agent | When to use |
 |-------|-------------|
 | `tech-lead` | First touch for any non-trivial request. Triages, decomposes, and dispatches to specialists. |
-| `backend-engineer` | `src/app/api/**`, `src/lib/**` (except UI), DB, auth, storage, MCP, bundle pipeline, scripts. Uses `/codex:rescue`. |
-| `frontend-engineer` | `src/app/**/page.tsx`, `src/app/**/layout.tsx`, `src/components/**`, `globals.css`, Tailwind, Figma. Uses `/frontend-design` with `docs/DESIGN_GUIDE.md` as the SSOT. |
+| `backend-engineer` | `packages/api/src/routes/**`, `packages/api/src/lib/**`, `packages/shared/src/**` for shared bundle/upload logic, plus legacy upload flow files in `packages/legacy/src/app/api/**` and `packages/legacy/scripts/**`. Uses `/codex:rescue`. |
+| `frontend-engineer` | `packages/web/src/**` for the SPA, plus legacy Next.js UI files in `packages/legacy/src/app/**`, `packages/legacy/src/components/**`, and `packages/legacy/src/app/globals.css`. Uses `/frontend-design` with `docs/DESIGN_GUIDE.md` as the SSOT. |
 | `code-reviewer` | Independent diff review + security checklist between implementation and QA. |
 | `qa-engineer` | Test case design, Playwright MCP browser tests, `.evidence/{session}/` bundle, upload to local Evidence Browser, recursive verification (max 3 attempts). |
 | `release-notes-writer` | AGENTS.md / README / CHANGELOG after a team cycle completes. |

@@ -269,6 +269,119 @@ test("updateWorkspace sends JSON to the workspace patch endpoint", async () => {
   }
 });
 
+test("listApiKeys sends bearer auth to the user API key endpoint", async () => {
+  const { listApiKeys } = require("../dist/lib/api-client.js");
+  const previousFetch = global.fetch;
+
+  global.fetch = async (url, init) => {
+    assert.equal(url, "https://eb.example.com/api/api-keys");
+    assert.ok(init.headers instanceof Headers);
+    assert.equal(init.headers.get("Authorization"), "Bearer eb_read");
+    return new Response(JSON.stringify({ keys: [{ id: "key_1", scope: "read" }] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const result = await listApiKeys({
+      url: "https://eb.example.com/",
+      apiKey: "eb_read",
+    });
+    assert.deepEqual(result, { keys: [{ id: "key_1", scope: "read" }] });
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("listAdminApiKeys sends bearer auth to the admin API key endpoint", async () => {
+  const { listAdminApiKeys } = require("../dist/lib/api-client.js");
+  const previousFetch = global.fetch;
+
+  global.fetch = async (url, init) => {
+    assert.equal(url, "https://eb.example.com/api/admin/api-keys");
+    assert.ok(init.headers instanceof Headers);
+    assert.equal(init.headers.get("Authorization"), "Bearer eb_admin");
+    return new Response(JSON.stringify({ keys: [{ id: "key_1", username: "admin" }] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const result = await listAdminApiKeys({
+      url: "https://eb.example.com",
+      apiKey: "eb_admin",
+    });
+    assert.deepEqual(result, { keys: [{ id: "key_1", username: "admin" }] });
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("createApiKey sends JSON to the API key endpoint", async () => {
+  const { createApiKey } = require("../dist/lib/api-client.js");
+  const previousFetch = global.fetch;
+
+  global.fetch = async (url, init) => {
+    assert.equal(url, "https://eb.example.com/api/api-keys");
+    assert.equal(init.method, "POST");
+    assert.ok(init.headers instanceof Headers);
+    assert.equal(init.headers.get("Authorization"), "Bearer eb_upload");
+    assert.equal(init.headers.get("Content-Type"), "application/json");
+    assert.deepEqual(JSON.parse(init.body), {
+      name: "CI Upload",
+      scope: "upload",
+    });
+
+    return new Response(JSON.stringify({
+      key: "eb_secret",
+      record: { id: "key_1", name: "CI Upload", scope: "upload" },
+    }), {
+      status: 201,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const result = await createApiKey({
+      url: "https://eb.example.com",
+      apiKey: "eb_upload",
+      name: "CI Upload",
+      scope: "upload",
+    });
+    assert.deepEqual(result, {
+      key: "eb_secret",
+      record: { id: "key_1", name: "CI Upload", scope: "upload" },
+    });
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("deleteApiKey sends a delete request for the API key id", async () => {
+  const { deleteApiKey } = require("../dist/lib/api-client.js");
+  const previousFetch = global.fetch;
+
+  global.fetch = async (url, init = {}) => {
+    assert.equal(url, "https://eb.example.com/api/api-keys/key_1");
+    assert.equal(init.method, "DELETE");
+    assert.ok(init.headers instanceof Headers);
+    assert.equal(init.headers.get("Authorization"), "Bearer eb_admin");
+    return new Response(null, { status: 204 });
+  };
+
+  try {
+    await deleteApiKey({
+      url: "https://eb.example.com",
+      apiKey: "eb_admin",
+      keyId: "key_1",
+    });
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
 test("downloadBundleFile encodes the nested file path", async () => {
   const { downloadBundleFile } = require("../dist/lib/api-client.js");
   const previousFetch = global.fetch;
@@ -701,6 +814,145 @@ test("workspace delete command supports --force", async () => {
   } finally {
     restoreEnv("EB_URL", previousUrl);
     restoreEnv("EB_API_KEY", previousApiKey);
+    global.fetch = previousFetch;
+    console.log = previousLog;
+  }
+});
+
+test("api-key list command supports --admin", async () => {
+  const previousFetch = global.fetch;
+  const previousLog = console.log;
+  const lines = [];
+
+  console.log = (value) => lines.push(value);
+  global.fetch = async (url, init) => {
+    assert.equal(url, "https://eb.example.com/api/admin/api-keys");
+    assert.ok(init.headers instanceof Headers);
+    assert.equal(init.headers.get("Authorization"), "Bearer eb_admin");
+
+    return new Response(
+      JSON.stringify({
+        keys: [{ id: "key_1", username: "admin", scope: "admin" }],
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  };
+
+  try {
+    const { createCli } = require("../dist/index.js");
+    await createCli().parseAsync([
+      "node",
+      "eb",
+      "api-key",
+      "list",
+      "--admin",
+      "--url",
+      "https://eb.example.com",
+      "--api-key",
+      "eb_admin",
+    ]);
+    assert.deepEqual(lines, [
+      JSON.stringify([{ id: "key_1", username: "admin", scope: "admin" }], null, 2),
+    ]);
+  } finally {
+    global.fetch = previousFetch;
+    console.log = previousLog;
+  }
+});
+
+test("api-key create command uses environment-backed server options and prints the created key", async () => {
+  const previousUrl = process.env.EB_URL;
+  const previousApiKey = process.env.EB_API_KEY;
+  const previousFetch = global.fetch;
+  const previousLog = console.log;
+
+  process.env.EB_URL = "https://eb.example.com";
+  process.env.EB_API_KEY = "eb_admin";
+
+  const lines = [];
+  console.log = (value) => lines.push(value);
+  global.fetch = async (_url, init) => {
+    assert.deepEqual(JSON.parse(init.body), {
+      name: "CI Upload",
+      scope: "upload",
+    });
+
+    return new Response(
+      JSON.stringify({
+        key: "eb_secret",
+        record: {
+          id: "key_1",
+          name: "CI Upload",
+          scope: "upload",
+        },
+      }),
+      { status: 201, headers: { "Content-Type": "application/json" } }
+    );
+  };
+
+  try {
+    const { createCli } = require("../dist/index.js");
+    await createCli().parseAsync([
+      "node",
+      "eb",
+      "api-key",
+      "create",
+      "CI Upload",
+      "--scope",
+      "upload",
+    ]);
+    assert.deepEqual(lines, [
+      JSON.stringify(
+        {
+          key: "eb_secret",
+          record: {
+            id: "key_1",
+            name: "CI Upload",
+            scope: "upload",
+          },
+        },
+        null,
+        2
+      ),
+    ]);
+  } finally {
+    restoreEnv("EB_URL", previousUrl);
+    restoreEnv("EB_API_KEY", previousApiKey);
+    global.fetch = previousFetch;
+    console.log = previousLog;
+  }
+});
+
+test("api-key delete command prints a success message", async () => {
+  const previousFetch = global.fetch;
+  const previousLog = console.log;
+  const lines = [];
+
+  console.log = (value) => lines.push(value);
+  global.fetch = async (url, init = {}) => {
+    assert.equal(url, "https://eb.example.com/api/api-keys/key_1");
+    assert.equal(init.method, "DELETE");
+    return new Response(null, { status: 204 });
+  };
+
+  try {
+    const { createCli } = require("../dist/index.js");
+    await createCli().parseAsync([
+      "node",
+      "eb",
+      "api-key",
+      "delete",
+      "key_1",
+      "--url",
+      "https://eb.example.com",
+      "--api-key",
+      "eb_admin",
+    ]);
+    assert.deepEqual(lines, ["Deleted API key: key_1"]);
+  } finally {
     global.fetch = previousFetch;
     console.log = previousLog;
   }
