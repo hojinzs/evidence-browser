@@ -196,6 +196,79 @@ test("deleteWorkspace sends a direct delete request for the workspace slug", asy
   }
 });
 
+test("updateWorkspace sends JSON to the workspace patch endpoint", async () => {
+  const { updateWorkspace } = require("../dist/lib/api-client.js");
+  const previousFetch = global.fetch;
+  const requests = [];
+
+  global.fetch = async (url, init) => {
+    requests.push(url);
+
+    if (url === "https://eb.example.com/api/w/demo") {
+      assert.ok(init.headers instanceof Headers);
+      assert.equal(init.headers.get("Authorization"), "Bearer eb_admin");
+      return new Response(
+        JSON.stringify({
+          workspace: {
+            id: "ws_1",
+            slug: "demo",
+            name: "Demo Workspace",
+            description: "Old description",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    assert.equal(url, "https://eb.example.com/api/w/ws_1");
+    assert.equal(init.method, "PATCH");
+    assert.ok(init.headers instanceof Headers);
+    assert.equal(init.headers.get("Authorization"), "Bearer eb_admin");
+    assert.equal(init.headers.get("Content-Type"), "application/json");
+    assert.deepEqual(JSON.parse(init.body), {
+      name: "Updated Workspace",
+      description: "Updated description",
+    });
+
+    return new Response(
+      JSON.stringify({
+        workspace: {
+          id: "ws_1",
+          slug: "demo",
+          name: "Updated Workspace",
+          description: "Updated description",
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  };
+
+  try {
+    const result = await updateWorkspace({
+      url: "https://eb.example.com",
+      apiKey: "eb_admin",
+      slug: "demo",
+      name: "Updated Workspace",
+      description: "Updated description",
+    });
+
+    assert.deepEqual(result, {
+      workspace: {
+        id: "ws_1",
+        slug: "demo",
+        name: "Updated Workspace",
+        description: "Updated description",
+      },
+    });
+    assert.deepEqual(requests, [
+      "https://eb.example.com/api/w/demo",
+      "https://eb.example.com/api/w/ws_1",
+    ]);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
 test("listApiKeys sends bearer auth to the user API key endpoint", async () => {
   const { listApiKeys } = require("../dist/lib/api-client.js");
   const previousFetch = global.fetch;
@@ -536,6 +609,137 @@ test("workspace create command forwards the optional description", async () => {
     restoreEnv("EB_URL", previousUrl);
     restoreEnv("EB_API_KEY", previousApiKey);
     global.fetch = previousFetch;
+  }
+});
+
+test("workspace update command uses environment-backed server options and prints JSON", async () => {
+  const previousUrl = process.env.EB_URL;
+  const previousApiKey = process.env.EB_API_KEY;
+  const previousFetch = global.fetch;
+  const previousLog = console.log;
+  const requests = [];
+
+  process.env.EB_URL = "https://eb.example.com";
+  process.env.EB_API_KEY = "eb_admin";
+
+  const lines = [];
+  console.log = (value) => lines.push(value);
+  global.fetch = async (_url, init) => {
+    requests.push({
+      url: _url,
+      method: init?.method ?? "GET",
+      body: init?.body,
+    });
+
+    if (_url === "https://eb.example.com/api/w/demo") {
+      return new Response(
+        JSON.stringify({
+          workspace: {
+            id: "ws_1",
+            slug: "demo",
+            name: "Demo Workspace",
+            description: "Old description",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        workspace: {
+          id: "ws_1",
+          slug: "demo",
+          name: "Updated Workspace",
+          description: "Updated description",
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  };
+
+  try {
+    const { createCli } = require("../dist/index.js");
+    await createCli().parseAsync([
+      "node",
+      "eb",
+      "workspace",
+      "update",
+      "demo",
+      "--name",
+      "Updated Workspace",
+      "--description",
+      "Updated description",
+    ]);
+    assert.deepEqual(lines, [
+      JSON.stringify(
+        {
+          id: "ws_1",
+          slug: "demo",
+          name: "Updated Workspace",
+          description: "Updated description",
+        },
+        null,
+        2
+      ),
+    ]);
+    assert.deepEqual(requests, [
+      {
+        url: "https://eb.example.com/api/w/demo",
+        method: "GET",
+        body: undefined,
+      },
+      {
+        url: "https://eb.example.com/api/w/ws_1",
+        method: "PATCH",
+        body: JSON.stringify({
+          name: "Updated Workspace",
+          description: "Updated description",
+        }),
+      },
+    ]);
+  } finally {
+    restoreEnv("EB_URL", previousUrl);
+    restoreEnv("EB_API_KEY", previousApiKey);
+    global.fetch = previousFetch;
+    console.log = previousLog;
+  }
+});
+
+test("workspace update command requires at least one mutable field", async () => {
+  const previousUrl = process.env.EB_URL;
+  const previousApiKey = process.env.EB_API_KEY;
+  const previousFetch = global.fetch;
+  const previousError = console.error;
+  const previousExit = process.exit;
+  const errors = [];
+  let exitCode;
+
+  process.env.EB_URL = "https://eb.example.com";
+  process.env.EB_API_KEY = "eb_admin";
+  global.fetch = async () => {
+    throw new Error("fetch should not run");
+  };
+  console.error = (value) => errors.push(value);
+  process.exit = (code) => {
+    exitCode = code;
+    throw new Error(`process.exit:${code}`);
+  };
+
+  try {
+    const { createCli } = require("../dist/index.js");
+    await assert.rejects(
+      createCli().parseAsync(["node", "eb", "workspace", "update", "demo"]),
+      /process\.exit:1/
+    );
+    assert.equal(exitCode, 1);
+    assert.deepEqual(errors, ["At least one of --name or --description is required."]);
+  } finally {
+    restoreEnv("EB_URL", previousUrl);
+    restoreEnv("EB_API_KEY", previousApiKey);
+    global.fetch = previousFetch;
+    console.error = previousError;
+    process.exit = previousExit;
   }
 });
 

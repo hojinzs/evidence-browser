@@ -4,6 +4,7 @@ import {
   createWorkspace,
   deleteWorkspace,
   listWorkspaces,
+  updateWorkspace,
 } from "../lib/api-client";
 import { addServerOptions, resolveServerOptions, type ServerOptionsInput } from "../lib/command-options";
 
@@ -15,6 +16,11 @@ interface WorkspaceCreateCommandOptions extends WorkspaceCommandOptions {
 
 interface WorkspaceDeleteCommandOptions extends WorkspaceCommandOptions {
   force?: boolean;
+}
+
+interface WorkspaceUpdateCommandOptions extends WorkspaceCommandOptions {
+  name?: string;
+  description?: string;
 }
 
 function printJson(value: unknown): void {
@@ -95,6 +101,31 @@ export function registerWorkspace(program: Command): void {
       }
       await deleteWorkspace({ ...server, slug });
       console.log(`Deleted workspace: ${slug}`);
+    } catch (err) {
+      handleCommandError(err);
+    }
+  });
+
+  addServerOptions(
+    workspace
+      .command("update <slug>")
+      .description("Update workspace metadata")
+      .option("--name <name>", "Workspace name")
+      .option("--description <text>", "Workspace description")
+  ).action(async (slug: string, opts: WorkspaceUpdateCommandOptions) => {
+    try {
+      if (opts.name === undefined && opts.description === undefined) {
+        throw new Error("At least one of --name or --description is required.");
+      }
+
+      const server = resolveServerOptions(opts);
+      const result = await updateWorkspace({
+        ...server,
+        slug,
+        name: opts.name,
+        description: opts.description,
+      });
+      printJson(result.workspace);
     } catch (err) {
       handleCommandError(err);
     }

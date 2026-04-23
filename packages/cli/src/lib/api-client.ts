@@ -94,6 +94,12 @@ export interface WorkspaceDeleteOptions extends ServerRequestOptions {
   slug: string;
 }
 
+export interface WorkspaceUpdateOptions extends ServerRequestOptions {
+  slug: string;
+  name?: string;
+  description?: string;
+}
+
 export interface ApiKeyCreateOptions extends ServerRequestOptions {
   name: string;
   scope: ApiKeyScope;
@@ -235,6 +241,31 @@ export async function deleteWorkspace(
 ): Promise<{ success: true }> {
   return requestJson(`/api/w/${encodeURIComponent(opts.slug)}`, opts, {
     method: "DELETE",
+  });
+}
+
+export async function updateWorkspace(
+  opts: WorkspaceUpdateOptions
+): Promise<{ workspace: WorkspaceSummary }> {
+  const body: { name?: string; description?: string } = {};
+  if (opts.name !== undefined) {
+    body.name = opts.name;
+  }
+  if (opts.description !== undefined) {
+    body.description = opts.description;
+  }
+
+  const { workspace } = await requestJson<{ workspace: WorkspaceSummary }>(
+    `/api/w/${encodeURIComponent(opts.slug)}`,
+    opts
+  );
+
+  return requestJson(`/api/w/${encodeURIComponent(workspace.id)}`, opts, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
   });
 }
 
