@@ -6,7 +6,7 @@
   "type": "commonjs",
   "main": "./dist/index.js",
   "bin": {
-    "eb": "./dist/bin.js"
+    "eb": "dist/bin.js"
   },
   "files": [
     "dist"
