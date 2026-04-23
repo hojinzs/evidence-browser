@@ -10,7 +10,6 @@
   "ignore": [
     "@evidence-browser/api",
     "@evidence-browser/web",
-    "@evidence-browser/shared",
-    "@evidence-browser/legacy"
+    "@evidence-browser/shared"
   ]
 }

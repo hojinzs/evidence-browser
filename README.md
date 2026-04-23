@@ -7,7 +7,7 @@ A read-only viewer for structured evidence bundles. AI agents and CI pipelines c
 - **Bundle viewer** — Browse zip bundles with file tree navigation
 - **Rich rendering** — Markdown (with embedded images), syntax-highlighted code, image preview
 - **Pluggable storage** — Local filesystem or S3/R2-compatible object storage
-- **Authentication** — Generic OIDC (tested with Authentik), bypassable for development
+- **Authentication** — Built-in username/password session auth for admin and API access
 - **AI Agent integration** — `/llm.txt` endpoint and MCP server for programmatic access
 - **Hierarchical bundle IDs** — `org/repo/pr-42/run-1` maps to nested storage paths
 
@@ -17,17 +17,17 @@ A read-only viewer for structured evidence bundles. AI agents and CI pipelines c
 # Install dependencies
 npm install
 
-# Seed sample bundles for local development
-npm run seed
-
 # Copy and configure environment
 cp .env.example .env.local
 
-# Start dev server (auth bypassed by default)
+# Start API + web development servers
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to browse sample bundles.
+Open [http://localhost:3000](http://localhost:3000) for the web app.
+
+- Web dev server: `http://localhost:3000` (Vite)
+- API dev server: `http://localhost:3001` (proxied as `/api` from the web app)
 
 ## Environment Variables
 
@@ -35,13 +35,7 @@ Open [http://localhost:3000](http://localhost:3000) to browse sample bundles.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AUTH_BYPASS` | `false` | Skip OIDC auth (only works with `NODE_ENV=development`) |
-| `OIDC_ISSUER` | — | OIDC provider issuer URL |
-| `OIDC_CLIENT_ID` | — | OIDC client ID |
-| `OIDC_CLIENT_SECRET` | — | OIDC client secret |
-| `OIDC_PROVIDER_NAME` | `OIDC` | Display name on login page |
-| `NEXTAUTH_URL` | `http://localhost:3000` | Application base URL |
-| `NEXTAUTH_SECRET` | — | Session encryption key (`openssl rand -base64 32`) |
+| `AUTH_SECRET` | `evidence-browser-default-secret-change-me` | Session signing secret (must be explicitly set in production) |
 
 ### Storage
 
@@ -193,17 +187,20 @@ Bundle IDs with slashes must be URL-encoded in API paths (e.g. `org%2Frepo%2Fpr-
 
 ```bash
 npm run build
-# Output: .next/standalone/
-node .next/standalone/server.js
+npm run start
 ```
 
-The project uses `output: "standalone"` in `next.config.ts` for minimal Docker images.
+`npm run build` compiles:
+
+- `packages/shared` (shared types/utilities)
+- `packages/api` (Hono API server)
+- `packages/web` (Vite SPA), then copies it to root `web/` for static serving by the API runtime
 
 ## Tech Stack
 
-- [Next.js 16](https://nextjs.org) (App Router, Turbopack)
+- [Hono](https://hono.dev) (Node server + API routes)
 - [React 19](https://react.dev)
+- [Vite 8](https://vite.dev) (web app build/dev server)
 - [Tailwind CSS 4](https://tailwindcss.com)
-- [NextAuth v5](https://authjs.dev) (Generic OIDC)
 - [Shiki](https://shiki.style) (Syntax highlighting)
 - [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) (AI agent integration)

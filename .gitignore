@@ -20,6 +20,7 @@ out/
 # production
 build/
 dist/
+/web/
 
 # misc
 .DS_Store

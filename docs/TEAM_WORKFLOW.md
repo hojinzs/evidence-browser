@@ -120,7 +120,7 @@ Schema authority: `packages/shared/src/bundle/validate-zip.ts::validateBundleZip
 
 ## Upload API contract
 
-`POST /api/w/{ws}/bundle` (served by the current local app in `packages/legacy`; `packages/api/src/routes/bundle.ts` mirrors the same contract for the extracted API package)
+`POST /api/w/{ws}/bundle` (served by `packages/api/src/routes/bundle.ts`; in local dev this is reached via the web dev proxy at `http://127.0.0.1:3000/api/...`)
 
 - **Auth**: admin session cookie required (`requireAdminFromRequest`)
 - **Body**: multipart form data
@@ -131,7 +131,7 @@ Schema authority: `packages/shared/src/bundle/validate-zip.ts::validateBundleZip
 
 ### Canonical upload interface: `/evidence-upload` skill
 
-Agents **must** upload through the `/evidence-upload` skill (`.claude/skills/evidence-upload/SKILL.md`), not by calling the script directly. The skill currently wraps `packages/legacy/scripts/qa-evidence-upload.ts`, which handles login + ZIP + POST in one step against the local legacy app.
+Agents **must** upload through the `/evidence-upload` skill (`.claude/skills/evidence-upload/SKILL.md`), not by calling the script directly. The skill currently wraps `packages/legacy/scripts/qa-evidence-upload.ts`, which handles login + ZIP + POST in one step against the current API runtime.
 
 **Why the skill layer**: `packages/legacy/scripts/qa-evidence-upload.ts` is the **precursor implementation** of the future `eb bundle create` + `eb bundle upload` commands defined in `docs/CLI.md`. When the `eb` CLI lands:
 
@@ -162,7 +162,7 @@ loop:
   qa-engineer.runAttempt(attempt)
     → build .evidence/{session}/ where session includes "attempt{N}"
     → run TCs + edge cases
-    → upload via packages/legacy/scripts/qa-evidence-upload.ts
+    → upload via /evidence-upload skill (legacy helper script under the hood for now)
     → open uploaded bundle URL via Playwright MCP
     → verify render
 
@@ -198,8 +198,8 @@ loop:
 
 Before the team can operate:
 
-1. **Local Evidence Browser runnable**: `npm run dev` succeeds and serves `http://127.0.0.1:3000`
-2. **Admin account exists**: run setup wizard at `/setup` on first boot, or `POST /api/setup/admin`, or use `npm run seed` for fixture bundles
+1. **Local Evidence Browser runnable**: `npm run dev` succeeds and serves `http://127.0.0.1:3000` (web) with API proxy to `http://127.0.0.1:3001`
+2. **Admin account exists**: run setup wizard at `/setup` on first boot, or `POST /api/setup/admin`
 3. **Workspace exists**: default slug is `default`; create via setup wizard or admin panel
 4. **`.env.local` is configured**:
    - `AUTH_SECRET` — random 32-byte base64
@@ -214,10 +214,9 @@ If any pre-condition is missing, the agent should fail fast and tell the user ra
 ## References
 
 - `.claude/agents/*.md` — agent specs
-- `packages/legacy/scripts/qa-evidence-upload.ts` — current upload helper used by the skill
+- `packages/legacy/scripts/qa-evidence-upload.ts` — temporary upload helper used by the skill until CLI upload commands land
 - `packages/shared/src/bundle/validate-zip.ts` — manifest schema authority
-- legacy Next.js upload route for `POST /api/w/{ws}/bundle` in `packages/legacy` — current local upload API contract
-- `packages/api/src/routes/bundle.ts` — extracted API-package upload contract mirror
+- `packages/api/src/routes/bundle.ts` — upload API contract for `POST /api/w/{ws}/bundle`
 - `docs/DESIGN_GUIDE.md` — frontend SSOT
-- `packages/legacy/playwright.config.ts` — existing E2E patterns
+- `packages/legacy/playwright.config.ts` — legacy E2E pattern reference
 - `/home/hojinzs/.claude/plans/snoopy-wobbling-brooks.md` — original team setup plan
