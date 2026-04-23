@@ -4,7 +4,6 @@ WORKDIR /app
 COPY package*.json ./
 COPY packages/api/package.json ./packages/api/
 COPY packages/cli/package.json ./packages/cli/
-COPY packages/legacy/package.json ./packages/legacy/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/web/package.json ./packages/web/
 RUN npm ci --include=dev
@@ -24,7 +23,6 @@ RUN adduser --system --uid 1001 appuser
 COPY package*.json ./
 COPY packages/api/package.json ./packages/api/
 COPY packages/cli/package.json ./packages/cli/
-COPY packages/legacy/package.json ./packages/legacy/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/web/package.json ./packages/web/
 
