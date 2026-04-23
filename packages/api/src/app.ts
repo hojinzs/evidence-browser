@@ -23,10 +23,19 @@ export function createApp() {
   app.route("/api/setup", setupRoutes);
   app.route("/api/mcp", mcpRoutes);
 
-  // Serve Vite web static assets when present (production Docker)
-  const webDir = join(process.cwd(), "web");
+  // Support both root execution (`cwd=<repo>`) and workspace execution (`cwd=packages/api`).
+  const webDirCandidates = [
+    join(process.cwd(), "web"),
+    join(process.cwd(), "..", "..", "web"),
+  ];
+  const webDir = webDirCandidates.find((dir) => existsSync(dir)) ?? webDirCandidates[0];
   if (existsSync(webDir)) {
-    app.use("/*", serveStatic({ root: "./web" }));
+    app.use(
+      "/*",
+      serveStatic({
+        root: webDir,
+      })
+    );
     app.notFound((c) => {
       const indexPath = join(webDir, "index.html");
       if (!c.req.path.startsWith("/api/") && existsSync(indexPath)) {

@@ -9,13 +9,13 @@
     "packages/web"
   ],
   "scripts": {
-    "dev": "sh -c 'PORT=3001 npm run dev:api & npm run dev:web & wait'",
+    "dev": "concurrently --kill-others-on-fail --names api,web \"PORT=3001 npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm -w @evidence-browser/api run dev",
     "dev:web": "npm -w @evidence-browser/web run dev",
     "build": "npm run build:shared && npm run build:api && npm run build:web && rm -rf web && cp -R packages/web/dist web",
     "build:api": "npm -w @evidence-browser/api run build",
     "build:web": "npm -w @evidence-browser/web run build",
-    "start": "node packages/api/dist/api/src/server.js",
+    "start": "npm -w @evidence-browser/api run start",
     "lint": "npm run typecheck:api && npm run typecheck:web",
     "test": "npm run test:shared && npm run test:api && npm run test:cli",
     "test:api": "npm -w @evidence-browser/api run test",
@@ -28,6 +28,7 @@
     "release": "changeset publish"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.30.0"
+    "@changesets/cli": "^2.30.0",
+    "concurrently": "^9.2.1"
   }
 }
