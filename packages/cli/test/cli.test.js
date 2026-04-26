@@ -1220,3 +1220,24 @@ test("eb whoami exits with code 1 on invalid key", async () => {
     require("fs").rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+
+test("readConfig ignores non-string fields in malformed config", () => {
+  const os = require("os");
+  const path = require("path");
+  const fs = require("fs");
+  const tmpDir = path.join(os.tmpdir(), "eb-test-malformed-" + Date.now());
+  const previousXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = tmpDir;
+  try {
+    const { readConfig, getConfigPath } = require("../dist/lib/config.js");
+    fs.mkdirSync(path.join(tmpDir, "evidence-browser"), { recursive: true });
+    fs.writeFileSync(
+      getConfigPath(),
+      JSON.stringify({ url: {}, apiKey: 123, extra: "ignored" })
+    );
+    assert.deepEqual(readConfig(), {});
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", previousXdg);
+    require("fs").rmSync(tmpDir, { recursive: true, force: true });
+  }
+});

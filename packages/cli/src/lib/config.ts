@@ -17,7 +17,11 @@ export function readConfig(): Partial<Config> {
     const raw = fs.readFileSync(getConfigPath(), "utf8");
     const parsed = JSON.parse(raw) as unknown;
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Partial<Config>;
+      const obj = parsed as Record<string, unknown>;
+      const result: Partial<Config> = {};
+      if (typeof obj["url"] === "string") result.url = obj["url"];
+      if (typeof obj["apiKey"] === "string") result.apiKey = obj["apiKey"];
+      return result;
     }
     return {};
   } catch {
