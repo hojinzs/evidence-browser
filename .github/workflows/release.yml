@@ -41,12 +41,14 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          publish: npm run -w packages/cli release
-          version: npm change version --workspace packages/cli
+          publish: npm run release
+          version: npm run changeset:version
           title: "chore: version packages"
           commit: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # publish 후 v{version} 태그를 push → docker.yml 이 semver 태그로 이미지를 빌드
       - name: Push git tag for Docker release
