@@ -4,9 +4,15 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Git tag to build, e.g. v0.1.1"
+        required: false
+        type: string
 
 concurrency:
-  group: docker-${{ github.ref }}
+  group: docker-${{ inputs.version || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -20,6 +26,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version || github.ref }}
 
       - name: Extract Docker metadata
         id: meta
@@ -28,9 +36,9 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             # v* 태그 push → :1.2.3, :1.2, :1, :latest
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern={{version}},value=${{ inputs.version || github.ref_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.version || github.ref_name }}
+            type=semver,pattern={{major}},value=${{ inputs.version || github.ref_name }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

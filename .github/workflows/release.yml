@@ -16,6 +16,7 @@ jobs:
       pull-requests: write  # "Version Packages" PR 열기
       packages: write       # ghcr.io push
       id-token: write       # npm Trusted Publisher (OIDC)
+      actions: write        # Docker workflow_dispatch 트리거
 
     steps:
       - name: Checkout
@@ -57,3 +58,12 @@ jobs:
           VERSION=$(jq -r '.version' packages/cli/package.json)
           git tag "v${VERSION}"
           git push origin "v${VERSION}"
+
+      - name: Trigger Docker release
+        if: steps.changesets.outputs.published == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(jq -r '.version' packages/cli/package.json)
+          gh workflow run docker.yml --ref main -f version="v${VERSION}"
