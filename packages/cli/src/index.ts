@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { registerApiKey } from "./commands/api-key";
+import { registerAuth } from "./commands/auth";
 import { registerBundle } from "./commands/bundle";
 import { registerUpload } from "./commands/upload";
 import { registerWorkspace } from "./commands/workspace";
@@ -13,6 +14,7 @@ export function createCli(): Command {
     .description("Evidence Browser CLI")
     .version(version);
 
+  registerAuth(program);
   registerUpload(program);
   registerBundle(program);
   registerWorkspace(program);

@@ -957,3 +957,266 @@ test("api-key delete command prints a success message", async () => {
     console.log = previousLog;
   }
 });
+
+// ── config.ts ─────────────────────────────────────────────────────────────────
+
+test("readConfig returns empty object when config file does not exist", () => {
+  const previousXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = "/tmp/eb-test-none-" + Date.now();
+  try {
+    const { readConfig } = require("../dist/lib/config.js");
+    assert.deepEqual(readConfig(), {});
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", previousXdg);
+  }
+});
+
+test("writeConfig and readConfig round-trip, clearConfig removes the file", () => {
+  const os = require("os");
+  const path = require("path");
+  const tmpDir = path.join(os.tmpdir(), "eb-test-rw-" + Date.now());
+  const previousXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = tmpDir;
+  try {
+    const { readConfig, writeConfig, clearConfig } = require("../dist/lib/config.js");
+    const config = { url: "https://example.com", apiKey: "eb_testkey1234567890" };
+    writeConfig(config);
+    assert.deepEqual(readConfig(), config);
+    clearConfig();
+    assert.deepEqual(readConfig(), {});
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", previousXdg);
+    require("fs").rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("clearConfig is a no-op when file does not exist", () => {
+  const previousXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = "/tmp/eb-test-noop-" + Date.now();
+  try {
+    const { clearConfig } = require("../dist/lib/config.js");
+    assert.doesNotThrow(() => clearConfig());
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", previousXdg);
+  }
+});
+
+// ── auth.ts ───────────────────────────────────────────────────────────────────
+
+test("maskApiKey truncates keys longer than 11 characters", () => {
+  const { maskApiKey } = require("../dist/commands/auth.js");
+  assert.equal(maskApiKey("eb_abcde12345678901234567890123456"), "eb_abcde123...");
+  assert.equal(maskApiKey("eb_short"), "eb_short");
+});
+
+test("validateApiKey throws 'Invalid API key' on 401", async () => {
+  const { validateApiKey } = require("../dist/commands/auth.js");
+  const previousFetch = global.fetch;
+  global.fetch = async () =>
+    new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  try {
+    await assert.rejects(validateApiKey("https://example.com", "eb_bad"), /Invalid API key/);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("validateApiKey throws 'Cannot reach server' on network error", async () => {
+  const { validateApiKey } = require("../dist/commands/auth.js");
+  const previousFetch = global.fetch;
+  global.fetch = async () => { throw new Error("ECONNREFUSED"); };
+  try {
+    await assert.rejects(
+      validateApiKey("https://example.com", "eb_test"),
+      /Cannot reach server/
+    );
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test("validateApiKey returns keys on success", async () => {
+  const { validateApiKey } = require("../dist/commands/auth.js");
+  const previousFetch = global.fetch;
+  global.fetch = async () =>
+    new Response(JSON.stringify({ keys: [{ id: "key_1", scope: "upload" }] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  try {
+    const keys = await validateApiKey("https://example.com", "eb_valid");
+    assert.deepEqual(keys, [{ id: "key_1", scope: "upload" }]);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+// ── resolveServerOptions: config file fallback ────────────────────────────────
+
+test("resolveServerOptions falls back to config file when env and flags are absent", () => {
+  const os = require("os");
+  const path = require("path");
+  const tmpDir = path.join(os.tmpdir(), "eb-test-opts-" + Date.now());
+  const previousXdg = process.env.XDG_CONFIG_HOME;
+  const previousUrl = process.env.EB_URL;
+  const previousApiKey = process.env.EB_API_KEY;
+  process.env.XDG_CONFIG_HOME = tmpDir;
+  delete process.env.EB_URL;
+  delete process.env.EB_API_KEY;
+  try {
+    const { writeConfig } = require("../dist/lib/config.js");
+    const { resolveServerOptions } = require("../dist/lib/command-options.js");
+    writeConfig({ url: "https://config.example.com", apiKey: "eb_from_config" });
+    assert.deepEqual(resolveServerOptions({}), {
+      url: "https://config.example.com",
+      apiKey: "eb_from_config",
+    });
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", previousXdg);
+    restoreEnv("EB_URL", previousUrl);
+    restoreEnv("EB_API_KEY", previousApiKey);
+    require("fs").rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("resolveServerOptions prefers env vars over config file", () => {
+  const os = require("os");
+  const path = require("path");
+  const tmpDir = path.join(os.tmpdir(), "eb-test-prio-" + Date.now());
+  const previousXdg = process.env.XDG_CONFIG_HOME;
+  const previousUrl = process.env.EB_URL;
+  const previousApiKey = process.env.EB_API_KEY;
+  process.env.XDG_CONFIG_HOME = tmpDir;
+  process.env.EB_URL = "https://env.example.com";
+  process.env.EB_API_KEY = "eb_from_env";
+  try {
+    const { writeConfig } = require("../dist/lib/config.js");
+    const { resolveServerOptions } = require("../dist/lib/command-options.js");
+    writeConfig({ url: "https://config.example.com", apiKey: "eb_from_config" });
+    assert.deepEqual(resolveServerOptions({}), {
+      url: "https://env.example.com",
+      apiKey: "eb_from_env",
+    });
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", previousXdg);
+    restoreEnv("EB_URL", previousUrl);
+    restoreEnv("EB_API_KEY", previousApiKey);
+    require("fs").rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+// ── eb logout command ─────────────────────────────────────────────────────────
+
+test("eb logout removes the config file and prints confirmation", async () => {
+  const os = require("os");
+  const path = require("path");
+  const tmpDir = path.join(os.tmpdir(), "eb-test-logout-" + Date.now());
+  const previousXdg = process.env.XDG_CONFIG_HOME;
+  const previousLog = console.log;
+  const lines = [];
+  process.env.XDG_CONFIG_HOME = tmpDir;
+  console.log = (value) => lines.push(value);
+  try {
+    const { writeConfig, readConfig } = require("../dist/lib/config.js");
+    writeConfig({ url: "https://example.com", apiKey: "eb_test" });
+    const { createCli } = require("../dist/index.js");
+    await createCli().parseAsync(["node", "eb", "logout"]);
+    assert.deepEqual(lines, ["Logged out. Configuration removed."]);
+    assert.deepEqual(readConfig(), {});
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", previousXdg);
+    console.log = previousLog;
+    require("fs").rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+// ── eb whoami command ─────────────────────────────────────────────────────────
+
+test("eb whoami prints 'Not logged in' when config is absent", async () => {
+  const previousXdg = process.env.XDG_CONFIG_HOME;
+  const previousLog = console.log;
+  const lines = [];
+  process.env.XDG_CONFIG_HOME = "/tmp/eb-test-nowhoami-" + Date.now();
+  console.log = (value) => lines.push(value);
+  try {
+    const { createCli } = require("../dist/index.js");
+    await createCli().parseAsync(["node", "eb", "whoami"]);
+    assert.deepEqual(lines, ["Not logged in. Run: eb login <url>"]);
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", previousXdg);
+    console.log = previousLog;
+  }
+});
+
+test("eb whoami prints authenticated status on valid key", async () => {
+  const os = require("os");
+  const path = require("path");
+  const tmpDir = path.join(os.tmpdir(), "eb-test-whoami-ok-" + Date.now());
+  const previousXdg = process.env.XDG_CONFIG_HOME;
+  const previousFetch = global.fetch;
+  const previousLog = console.log;
+  const lines = [];
+  process.env.XDG_CONFIG_HOME = tmpDir;
+  console.log = (value) => lines.push(value);
+  global.fetch = async () =>
+    new Response(JSON.stringify({ keys: [{ id: "key_1" }, { id: "key_2" }] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  try {
+    const { writeConfig } = require("../dist/lib/config.js");
+    writeConfig({ url: "https://example.com", apiKey: "eb_abcde12345678" });
+    const { createCli } = require("../dist/index.js");
+    await createCli().parseAsync(["node", "eb", "whoami"]);
+    assert.ok(lines.some((l) => l.includes("✓ authenticated")));
+    assert.ok(lines.some((l) => l.includes("2 keys")));
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", previousXdg);
+    global.fetch = previousFetch;
+    console.log = previousLog;
+    require("fs").rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("eb whoami exits with code 1 on invalid key", async () => {
+  const os = require("os");
+  const path = require("path");
+  const tmpDir = path.join(os.tmpdir(), "eb-test-whoami-bad-" + Date.now());
+  const previousXdg = process.env.XDG_CONFIG_HOME;
+  const previousFetch = global.fetch;
+  const previousLog = console.log;
+  const previousExit = process.exit;
+  const lines = [];
+  let exitCode;
+  process.env.XDG_CONFIG_HOME = tmpDir;
+  console.log = (value) => lines.push(value);
+  global.fetch = async () =>
+    new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  process.exit = (code) => {
+    exitCode = code;
+    throw new Error(`process.exit:${code}`);
+  };
+  try {
+    const { writeConfig } = require("../dist/lib/config.js");
+    writeConfig({ url: "https://example.com", apiKey: "eb_bad" });
+    const { createCli } = require("../dist/index.js");
+    await assert.rejects(
+      createCli().parseAsync(["node", "eb", "whoami"]),
+      /process\.exit:1/
+    );
+    assert.equal(exitCode, 1);
+    assert.ok(lines.some((l) => l.includes("✗ Key invalid or expired")));
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", previousXdg);
+    global.fetch = previousFetch;
+    console.log = previousLog;
+    process.exit = previousExit;
+    require("fs").rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
