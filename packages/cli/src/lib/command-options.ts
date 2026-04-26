@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import { readConfig } from "./config";
 
 export interface ServerOptionsInput {
   url?: string;
@@ -22,14 +23,19 @@ export function addServerOptions<T extends Command>(command: T): T {
 }
 
 export function resolveServerOptions(opts: ServerOptionsInput): ServerOptions {
-  const url = opts.url ?? process.env.EB_URL;
-  const apiKey = opts.apiKey ?? process.env.EB_API_KEY;
+  const config = readConfig();
+  const url = opts.url ?? process.env.EB_URL ?? config.url;
+  const apiKey = opts.apiKey ?? process.env.EB_API_KEY ?? config.apiKey;
 
   if (!url) {
-    throw new Error("Missing Evidence Browser URL. Pass --url or set EB_URL.");
+    throw new Error(
+      "Missing Evidence Browser URL. Pass --url, set EB_URL, or run: eb login <url>"
+    );
   }
   if (!apiKey) {
-    throw new Error("Missing API key. Pass --api-key or set EB_API_KEY.");
+    throw new Error(
+      "Missing API key. Pass --api-key, set EB_API_KEY, or run: eb login <url>"
+    );
   }
 
   return { url, apiKey };
