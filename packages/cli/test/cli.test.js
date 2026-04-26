@@ -971,6 +971,22 @@ test("readConfig returns empty object when config file does not exist", () => {
   }
 });
 
+test("getConfigPath treats empty XDG_CONFIG_HOME as unset", () => {
+  const os = require("os");
+  const path = require("path");
+  const previousXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = "";
+  try {
+    const { getConfigPath } = require("../dist/lib/config.js");
+    assert.equal(
+      getConfigPath(),
+      path.join(os.homedir(), ".config", "evidence-browser", "config.json")
+    );
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", previousXdg);
+  }
+});
+
 test("writeConfig and readConfig round-trip, clearConfig removes the file", () => {
   const os = require("os");
   const path = require("path");

@@ -8,7 +8,8 @@ export interface Config {
 }
 
 export function getConfigPath(): string {
-  const base = process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), ".config");
+  const xdgConfigHome = process.env.XDG_CONFIG_HOME;
+  const base = xdgConfigHome || path.join(os.homedir(), ".config");
   return path.join(base, "evidence-browser", "config.json");
 }
 
