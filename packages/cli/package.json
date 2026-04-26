@@ -9,12 +9,15 @@
     "eb": "dist/bin.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "skills"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "npm run build && node --test $(find test -type f -name '*.test.js' | sort)",
+    "prepack": "mkdir -p skills/evidence-browser && cp ../../skills/evidence-browser/SKILL.md skills/evidence-browser/SKILL.md",
+    "postpack": "rm -rf skills",
     "release": "npm publish --access public"
   },
   "dependencies": {

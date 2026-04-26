@@ -1,0 +1,21 @@
+{
+  "name": "evidence-browser",
+  "owner": {
+    "name": "hojinzs",
+    "email": "hojinzs@gmail.com"
+  },
+  "metadata": {
+    "description": "Evidence Browser CLI plugin — upload and manage evidence bundles via the eb CLI"
+  },
+  "plugins": [
+    {
+      "name": "evidence-browser",
+      "source": "./",
+      "description": "Interact with an Evidence Browser instance via the eb CLI — upload bundle ZIPs, inspect bundles and workspaces, and manage API keys.",
+      "homepage": "https://github.com/hojinzs/evidence-browser",
+      "repository": "https://github.com/hojinzs/evidence-browser",
+      "license": "MIT",
+      "keywords": ["evidence", "qa", "testing", "upload", "bundle"]
+    }
+  ]
+}

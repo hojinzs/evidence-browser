@@ -1,0 +1,8 @@
+{
+  "name": "evidence-browser",
+  "description": "Interact with an Evidence Browser instance via the eb CLI — upload bundle ZIPs, inspect bundles and workspaces, and manage API keys.",
+  "version": "0.1.1",
+  "author": {
+    "name": "hojinzs"
+  }
+}

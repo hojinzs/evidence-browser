@@ -83,19 +83,21 @@ On success, parse `bundleUrl` from stdout and return it to the caller. On non-ze
 | `Upload failed: 413` | ZIP exceeds `MAX_BUNDLE_SIZE` | Trim the session dir (drop oversized logs/screenshots) or raise the env cap |
 | `ENOENT` on archiver | `archiver` not installed | Already in devDependencies; run `npm install` |
 
-## Relationship to the future `eb` CLI
+## Relationship to the `eb` CLI
 
-This skill is the **precursor** to the planned `eb bundle create` + `eb bundle upload` commands defined in `docs/CLI.md`. When the `eb` CLI lands:
-- The underlying script `packages/legacy/scripts/qa-evidence-upload.ts` can be replaced with a thin call to `eb bundle create` + `eb bundle upload`
-- **This SKILL.md stays as the stable interface** — agents and users continue to call `/evidence-upload`
-- Only the implementation behind it swaps out
+The `eb` CLI (`evidence-browser-cli` package) is now implemented and available via `.claude/skills/evidence-browser/`. The skills form a two-layer stack:
 
-This is why agents must route through the skill rather than calling the script directly: it lets us change the implementation without rewriting every agent spec.
+| Layer | Skill | Responsibility |
+|-------|-------|----------------|
+| High-level | `/evidence-upload` (this skill) | Manifest validation, ZIP packaging, session-ID naming, QA env wiring |
+| Low-level | `/evidence-browser` | Raw `eb upload` / `eb bundle` / `eb workspace` / `eb api-key` commands |
+
+**Migration path:** The underlying script `packages/legacy/scripts/qa-evidence-upload.ts` can be replaced with a thin wrapper around `eb upload` when ready. This SKILL.md is the stable interface — only the implementation changes.
 
 ## References
 
 - `packages/legacy/scripts/qa-evidence-upload.ts` — current implementation
-- `packages/legacy/src/app/api/w/[ws]/bundle/route.ts` — current upload API contract (size cap, bundleId rules, admin auth)
+- `packages/legacy/src/app/api/w/[ws]/bundle/route.ts` — upload API contract (size cap, bundleId rules, admin auth)
 - `packages/shared/src/bundle/validate-zip.ts::validateBundleZip` — manifest schema authority
 - `docs/TEAM_WORKFLOW.md` — session ID format, recursive loop spec
-- `docs/CLI.md` — future `eb` CLI spec this skill will eventually wrap
+- `.claude/skills/evidence-browser/SKILL.md` — low-level `eb` CLI reference
