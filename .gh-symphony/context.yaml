@@ -1,78 +1,190 @@
 schema_version: 1
-collected_at: 2026-04-08T02:14:28.847Z
+collected_at: 2026-05-20T04:50:32.538Z
 
 project:
-  id: PVT_kwHOAPiKdM4BUAK2
-  title: 🔎 Evidence Browser Project
-  url: https://github.com/users/hojinzs/projects/11
+  id: PVT_kwHOAPiKdM4BYPVD
+  title: 🧩 Moncher Stack
+  url: https://github.com/users/hojinzs/projects/14
 
 status_field:
-  id: PVTSSF_lAHOAPiKdM4BUAK2zhBLPuo
+  id: PVTSSF_lAHOAPiKdM4BYPVDzhTWkPc
   name: Status
   columns:
-    - id: f75ad846
+    - id: ecd228db
       name: Backlog
-      color: GREEN
+      color: GRAY
       inferred_role: wait
       confidence: high
-    - id: 61e4505c
+    - id: f043e389
       name: Ready
       color: BLUE
       inferred_role: active
       confidence: high
-    - id: 47fc9ee4
+    - id: b734c33a
       name: In progress
       color: YELLOW
       inferred_role: active
       confidence: high
-    - id: df73e18b
+    - id: ffe0efa5
       name: In review
       color: PURPLE
       inferred_role: wait
       confidence: high
-    - id: 98236657
+    - id: 161b1b30
+      name: Land
+      color: YELLOW
+      inferred_role: active
+      confidence: high
+    - id: 444fc1b2
       name: Done
-      color: ORANGE
+      color: GREEN
       inferred_role: terminal
       confidence: high
 
 text_fields:
-  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPug
+  - id: PVTF_lAHOAPiKdM4BYPVDzhTWkPU
     name: Title
     data_type: TITLE
-  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPuk
+  - id: PVTF_lAHOAPiKdM4BYPVDzhTWkPY
     name: Assignees
     data_type: ASSIGNEES
-  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPus
+  - id: PVTF_lAHOAPiKdM4BYPVDzhTWkPg
     name: Labels
     data_type: LABELS
-  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPuw
+  - id: PVTF_lAHOAPiKdM4BYPVDzhTWkPk
     name: Linked pull requests
     data_type: LINKED_PULL_REQUESTS
-  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPu0
+  - id: PVTF_lAHOAPiKdM4BYPVDzhTWkPo
     name: Milestone
     data_type: MILESTONE
-  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPu4
+  - id: PVTF_lAHOAPiKdM4BYPVDzhTWkPs
     name: Repository
     data_type: REPOSITORY
-  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPu8
+  - id: PVTF_lAHOAPiKdM4BYPVDzhTWkPw
     name: Reviewers
     data_type: REVIEWERS
-  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPvA
+  - id: PVTF_lAHOAPiKdM4BYPVDzhTWkP0
     name: Parent issue
     data_type: PARENT_ISSUE
-  - id: PVTF_lAHOAPiKdM4BUAK2zhBLPvE
+  - id: PVTF_lAHOAPiKdM4BYPVDzhTWkP4
     name: Sub-issues progress
     data_type: SUB_ISSUES_PROGRESS
-  - id: PVTF_lAHOAPiKdM4BUAK2zhBLQDM
-    name: Estimate
-    data_type: NUMBER
-  - id: PVTF_lAHOAPiKdM4BUAK2zhBLQDQ
-    name: Start date
-    data_type: DATE
-  - id: PVTF_lAHOAPiKdM4BUAK2zhBLQDU
-    name: Target date
-    data_type: DATE
+  - id: PVTF_lAHOAPiKdM4BYPVDzhTWkP8
+    name: Created
+    data_type: CREATED
+  - id: PVTF_lAHOAPiKdM4BYPVDzhTWkQA
+    name: Updated
+    data_type: UPDATED
+  - id: PVTF_lAHOAPiKdM4BYPVDzhTWkQE
+    name: Closed
+    data_type: CLOSED
+
+single_select_fields:
+  - id: PVTSSF_lAHOAPiKdM4BYPVDzhTWke0
+    name: Workstream
+    options:
+      - id: d3789006
+        name: Product
+        color: GRAY
+      - id: ea5abcc2
+        name: App
+        color: GRAY
+      - id: 301c0006
+        name: API
+        color: GRAY
+      - id: 6770fe65
+        name: Agent Orchestration
+        color: GRAY
+      - id: 0cc907e1
+        name: Linear Integration
+        color: GRAY
+      - id: 687bc8e7
+        name: GitHub Symphony
+        color: GRAY
+      - id: 64e9bd5b
+        name: Infra / Deploy
+        color: GRAY
+      - id: 0a4b8699
+        name: QA / Dogfood
+        color: GRAY
+      - id: 67270a79
+        name: Docs
+        color: GRAY
+  - id: PVTSSF_lAHOAPiKdM4BYPVDzhTWke4
+    name: Type
+    options:
+      - id: 133485b2
+        name: Epic
+        color: GRAY
+      - id: cc7beae2
+        name: Feature
+        color: GRAY
+      - id: ea6f972c
+        name: Bug
+        color: GRAY
+      - id: 4d859af5
+        name: Chore
+        color: GRAY
+      - id: 8abb209c
+        name: Spike
+        color: GRAY
+      - id: 1faf5654
+        name: QA
+        color: GRAY
+      - id: a0955728
+        name: Docs
+        color: GRAY
+      - id: a763bb4a
+        name: Release
+        color: GRAY
+  - id: PVTSSF_lAHOAPiKdM4BYPVDzhTWke8
+    name: Priority
+    options:
+      - id: aca19a9a
+        name: P0 Blocker
+        color: GRAY
+      - id: 2c4dc9a5
+        name: P1 High
+        color: GRAY
+      - id: e7e57239
+        name: P2 Normal
+        color: GRAY
+      - id: c242039b
+        name: P3 Later
+        color: GRAY
+  - id: PVTSSF_lAHOAPiKdM4BYPVDzhTWkfA
+    name: Size
+    options:
+      - id: 32ae82e3
+        name: XS
+        color: GRAY
+      - id: 7186632c
+        name: S
+        color: GRAY
+      - id: 117e0aab
+        name: M
+        color: GRAY
+      - id: 4ffb3063
+        name: L / Split required
+        color: GRAY
+  - id: PVTSSF_lAHOAPiKdM4BYPVDzhTWkgs
+    name: Phase
+    options:
+      - id: 9d58b0a8
+        name: Foundation
+        color: GRAY
+      - id: ed0f1100
+        name: Integration
+        color: GRAY
+      - id: 2983941c
+        name: Dogfood
+        color: GRAY
+      - id: dbaf61ed
+        name: Release Candidate
+        color: GRAY
+      - id: 279b6e19
+        name: Production
+        color: GRAY
 
 repositories:
   - owner: hojinzs
@@ -85,7 +197,7 @@ detected_environment:
   testCommand: vitest run
   buildCommand: next build
   lintCommand: eslint
-  ciPlatform: null
+  ciPlatform: github-actions
   monorepo: false
   existingSkills:
     []

@@ -1,11 +1,12 @@
 ---
 tracker:
   kind: github-project
-  project_id: PVT_kwHOAPiKdM4BUAK2
+  project_id: PVT_kwHOAPiKdM4BYPVD
   state_field: Status
   active_states:
     - Ready
     - In progress
+    - Land
   terminal_states:
     - Done
   blocker_check_states:
@@ -39,7 +40,8 @@ codex:
 | Backlog | wait | Do not start work. Exit without code changes. |
 | Ready | active | Start a new implementation cycle or resume a review-feedback cycle. |
 | In progress | active | Continue the current implementation cycle immediately. |
-| In review | wait | Wait for human review unless there is new review feedback to process. |
+| In review | wait | Wait for human review, CI, and validation. Do not process review feedback until the issue returns to an active implementation state. |
+| Land | active | Verify the approved PR is mergeable, merge it using repository policy, run post-merge actions, then move the issue to `Done`. |
 | Done | terminal | Work is complete. Exit immediately. |
 
 ## Agent Instructions
@@ -86,7 +88,8 @@ Inspect the issue body, issue comments, linked pull requests, pull request comme
 - **Ready + no PR**: Start a fresh implementation cycle. Create or update a workpad, implement the task, create a draft PR when the first coherent unit is ready, and only move to `In review` after the draft PR is promoted to ready for review.
 - **Ready + existing PR**: Treat this as a rework cycle. Read all PR comments and inline review comments first, create a new workpad cycle, implement the requested follow-up work, and return the issue to `In review` when the cycle is complete.
 - **In progress**: Continue the active implementation cycle. Resume from the latest workpad, branch, and PR context if they already exist.
-- **In review**: Check whether the PR is merged or whether actionable review feedback exists. If there is no actionable feedback, remain waiting and exit. If the PR is merged, transition the issue to `Done`.
+- **In review**: Wait for human review, CI, and validation. If there is actionable feedback, process it only after the issue returns to an active implementation state.
+- **Land**: Active landing queue. Verify the linked PR is approved, checks are green, merge conflicts are absent, and no blocking review threads remain; merge the PR, run post-merge actions, comment the transition, and move the issue to `Done`.
 - **Done**: Exit immediately without further action.
 - **Any other state**: Leave a short blocker comment explaining the unexpected state and exit.
 
@@ -192,16 +195,20 @@ When the issue returns to `Ready` and a PR already exists:
 6. Push the updated branch.
 7. Return the issue to `In review` with a fresh status update comment.
 
-## Step 7: Merge handling and terminal transition
+## Step 7: Land approved PRs and terminal transition
 
-While the issue is in `In review`:
+When the issue is moved to `Land`, treat it as an active landing request:
 
-1. If the PR is merged, leave a completion comment summarizing the merged work and validation history.
-2. Transition the issue status to `Done`.
-3. Update the workpad one last time to mark the active cycle complete.
-4. Exit.
+1. Confirm the issue is the canonical Project item and identify the linked PR.
+2. Verify the PR is open, approved, mergeable, has no blocking unresolved review threads, and required checks are green.
+3. If a code change is required before merge, leave a status update comment and move the issue to `In progress`.
+4. If additional human approval or validation is required, leave a status update comment and move the issue back to `In review`.
+5. If landing is allowed, merge the PR using repository policy, perform post-merge cleanup/actions, and leave a completion comment summarizing the merged work and validation history.
+6. Transition the issue status to `Done`.
+7. Update the workpad one last time to mark the active cycle complete.
+8. Exit.
 
-If the PR is not merged and there is no actionable feedback yet, do not perform additional code changes. Exit and wait.
+While the issue is in `In review`, do not merge. If there is no actionable feedback yet, exit and wait.
 
 ## Completion Bar
 

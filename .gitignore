@@ -39,6 +39,9 @@ yarn-error.log*
 # data
 data/
 
+# gh-symphony runtime state
+.runtime/
+
 # vercel
 .vercel
 
