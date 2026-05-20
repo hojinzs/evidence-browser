@@ -40,7 +40,7 @@ codex:
 | Backlog | wait | Do not start work. Exit without code changes. |
 | Ready | active | Start a new implementation cycle or resume a review-feedback cycle. |
 | In progress | active | Continue the current implementation cycle immediately. |
-| In review | wait | Wait for human review unless there is new review feedback to process. |
+| In review | wait | Wait for human review, CI, and validation. Do not process review feedback until the issue returns to an active implementation state. |
 | Land | active | Verify the approved PR is mergeable, merge it using repository policy, run post-merge actions, then move the issue to `Done`. |
 | Done | terminal | Work is complete. Exit immediately. |
 
