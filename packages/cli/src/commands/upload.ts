@@ -38,7 +38,7 @@ export function registerUpload(program: Command): void {
           bundleId: opts.bundleId,
         });
         console.log(`Uploaded: ${result.bundleId}`);
-        console.log(`  View: ${server.url.replace(/\/$/, "")}/w/${opts.workspace}/${result.bundleId}`);
+        console.log(`  View: ${server.url.replace(/\/$/, "")}/w/${opts.workspace}/b/${result.bundleId}`);
       } catch (err) {
         console.error(err instanceof Error ? err.message : String(err));
         process.exit(1);
