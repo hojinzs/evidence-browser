@@ -195,9 +195,13 @@ export async function uploadBundle(opts: UploadOptions): Promise<UploadResult> {
     throw new Error(`Upload failed (${res.status}): ${body.error ?? res.statusText}`);
   }
 
-  const data = await res.json() as { bundle?: { bundleId?: string }; bundleId?: string };
-  // API may return { bundle: { bundleId } } or { bundleId } depending on version
-  const bundleId = data.bundle?.bundleId ?? data.bundleId;
+  const data = await res.json() as {
+    bundle?: { bundleId?: string; bundle_id?: string };
+    bundleId?: string;
+    bundle_id?: string;
+  };
+  // API may return camelCase or DB-shaped snake_case depending on version.
+  const bundleId = data.bundle?.bundleId ?? data.bundle?.bundle_id ?? data.bundleId ?? data.bundle_id;
   if (!bundleId) {
     throw new Error("Upload succeeded but server did not return a bundleId");
   }

@@ -79,6 +79,84 @@ test("listBundles preserves plain text error bodies", async () => {
   }
 });
 
+test("uploadBundle accepts DB-shaped snake_case bundle responses", async () => {
+  const { uploadBundle } = require("../dist/lib/api-client.js");
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const previousFetch = global.fetch;
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "eb-cli-test-"));
+  const zipPath = path.join(tmpDir, "bundle-1.zip");
+  fs.writeFileSync(zipPath, "zip bytes");
+
+  global.fetch = async (url, init) => {
+    assert.equal(url, "https://eb.example.com/api/w/demo/bundle");
+    assert.equal(init.method, "POST");
+    assert.equal(init.headers.Authorization, "Bearer eb_upload");
+    assert.ok(init.body instanceof FormData);
+    return new Response(
+      JSON.stringify({ bundle: { bundle_id: "bundle-1" } }),
+      { status: 201, headers: { "Content-Type": "application/json" } }
+    );
+  };
+
+  try {
+    const result = await uploadBundle({
+      url: "https://eb.example.com",
+      apiKey: "eb_upload",
+      workspace: "demo",
+      filePath: zipPath,
+    });
+    assert.deepEqual(result, { bundleId: "bundle-1" });
+  } finally {
+    global.fetch = previousFetch;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("upload command prints the canonical bundle landing URL", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const previousFetch = global.fetch;
+  const previousLog = console.log;
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "eb-cli-test-"));
+  const zipPath = path.join(tmpDir, "bundle-1.zip");
+  const lines = [];
+  fs.writeFileSync(zipPath, "zip bytes");
+
+  console.log = (value) => lines.push(value);
+  global.fetch = async () =>
+    new Response(
+      JSON.stringify({ bundle: { bundle_id: "bundle-1" } }),
+      { status: 201, headers: { "Content-Type": "application/json" } }
+    );
+
+  try {
+    const { createCli } = require("../dist/index.js");
+    await createCli().parseAsync([
+      "node",
+      "eb",
+      "upload",
+      zipPath,
+      "--workspace",
+      "demo",
+      "--url",
+      "https://eb.example.com/",
+      "--api-key",
+      "eb_upload",
+    ]);
+    assert.deepEqual(lines, [
+      "Uploaded: bundle-1",
+      "  View: https://eb.example.com/w/demo/b/bundle-1",
+    ]);
+  } finally {
+    global.fetch = previousFetch;
+    console.log = previousLog;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test("listWorkspaces sends bearer auth to the workspace list endpoint", async () => {
   const { listWorkspaces } = require("../dist/lib/api-client.js");
   const previousFetch = global.fetch;
