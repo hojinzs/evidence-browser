@@ -26,7 +26,7 @@ const EXTENSION_MAP: Record<string, FileType> = {
   ".swift": "code",
   ".css": "code",
   ".scss": "code",
-  ".html": "code",
+  ".html": "html",
   ".xml": "code",
   ".yaml": "code",
   ".yml": "code",

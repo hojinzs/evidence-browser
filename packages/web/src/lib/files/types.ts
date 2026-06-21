@@ -1,1 +1,1 @@
-export type FileType = "markdown" | "image" | "code" | "text" | "binary";
+export type FileType = "markdown" | "image" | "html" | "code" | "text" | "binary";

@@ -323,7 +323,7 @@ function BundleView({
   const metaQuery = useQuery({ queryKey: ["bundle-meta", ws, bundleId], queryFn: () => api.getBundleMeta(ws, bundleId), enabled: auth.isAuthenticated });
   const activeFilePath = currentFilePath || metaQuery.data?.manifest.index || null;
   const activeFileType = activeFilePath ? detectFileType(activeFilePath) : null;
-  const requiresTextContent = mode === "landing" || activeFileType === "markdown" || activeFileType === "code" || activeFileType === "text";
+  const requiresTextContent = mode === "landing" || activeFileType === "markdown" || activeFileType === "html" || activeFileType === "code" || activeFileType === "text";
   const fileQuery = useQuery({
     queryKey: ["bundle-file", ws, bundleId, activeFilePath],
     queryFn: () => api.getBundleFileText(ws, bundleId, activeFilePath!),
@@ -340,9 +340,9 @@ function BundleView({
   let content: React.ReactNode = <Card className="p-10 text-center text-muted-foreground">Loading bundle...</Card>;
   if (metaQuery.data && activeFilePath && (!requiresTextContent || fileQuery.data)) {
     const fileType = activeFileType;
-    if (mode === "landing") {
+    if (mode === "landing" && fileType === "markdown") {
       content = <MarkdownViewer content={fileQuery.data ?? ""} workspaceSlug={ws} bundleId={bundleId} currentFilePath={metaQuery.data.manifest.index} />;
-    } else if (fileType === "markdown" || fileType === "code" || fileType === "text") {
+    } else if (fileType === "markdown" || fileType === "html" || fileType === "code" || fileType === "text") {
       content = <FileViewer workspaceSlug={ws} bundleId={bundleId} filePath={activeFilePath} content={fileQuery.data} />;
     } else {
       content = <FileViewer workspaceSlug={ws} bundleId={bundleId} filePath={activeFilePath} />;

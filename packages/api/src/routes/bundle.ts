@@ -26,6 +26,18 @@ import { ensureWithinRoot, validatePathSafety } from "@/lib/bundle/security";
 import { getMimeType } from "@/lib/files/detect";
 
 const CSP_HEADER = "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'";
+export const HTML_PREVIEW_CSP_HEADER = [
+  "default-src 'none'",
+  "script-src 'none'",
+  "connect-src 'none'",
+  "img-src 'self' data:",
+  "style-src 'unsafe-inline'",
+  "font-src 'self' data:",
+  "frame-src 'none'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join("; ");
 const bundle = new Hono<{ Variables: AppVariables }>();
 
 bundle.get("/:ws/bundle", authenticate, (c) => {
@@ -182,6 +194,41 @@ bundle.get("/:ws/bundles/:bundleId/file", authenticate, async (c) => {
       return c.json({ error: "File not found" }, 404);
     }
     console.error("Bundle file error:", err);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+bundle.get("/:ws/bundles/:bundleId/preview", authenticate, async (c) => {
+  const filePath = c.req.query("path");
+  if (!filePath) return c.json({ error: "Missing 'path' query parameter" }, 400);
+  if (!validatePathSafety(filePath)) return c.json({ error: "Invalid file path" }, 400);
+  if (!filePath.toLowerCase().endsWith(".html")) {
+    return c.json({ error: "Preview is only available for HTML files" }, 415);
+  }
+
+  const key = storageKey(c.req.param("ws"), c.req.param("bundleId"));
+  try {
+    const entry = await extractBundle(key);
+    const fullPath = path.join(entry.cacheDir, filePath);
+    if (!ensureWithinRoot(entry.cacheDir, fullPath)) {
+      return c.json({ error: "Invalid file path" }, 403);
+    }
+
+    const content = await getFileContent(entry.cacheDir, filePath);
+    return new Response(new Uint8Array(content), {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Security-Policy": HTML_PREVIEW_CSP_HEADER,
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer",
+      },
+    });
+  } catch (err) {
+    if (err instanceof BundleNotFoundError) return c.json({ error: err.message }, 404);
+    if (err instanceof Error && (err.message === "Invalid file path" || err.message.includes("ENOENT"))) {
+      return c.json({ error: "File not found" }, 404);
+    }
+    console.error("Bundle preview error:", err);
     return c.json({ error: "Internal server error" }, 500);
   }
 });

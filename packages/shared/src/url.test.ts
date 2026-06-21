@@ -47,6 +47,9 @@ describe("workspace-aware URL helpers", () => {
     expect(apiBundleUrl("infra", "pr-42-run-1", "meta")).toBe(
       "/api/w/infra/bundles/pr-42-run-1/meta"
     );
+    expect(apiBundleUrl("infra", "pr-42-run-1", "preview")).toBe(
+      "/api/w/infra/bundles/pr-42-run-1/preview"
+    );
   });
 
   it("builds storage keys for flat bundle ids", () => {

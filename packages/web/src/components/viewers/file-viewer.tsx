@@ -3,6 +3,7 @@
 import { detectFileType } from "@/lib/files/detect";
 import { MarkdownViewer } from "./markdown-viewer";
 import { CodeViewer } from "./code-viewer";
+import { HtmlViewer } from "./html-viewer";
 import { ImageViewer } from "./image-viewer";
 import { TextViewer } from "./text-viewer";
 import { DownloadFallback } from "./download-fallback";
@@ -41,6 +42,15 @@ export function FileViewer({
           workspaceSlug={workspaceSlug}
           bundleId={bundleId}
           currentFilePath={filePath}
+        />
+      );
+    case "html":
+      return (
+        <HtmlViewer
+          workspaceSlug={workspaceSlug}
+          bundleId={bundleId}
+          filePath={filePath}
+          content={content}
         />
       );
     case "code":
