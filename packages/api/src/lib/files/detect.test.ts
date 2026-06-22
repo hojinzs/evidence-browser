@@ -21,6 +21,7 @@ describe("detectFileType", () => {
     expect(detectFileType("config.json")).toBe("code");
     expect(detectFileType("script.sh")).toBe("code");
     expect(detectFileType("style.css")).toBe("code");
+    expect(detectFileType("reports/index.html")).toBe("code");
   });
 
   it("detects text files", () => {

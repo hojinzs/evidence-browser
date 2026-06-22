@@ -34,7 +34,7 @@ export function workspaceUrl(workspace: string): string {
 export function apiBundleUrl(
   workspace: string,
   bundleId: string,
-  endpoint: "meta" | "tree" | "file"
+  endpoint: "meta" | "tree" | "file" | "preview"
 ): string {
   return `/api/w/${workspace}/bundles/${bundleId}/${endpoint}`;
 }
