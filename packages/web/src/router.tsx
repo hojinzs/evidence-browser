@@ -385,26 +385,36 @@ function PlaceholderPage({ title }: { title: string }) {
   );
 }
 
-function AdminPage() {
+function AdminShell({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
-  const usersQuery = useQuery({
-    queryKey: ["admin", "users"],
-    queryFn: () => api.getUsers(),
-    enabled: auth.isAuthenticated && auth.user?.role === "admin",
-  });
-  const workspacesQuery = useQuery({
-    queryKey: ["admin", "workspaces"],
-    queryFn: () => api.getWorkspaces(),
-    enabled: auth.isAuthenticated && auth.user?.role === "admin",
-  });
-  const keysQuery = useQuery({
-    queryKey: ["admin", "api-keys"],
-    queryFn: () => api.getAdminApiKeys(),
-    enabled: auth.isAuthenticated && auth.user?.role === "admin",
-  });
+  const location = useLocation();
+  const navGroups = [
+    {
+      label: "Administration",
+      items: [
+        { label: "Overview", href: "/admin" },
+        { label: "Users", href: "/admin/users" },
+        { label: "Workspaces", href: "/admin/workspaces" },
+        { label: "API Keys", href: "/admin/api-keys" },
+      ],
+    },
+    {
+      label: "System",
+      items: [{ label: "Storage / System", href: "/admin/system" }],
+    },
+    {
+      label: "General",
+      items: [
+        { label: "Back to Workspaces", href: "/" },
+        { label: "My Settings", href: "/settings" },
+      ],
+    },
+  ];
 
-  const isLoading = usersQuery.isLoading || workspacesQuery.isLoading || keysQuery.isLoading;
-  const error = usersQuery.error ?? workspacesQuery.error ?? keysQuery.error;
+  function isAdminPathActive(href: string) {
+    if (href === "/admin") return location.pathname === "/admin";
+    return location.pathname === href || location.pathname.startsWith(`${href}/`);
+  }
 
   return (
     <RequireAuth>
@@ -413,60 +423,277 @@ function AdminPage() {
           <Header title="Admin" userName={auth.user?.username} nav={<Link to="/" className="rounded-md px-3 py-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground">← Workspaces</Link>} />
           <div className="flex min-h-[calc(100vh-3rem)]">
             <aside className="hidden w-60 shrink-0 border-r border-border bg-sidebar lg:block">
-              <div className="px-4 py-6">
-                <p className="eyebrow-label mb-3">Administration</p>
-                <nav className="space-y-1">
-                  <SidebarNavItem label="Users" active />
-                  <SidebarNavItem label="Settings" href="/settings" />
-                </nav>
+              <div className="space-y-6 px-4 py-6">
+                {navGroups.map((group) => (
+                  <div key={group.label}>
+                    <p className="eyebrow-label mb-3">{group.label}</p>
+                    <nav className="space-y-1">
+                      {group.items.map((item) => (
+                        <SidebarNavItem
+                          key={item.href}
+                          label={item.label}
+                          href={item.href}
+                          active={item.href.startsWith("/admin") ? isAdminPathActive(item.href) : false}
+                        />
+                      ))}
+                    </nav>
+                  </div>
+                ))}
               </div>
             </aside>
             <main className="min-w-0 flex-1 px-6 py-6 lg:px-8">
-              {isLoading ? (
-                <Card className="p-10 text-center text-muted-foreground">Loading admin data...</Card>
-              ) : error ? (
-                <Card className="p-10 text-center text-destructive">{error instanceof Error ? error.message : "Failed to load admin data"}</Card>
-              ) : (
-                <div className="app-fade-up space-y-10">
-                  <section className="space-y-4">
-                    <div className="flex items-end gap-6">
-                      <div>
-                        <h2 className="text-xl font-semibold">User Management</h2>
-                        <p className="mt-1 text-[13px] text-muted-foreground">Manage access and permissions for workspace users.</p>
-                      </div>
-                      <div className="h-px flex-1 bg-border" />
-                    </div>
-                    <UserList users={usersQuery.data?.users ?? []} />
-                  </section>
-
-                  <section className="space-y-4">
-                    <div className="flex items-end gap-6">
-                      <div>
-                        <h2 className="text-xl font-semibold">Workspace Management</h2>
-                        <p className="mt-1 text-[13px] text-muted-foreground">Create and configure evidence workspaces.</p>
-                      </div>
-                      <div className="h-px flex-1 bg-border" />
-                    </div>
-                    <WorkspaceManager workspaces={workspacesQuery.data?.workspaces ?? []} />
-                  </section>
-
-                  <section className="space-y-4">
-                    <div className="flex items-end gap-6">
-                      <div>
-                        <h2 className="text-xl font-semibold">API Keys</h2>
-                        <p className="mt-1 text-[13px] text-muted-foreground">Manage API keys for MCP and CLI access.</p>
-                      </div>
-                      <div className="h-px flex-1 bg-border" />
-                    </div>
-                    <ApiKeyManager initialKeys={keysQuery.data?.keys ?? []} users={usersQuery.data?.users ?? []} />
-                  </section>
-                </div>
-              )}
+              <div className="mb-6 space-y-4 rounded-lg border border-border bg-sidebar p-4 lg:hidden">
+                {navGroups.map((group) => (
+                  <div key={group.label}>
+                    <p className="eyebrow-label mb-2">{group.label}</p>
+                    <nav className="grid gap-1 sm:grid-cols-2">
+                      {group.items.map((item) => (
+                        <SidebarNavItem
+                          key={item.href}
+                          label={item.label}
+                          href={item.href}
+                          active={item.href.startsWith("/admin") ? isAdminPathActive(item.href) : false}
+                        />
+                      ))}
+                    </nav>
+                  </div>
+                ))}
+              </div>
+              <div className="app-fade-up">{children}</div>
             </main>
           </div>
         </div>
       </RequireAdmin>
     </RequireAuth>
+  );
+}
+
+function AdminSectionHeader({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex items-end gap-6">
+      <div>
+        <h2 className="text-xl font-semibold">{title}</h2>
+        <p className="mt-1 text-[13px] text-muted-foreground">{description}</p>
+      </div>
+      <div className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+function AdminQueryState({ isLoading, error }: { isLoading: boolean; error: unknown }) {
+  if (isLoading) {
+    return <Card className="p-10 text-center text-muted-foreground">Loading admin data...</Card>;
+  }
+  if (error) {
+    return <Card className="p-10 text-center text-destructive">{error instanceof Error ? error.message : "Failed to load admin data"}</Card>;
+  }
+  return null;
+}
+
+function AdminOverviewPage() {
+  const auth = useAuth();
+  const enabled = auth.isAuthenticated && auth.user?.role === "admin";
+  const usersQuery = useQuery({ queryKey: ["admin", "users"], queryFn: () => api.getUsers(), enabled });
+  const workspacesQuery = useQuery({ queryKey: ["admin", "workspaces"], queryFn: () => api.getWorkspaces(), enabled });
+  const keysQuery = useQuery({ queryKey: ["admin", "api-keys"], queryFn: () => api.getAdminApiKeys(), enabled });
+  const setupQuery = useQuery({ queryKey: ["setup", "status"], queryFn: () => api.setupStatus(), enabled, staleTime: 60_000 });
+  const isLoading = usersQuery.isLoading || workspacesQuery.isLoading || keysQuery.isLoading || setupQuery.isLoading;
+  const error = usersQuery.error ?? workspacesQuery.error ?? keysQuery.error ?? setupQuery.error;
+  if (isLoading || error) {
+    return <AdminShell><AdminQueryState isLoading={isLoading} error={error} /></AdminShell>;
+  }
+
+  const users = usersQuery.data?.users ?? [];
+  const workspaces = workspacesQuery.data?.workspaces ?? [];
+  const keys = keysQuery.data?.keys ?? [];
+  const now = Date.now();
+  const activeKeys = keys.filter((key) => !key.expires_at || new Date(key.expires_at).getTime() > now);
+  const riskyKeys = keys.filter((key) => key.scope === "admin" && (!key.expires_at || !key.last_used_at));
+  const bundleCount = workspaces.reduce((total, workspace) => total + workspace.bundle_count, 0);
+  const summaryCards = [
+    { label: "Total users", value: users.length, detail: `${users.filter((user) => user.role === "admin").length} admins` },
+    { label: "Workspaces", value: workspaces.length, detail: `${bundleCount} bundles` },
+    { label: "Active API keys", value: activeKeys.length, detail: `${riskyKeys.length} risky admin keys` },
+    {
+      label: "Setup state",
+      value: setupQuery.data?.needsSetup ? "Incomplete" : "Ready",
+      detail: setupQuery.data?.hasWorkspace ? "Workspace configured" : "Workspace missing",
+    },
+  ];
+  const actions = [
+    { label: "Create user", href: "/admin/users", detail: "Manage account access and roles." },
+    { label: "Create workspace", href: "/admin/workspaces", detail: "Configure evidence spaces." },
+    { label: "Create API key", href: "/admin/api-keys", detail: "Issue machine access keys." },
+    { label: "View system status", href: "/admin/system", detail: "Check setup and storage state." },
+  ];
+
+  return (
+    <AdminShell>
+      <div className="space-y-8">
+        <AdminSectionHeader title="Overview" description="Operational summary and entry points for admin management." />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {summaryCards.map((card) => (
+            <Card key={card.label} className="p-4">
+              <p className="text-[12px] font-medium uppercase text-muted-foreground">{card.label}</p>
+              <p className="mt-3 text-2xl font-semibold">{card.value}</p>
+              <p className="mt-1 text-[13px] text-muted-foreground">{card.detail}</p>
+            </Card>
+          ))}
+        </div>
+        <section className="space-y-3">
+          <h3 className="text-[15px] font-semibold">Management surfaces</h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            {actions.map((action) => (
+              <Link
+                key={action.href}
+                to={action.href}
+                className="rounded-lg border border-border p-4 transition-colors duration-150 hover:border-[oklch(1_0_0/16%)] hover:bg-[oklch(0.14_0_0)]"
+              >
+                <span className="text-[14px] font-medium text-foreground">{action.label}</span>
+                <span className="mt-1 block text-[13px] text-muted-foreground">{action.detail}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </div>
+    </AdminShell>
+  );
+}
+
+function AdminUsersPage() {
+  const auth = useAuth();
+  const usersQuery = useQuery({
+    queryKey: ["admin", "users"],
+    queryFn: () => api.getUsers(),
+    enabled: auth.isAuthenticated && auth.user?.role === "admin",
+  });
+  const isLoading = usersQuery.isLoading;
+  const error = usersQuery.error;
+  return (
+    <AdminShell>
+      {isLoading || error ? <AdminQueryState isLoading={isLoading} error={error} /> : (
+        <section className="space-y-4">
+          <AdminSectionHeader title="Users" description="Manage account access, roles, and user lifecycle actions." />
+          <UserList users={usersQuery.data?.users ?? []} />
+        </section>
+      )}
+    </AdminShell>
+  );
+}
+
+function AdminWorkspacesPage() {
+  const auth = useAuth();
+  const workspacesQuery = useQuery({
+    queryKey: ["admin", "workspaces"],
+    queryFn: () => api.getWorkspaces(),
+    enabled: auth.isAuthenticated && auth.user?.role === "admin",
+  });
+  const isLoading = workspacesQuery.isLoading;
+  const error = workspacesQuery.error;
+  return (
+    <AdminShell>
+      {isLoading || error ? <AdminQueryState isLoading={isLoading} error={error} /> : (
+        <section className="space-y-4">
+          <AdminSectionHeader title="Workspaces" description="Create, edit, and remove evidence workspaces." />
+          <WorkspaceManager workspaces={workspacesQuery.data?.workspaces ?? []} />
+        </section>
+      )}
+    </AdminShell>
+  );
+}
+
+function AdminApiKeysPage() {
+  const auth = useAuth();
+  const enabled = auth.isAuthenticated && auth.user?.role === "admin";
+  const usersQuery = useQuery({ queryKey: ["admin", "users"], queryFn: () => api.getUsers(), enabled });
+  const keysQuery = useQuery({ queryKey: ["admin", "api-keys"], queryFn: () => api.getAdminApiKeys(), enabled });
+  const isLoading = usersQuery.isLoading || keysQuery.isLoading;
+  const error = usersQuery.error ?? keysQuery.error;
+  return (
+    <AdminShell>
+      {isLoading || error ? <AdminQueryState isLoading={isLoading} error={error} /> : (
+        <section className="space-y-4">
+          <AdminSectionHeader title="API Keys" description="Manage CLI, MCP, upload, and admin access keys." />
+          <ApiKeyManager initialKeys={keysQuery.data?.keys ?? []} users={usersQuery.data?.users ?? []} />
+        </section>
+      )}
+    </AdminShell>
+  );
+}
+
+function AdminSystemPage() {
+  const auth = useAuth();
+  const [storageResult, setStorageResult] = React.useState<{ ok: boolean; storageType?: string; bundleCount?: number; error?: string } | null>(null);
+  const [storageLoading, setStorageLoading] = React.useState(false);
+  const [storageError, setStorageError] = React.useState("");
+  const setupQuery = useQuery({
+    queryKey: ["setup", "status"],
+    queryFn: () => api.setupStatus(),
+    enabled: auth.isAuthenticated && auth.user?.role === "admin",
+    staleTime: 60_000,
+  });
+  const isLoading = setupQuery.isLoading;
+  const error = setupQuery.error;
+
+  async function handleVerifyStorage() {
+    setStorageLoading(true);
+    setStorageError("");
+    try {
+      setStorageResult(await api.setupVerifyStorage());
+    } catch (err) {
+      setStorageError(err instanceof Error ? err.message : "Failed to verify storage");
+    } finally {
+      setStorageLoading(false);
+    }
+  }
+
+  return (
+    <AdminShell>
+      {isLoading || error ? <AdminQueryState isLoading={isLoading} error={error} /> : (
+        <div className="space-y-6">
+          <AdminSectionHeader title="Storage / System" description="Instance setup and storage visibility using existing system checks." />
+          <div className="grid gap-3 md:grid-cols-3">
+            <Card className="p-4">
+              <p className="text-[12px] font-medium uppercase text-muted-foreground">Setup</p>
+              <p className="mt-3 text-lg font-semibold">{setupQuery.data?.needsSetup ? "Incomplete" : "Complete"}</p>
+              <p className="mt-1 text-[13px] text-muted-foreground">Admin account {setupQuery.data?.hasAdmin ? "configured" : "missing"}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-[12px] font-medium uppercase text-muted-foreground">Workspace seed</p>
+              <p className="mt-3 text-lg font-semibold">{setupQuery.data?.hasWorkspace ? "Configured" : "Missing"}</p>
+              <p className="mt-1 text-[13px] text-muted-foreground">Initial evidence workspace state</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-[12px] font-medium uppercase text-muted-foreground">Runtime</p>
+              <p className="mt-3 text-lg font-semibold">Browser API</p>
+              <p className="mt-1 text-[13px] text-muted-foreground">Connected through the current session</p>
+            </Card>
+          </div>
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-[15px] font-semibold">Storage health</h3>
+                <p className="mt-1 text-[13px] text-muted-foreground">Runs the existing storage verification check without exposing secrets.</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => void handleVerifyStorage()} disabled={storageLoading}>
+                {storageLoading ? "Checking..." : "Verify storage"}
+              </Button>
+            </div>
+            {storageError && <Card className="p-4 text-[13px] text-destructive">{storageError}</Card>}
+            {storageResult && (
+              <Card className="p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Badge variant={storageResult.ok ? "green" : "red"}>{storageResult.ok ? "Healthy" : "Failed"}</Badge>
+                  <span className="text-[13px] text-muted-foreground">Type: {storageResult.storageType ?? "unknown"}</span>
+                  <span className="text-[13px] text-muted-foreground">Bundles: {storageResult.bundleCount ?? 0}</span>
+                </div>
+                {storageResult.error && <p className="mt-3 text-[13px] text-destructive">{storageResult.error}</p>}
+              </Card>
+            )}
+          </section>
+        </div>
+      )}
+    </AdminShell>
   );
 }
 
@@ -482,7 +709,7 @@ function SettingsPage() {
     <RequireAuth>
       <div className="min-h-screen bg-background">
         <Header
-          title="Settings"
+          title="My Settings"
           userName={auth.user?.username}
           nav={
             <div className="flex items-center gap-1">
@@ -501,7 +728,7 @@ function SettingsPage() {
               <section className="space-y-4">
                 <div className="flex items-end gap-6">
                   <div>
-                    <h2 className="text-xl font-semibold">API Keys</h2>
+                    <h2 className="text-xl font-semibold">My API Keys</h2>
                     <p className="mt-1 text-[13px] text-muted-foreground">Create and manage your personal API keys.</p>
                   </div>
                   <div className="h-px flex-1 bg-border" />
@@ -722,10 +949,27 @@ const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: "/login"
 const workspaceRoute = createRoute({ getParentRoute: () => rootRoute, path: "/w/$ws", component: WorkspacePage });
 const bundleRoute = createRoute({ getParentRoute: () => rootRoute, path: "/w/$ws/b/$bundleId", component: BundleRoutePage });
 const bundleFileRoute = createRoute({ getParentRoute: () => rootRoute, path: "/w/$ws/b/$bundleId/f", validateSearch: (search: Record<string, unknown>) => ({ path: typeof search.path === "string" ? search.path : "" }), component: BundleFileRoutePage });
-const adminRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin", component: AdminPage });
+const adminRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin", component: AdminOverviewPage });
+const adminUsersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin/users", component: AdminUsersPage });
+const adminWorkspacesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin/workspaces", component: AdminWorkspacesPage });
+const adminApiKeysRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin/api-keys", component: AdminApiKeysPage });
+const adminSystemRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin/system", component: AdminSystemPage });
 const settingsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/settings", component: SettingsPage });
 const setupRoute = createRoute({ getParentRoute: () => rootRoute, path: "/setup", component: SetupPage });
-const routeTree = rootRoute.addChildren([homeRoute, loginRoute, workspaceRoute, bundleRoute, bundleFileRoute, adminRoute, settingsRoute, setupRoute]);
+const routeTree = rootRoute.addChildren([
+  homeRoute,
+  loginRoute,
+  workspaceRoute,
+  bundleRoute,
+  bundleFileRoute,
+  adminRoute,
+  adminUsersRoute,
+  adminWorkspacesRoute,
+  adminApiKeysRoute,
+  adminSystemRoute,
+  settingsRoute,
+  setupRoute,
+]);
 const router = createRouter({ routeTree, defaultPreload: "intent" });
 
 declare module "@tanstack/react-router" {
