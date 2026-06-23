@@ -2,6 +2,7 @@
   "name": "evidence-browser-root",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "workspaces": [
     "packages/api",
     "packages/cli",
@@ -23,6 +24,7 @@
     "test:web": "npm -w @evidence-browser/web run test",
     "build:shared": "npm -w @evidence-browser/shared run build",
     "test:shared": "npm -w @evidence-browser/shared run test",
+    "typecheck": "npm run typecheck:api && npm run typecheck:web",
     "typecheck:api": "npm -w @evidence-browser/api run typecheck",
     "typecheck:web": "npm -w @evidence-browser/web run typecheck",
     "build:cli": "npm -w evidence-browser-cli run build",

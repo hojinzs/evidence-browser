@@ -209,3 +209,9 @@ npm run start
 - [Tailwind CSS 4](https://tailwindcss.com)
 - [Shiki](https://shiki.style) (Syntax highlighting)
 - [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) (AI agent integration)
+
+## License
+
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
