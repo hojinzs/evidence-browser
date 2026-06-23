@@ -168,18 +168,23 @@ npx @modelcontextprotocol/inspector http://localhost:3000/api/mcp
 ## API Reference
 
 All endpoints require authentication (unless `AUTH_BYPASS=true` in development).
+Bundle routes are scoped to a workspace. Use the workspace slug for `{ws}`; `{bundleId}` is a single URL path segment, so encode reserved characters, including slashes as `%2F`, when constructing URLs.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/b/{bundleId}` | Bundle landing page |
-| `GET` | `/b/{bundleId}/f/{filePath}` | File viewer |
-| `GET` | `/api/bundle/{encodedBundleId}/meta` | Bundle manifest + file tree (JSON) |
-| `GET` | `/api/bundle/{encodedBundleId}/tree` | File tree only (JSON) |
-| `GET` | `/api/bundle/{encodedBundleId}/file?path={filePath}` | Raw file content |
+| `GET` | `/w/{ws}` | Workspace bundle list page |
+| `GET` | `/w/{ws}/b/{bundleId}` | Bundle landing page |
+| `GET` | `/w/{ws}/b/{bundleId}/f?path={filePath}` | File viewer |
+| `GET` | `/api/w` | List workspaces (JSON) |
+| `GET` | `/api/w/{ws}` | Workspace details (JSON) |
+| `GET` | `/api/w/{ws}/bundle` | List workspace bundles (JSON) |
+| `POST` | `/api/w/{ws}/bundle` | Upload a bundle |
+| `GET` | `/api/w/{ws}/bundles/{bundleId}/meta` | Bundle manifest + file tree (JSON) |
+| `GET` | `/api/w/{ws}/bundles/{bundleId}/tree` | File tree only (JSON) |
+| `GET` | `/api/w/{ws}/bundles/{bundleId}/file?path={filePath}` | Raw file content |
+| `GET` | `/api/w/{ws}/bundles/{bundleId}/preview?path={htmlFilePath}` | Sandboxed HTML preview |
 | `GET` | `/llm.txt` | LLM integration guide (plain text) |
 | `POST` | `/api/mcp` | MCP Streamable HTTP endpoint |
-
-Bundle IDs with slashes must be URL-encoded in API paths (e.g. `org%2Frepo%2Fpr-42`).
 
 ## Deployment
 
