@@ -7,6 +7,14 @@ COPY packages/cli/package.json ./packages/cli/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/web/package.json ./packages/web/
 RUN npm ci --include=dev
+RUN if [ "$(apk --print-arch)" = "aarch64" ]; then \
+      npm install --no-save \
+        @rolldown/binding-linux-arm64-musl@1.0.0-rc.15 \
+        @tailwindcss/oxide-linux-arm64-musl@4.2.2 \
+        lightningcss-linux-arm64-musl@1.32.0 \
+        @node-rs/argon2-linux-arm64-musl@2.0.2 \
+        @node-rs/crc32-linux-arm64-musl@1.10.6; \
+    fi
 RUN npm rebuild better-sqlite3 --build-from-source
 COPY . .
 RUN npm -w @evidence-browser/shared run build
@@ -31,12 +39,20 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # Remove dev dependencies
 RUN npm prune --omit=dev
+RUN if [ "$(apk --print-arch)" = "aarch64" ]; then \
+      npm install --omit=dev --no-save \
+        @node-rs/argon2-linux-arm64-musl@2.0.2 \
+        @node-rs/crc32-linux-arm64-musl@1.10.6; \
+    fi
 
 # Copy compiled Hono API (includes shared via relative paths in dist/shared/)
 COPY --from=builder /app/packages/api/dist ./dist
 
 # Copy compiled Vite SPA
 COPY --from=builder /app/packages/web/dist ./web
+
+# Copy shipped demo bundle for the one-click empty-state CTA
+COPY --from=builder /app/examples/sample.zip ./examples/sample.zip
 
 RUN mkdir -p /data/bundles && chown -R appuser:nodejs /data
 VOLUME /data

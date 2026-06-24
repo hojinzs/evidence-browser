@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "title": "Evidence Browser Demo Bundle",
+  "index": "index.md",
+  "description": "A small bundle that demonstrates markdown, images, logs, and nested files."
+}

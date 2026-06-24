@@ -39,6 +39,25 @@ export const HTML_PREVIEW_CSP_HEADER = [
   "form-action 'none'",
 ].join("; ");
 const bundle = new Hono<{ Variables: AppVariables }>();
+const DEMO_BUNDLE_ID = "sample";
+
+function findSampleBundlePath(): string | null {
+  const candidates = [
+    path.resolve(process.cwd(), "examples/sample.zip"),
+    path.resolve(__dirname, "../../../../examples/sample.zip"),
+  ];
+
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "SQLITE_CONSTRAINT_UNIQUE"
+  );
+}
 
 bundle.get("/:ws/bundle", authenticate, (c) => {
   const ws = c.req.param("ws");
@@ -75,6 +94,57 @@ async function deleteBundleRoute(c: Context<{ Variables: AppVariables }>) {
 
 bundle.delete("/:ws/bundle/:bundleId", requireUpload, deleteBundleRoute);
 bundle.delete("/:ws/bundles/:bundleId", requireUpload, deleteBundleRoute);
+
+bundle.post("/:ws/bundle/demo", requireUpload, async (c) => {
+  const user = c.get("user");
+  const ws = c.req.param("ws");
+  const workspace = findWorkspaceBySlug(ws);
+  if (!workspace) return c.json({ error: "Workspace not found" }, 404);
+
+  const existing = findBundle(workspace.id, DEMO_BUNDLE_ID);
+  if (existing) return c.json({ bundle: existing }, 200);
+
+  const samplePath = findSampleBundlePath();
+  if (!samplePath) return c.json({ error: "Sample bundle not found" }, 500);
+
+  const buffer = await fs.promises.readFile(samplePath);
+  const env = getEnv();
+  const sizeResult = validateBundleSize(buffer.byteLength, env.MAX_BUNDLE_SIZE);
+  if (!sizeResult.ok) return c.json({ error: sizeResult.error.message }, sizeResult.error.status);
+
+  let title: string | null = null;
+  try {
+    title = (await validateBundleZip(samplePath)).title;
+  } catch (error) {
+    return c.json({ error: error instanceof Error ? error.message : "번들 검증 실패" }, 400);
+  }
+
+  const storage = getStorageAdapter();
+  if (!storage.putBundle) {
+    return c.json({ error: "Storage adapter does not support upload" }, 501);
+  }
+
+  const key = storageKey(ws, DEMO_BUNDLE_ID);
+  await storage.putBundle(key, buffer);
+
+  try {
+    const created = createBundle({
+      bundleId: DEMO_BUNDLE_ID,
+      workspaceId: workspace.id,
+      title,
+      storageKey: key,
+      sizeBytes: buffer.byteLength,
+      uploadedBy: user.id,
+    });
+
+    return c.json({ bundle: created }, 201);
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+    const racedBundle = findBundle(workspace.id, DEMO_BUNDLE_ID);
+    if (racedBundle) return c.json({ bundle: racedBundle }, 200);
+    throw error;
+  }
+});
 
 bundle.post("/:ws/bundle", requireUpload, async (c) => {
   const user = c.get("user");

@@ -1,8 +1,19 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import type Database from "better-sqlite3";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestDb } from "@/lib/db/index";
+
+const { mockPutBundle } = vi.hoisted(() => ({
+  mockPutBundle: vi.fn(),
+}));
+const authState = vi.hoisted(() => ({
+  uploadUserId: "user-1",
+}));
+
+let testDb: Database.Database;
 
 vi.mock("@/middleware/auth", () => ({
   authenticate: async (c: { set: (key: string, value: unknown) => void }, next: () => Promise<void>) => {
@@ -10,10 +21,18 @@ vi.mock("@/middleware/auth", () => ({
     await next();
   },
   requireUpload: async (c: { set: (key: string, value: unknown) => void }, next: () => Promise<void>) => {
-    c.set("user", { id: "user-1", username: "tester", role: "admin" });
+    c.set("user", { id: authState.uploadUserId, username: "tester", role: "admin" });
     await next();
   },
 }));
+
+vi.mock("@/lib/db/index", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/db/index")>();
+  return {
+    ...original,
+    getDb: () => testDb,
+  };
+});
 
 vi.mock("@/lib/bundle/extractor", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/bundle/extractor")>();
@@ -23,7 +42,15 @@ vi.mock("@/lib/bundle/extractor", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/storage", () => ({
+  getStorageAdapter: () => ({
+    putBundle: mockPutBundle,
+  }),
+}));
+
 import { extractBundle } from "@/lib/bundle/extractor";
+import { createWorkspace } from "@/lib/db/workspaces";
+import { createUser } from "@/lib/db/users";
 import { HTML_PREVIEW_CSP_HEADER, bundleRoutes } from "./bundle";
 
 const mockedExtractBundle = vi.mocked(extractBundle);
@@ -37,6 +64,8 @@ function createTestApp() {
 
 describe("bundle preview route", () => {
   beforeEach(() => {
+    testDb = createTestDb();
+    authState.uploadUserId = "user-1";
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "evidence-preview-test-"));
     mockedExtractBundle.mockResolvedValue({
       cacheDir: tempDir,
@@ -92,5 +121,46 @@ describe("bundle preview route", () => {
 
     expect(res.status).toBe(415);
     expect(mockedExtractBundle).not.toHaveBeenCalled();
+  });
+});
+
+describe("demo bundle route", () => {
+  beforeEach(() => {
+    testDb = createTestDb();
+    vi.clearAllMocks();
+  });
+
+  it("loads the shipped sample bundle into a workspace", async () => {
+    const admin = await createUser("admin", "password123", "admin");
+    authState.uploadUserId = admin.id;
+    createWorkspace("default", "Default", "Demo workspace", admin.id);
+    const app = createTestApp();
+
+    const res = await app.request("/api/w/default/bundle/demo", { method: "POST" });
+
+    expect(res.status).toBe(201);
+    const payload = (await res.json()) as { bundle: { bundle_id: string; title: string; storage_key: string } };
+    expect(payload.bundle.bundle_id).toBe("sample");
+    expect(payload.bundle.title).toBe("Evidence Browser Demo Bundle");
+    expect(payload.bundle.storage_key).toBe("default/sample");
+    expect(mockPutBundle).toHaveBeenCalledTimes(1);
+    expect(mockPutBundle).toHaveBeenCalledWith("default/sample", expect.any(Buffer));
+  });
+
+  it("returns the existing sample bundle on repeat loads", async () => {
+    const admin = await createUser("admin", "password123", "admin");
+    authState.uploadUserId = admin.id;
+    createWorkspace("default", "Default", "Demo workspace", admin.id);
+    const app = createTestApp();
+
+    const first = await app.request("/api/w/default/bundle/demo", { method: "POST" });
+    const second = await app.request("/api/w/default/bundle/demo", { method: "POST" });
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(200);
+    const payload = (await second.json()) as { bundle: { bundle_id: string; title: string } };
+    expect(payload.bundle.bundle_id).toBe("sample");
+    expect(payload.bundle.title).toBe("Evidence Browser Demo Bundle");
+    expect(mockPutBundle).toHaveBeenCalledTimes(1);
   });
 });
