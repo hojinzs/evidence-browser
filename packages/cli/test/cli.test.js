@@ -1,6 +1,50 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
 const { PassThrough } = require("node:stream");
+
+async function readZipText(zipPath, entryName) {
+  const yauzl = require("yauzl-promise");
+  const zipFile = await yauzl.open(zipPath);
+
+  try {
+    for await (const entry of zipFile) {
+      if (entry.filename !== entryName) continue;
+
+      const readStream = await entry.openReadStream();
+      const chunks = [];
+      for await (const chunk of readStream) {
+        chunks.push(Buffer.from(chunk));
+      }
+      return Buffer.concat(chunks).toString("utf8");
+    }
+  } finally {
+    await zipFile.close();
+  }
+
+  throw new Error(`Entry not found: ${entryName}`);
+}
+
+async function writeZipEntries(zipPath, entries) {
+  const fs = require("node:fs");
+  const { ZipArchive } = require("archiver");
+
+  await new Promise((resolve, reject) => {
+    const output = fs.createWriteStream(zipPath);
+    const archive = new ZipArchive({ zlib: { level: 9 } });
+
+    output.on("close", resolve);
+    output.on("error", reject);
+    archive.on("error", reject);
+    archive.pipe(output);
+
+    for (const [name, content] of Object.entries(entries)) {
+      archive.append(content, { name });
+    }
+
+    archive.finalize();
+  });
+}
 
 function restoreEnv(name, previousValue) {
   if (previousValue === undefined) {
@@ -596,6 +640,142 @@ test("bundle delete command deletes immediately with --force", async () => {
   } finally {
     global.fetch = previousFetch;
     console.log = previousLog;
+  }
+});
+
+test("bundle validate passes for a local zip without server calls", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "eb-cli-bundle-"));
+  const sourceDir = path.join(tmpDir, "report");
+  const zipPath = path.join(tmpDir, "report.zip");
+  const previousFetch = global.fetch;
+  const previousLog = console.log;
+  const lines = [];
+
+  fs.mkdirSync(sourceDir);
+  fs.writeFileSync(path.join(sourceDir, "index.md"), "# Report\n");
+  console.log = (value) => lines.push(value);
+  global.fetch = async () => {
+    throw new Error("validate should not call fetch");
+  };
+
+  try {
+    const { createCli } = require("../dist/index.js");
+    await createCli().parseAsync(["node", "eb", "bundle", "create", sourceDir, "--output", zipPath]);
+    lines.length = 0;
+    await createCli().parseAsync(["node", "eb", "bundle", "validate", zipPath]);
+    assert.deepEqual(lines, ["Bundle is valid: report"]);
+  } finally {
+    global.fetch = previousFetch;
+    console.log = previousLog;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("bundle validate fails for an invalid local zip without server calls", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "eb-cli-bundle-"));
+  const zipPath = path.join(tmpDir, "broken.zip");
+
+  try {
+    await writeZipEntries(zipPath, { "index.md": "# Broken\n" });
+
+    const result = spawnSync(process.execPath, [path.join(__dirname, "..", "dist", "bin.js"), "bundle", "validate", zipPath], {
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /Bundle validation failed: manifest\.json was not found/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("bundle create generates a valid manifest when one is absent", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "eb-cli-bundle-"));
+  const sourceDir = path.join(tmpDir, "daily-report");
+  const zipPath = path.join(tmpDir, "daily.zip");
+  const previousLog = console.log;
+  const lines = [];
+
+  fs.mkdirSync(path.join(sourceDir, "notes"), { recursive: true });
+  fs.writeFileSync(path.join(sourceDir, "notes", "summary.md"), "# Summary\n");
+  console.log = (value) => lines.push(value);
+
+  try {
+    const { createCli } = require("../dist/index.js");
+    await createCli().parseAsync([
+      "node",
+      "eb",
+      "bundle",
+      "create",
+      sourceDir,
+      "--output",
+      zipPath,
+      "--title",
+      "Daily Report",
+    ]);
+    assert.deepEqual(lines, [`Created bundle: ${zipPath}`]);
+    const manifest = JSON.parse(await readZipText(zipPath, "manifest.json"));
+    assert.deepEqual(manifest, {
+      version: 1,
+      title: "Daily Report",
+      index: "notes/summary.md",
+    });
+  } finally {
+    console.log = previousLog;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("bundle create preserves an existing manifest and ignores manifest flags", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "eb-cli-bundle-"));
+  const sourceDir = path.join(tmpDir, "existing-manifest");
+  const zipPath = path.join(tmpDir, "existing.zip");
+  const previousLog = console.log;
+
+  fs.mkdirSync(sourceDir);
+  fs.writeFileSync(path.join(sourceDir, "README.md"), "# Readme\n");
+  fs.writeFileSync(
+    path.join(sourceDir, "manifest.json"),
+    `${JSON.stringify({ version: 1, title: "Existing Title", index: "README.md" }, null, 2)}\n`
+  );
+  console.log = () => {};
+
+  try {
+    const { createCli } = require("../dist/index.js");
+    await createCli().parseAsync([
+      "node",
+      "eb",
+      "bundle",
+      "create",
+      sourceDir,
+      "--output",
+      zipPath,
+      "--title",
+      "Ignored Title",
+      "--index",
+      "ignored.md",
+    ]);
+    const manifest = JSON.parse(await readZipText(zipPath, "manifest.json"));
+    assert.deepEqual(manifest, {
+      version: 1,
+      title: "Existing Title",
+      index: "README.md",
+    });
+  } finally {
+    console.log = previousLog;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
 
