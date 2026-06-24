@@ -88,7 +88,7 @@ STORAGE_LOCAL_PATH=./data/bundles
 DATA_DIR=./data
 ```
 
-There is no supported `AUTH_BYPASS` shortcut in the current API implementation. Create the initial admin/workspace through setup, then log in normally or use an API key for CLI/API checks.
+For trusted local or intranet QA only, `AUTH_BYPASS=true` skips setup/login and runs all requests as admin. Leave it unset for normal auth regression checks.
 
 ## Required PR QA checks
 

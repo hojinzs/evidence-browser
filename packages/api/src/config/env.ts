@@ -36,6 +36,7 @@ const envSchema = z
 
     // Auth
     AUTH_SECRET: z.string().optional().default("evidence-browser-default-secret-change-me"),
+    AUTH_BYPASS: booleanFromString,
 
     NODE_ENV: z.enum(["development", "test", "production"]).optional().default("development"),
 

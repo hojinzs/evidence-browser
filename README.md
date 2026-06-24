@@ -55,6 +55,7 @@ In a workspace, click **Load demo bundle** or run `eb bundle upload examples/sam
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AUTH_SECRET` | `evidence-browser-default-secret-change-me` | Session signing secret (must be explicitly set in production) |
+| `AUTH_BYPASS` | `false` | Set to `true` only for trusted local or intranet deployments. All requests run as an admin user, `/setup` is skipped, and no login/API key is required. Do not expose an instance with this enabled to an untrusted network. |
 
 ### Storage
 
@@ -186,7 +187,7 @@ npx @modelcontextprotocol/inspector http://localhost:3000/api/mcp
 
 ## API Reference
 
-All endpoints require authentication (unless `AUTH_BYPASS=true` in development).
+All endpoints require authentication unless `AUTH_BYPASS=true` is explicitly enabled. `AUTH_BYPASS=true` is intended only for trusted local or intranet deployments: it skips `/setup`, treats every request as admin, and logs a startup warning. Do not expose a bypass-enabled instance to an untrusted network.
 Bundle routes are scoped to a workspace. Use the workspace slug for `{ws}`; `{bundleId}` is a single URL path segment, so encode reserved characters, including slashes as `%2F`, when constructing URLs.
 
 | Method | Path | Description |

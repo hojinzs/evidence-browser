@@ -1,6 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import { findApiKeyByHash, updateApiKeyLastUsed } from "@/lib/db/api-keys";
 import { validateSessionFromRequest } from "@/lib/auth/request-auth";
+import { getAuthBypassUser, isAuthBypassEnabled } from "@/lib/auth/bypass";
 import type { AuthUser } from "@/lib/auth/types";
 
 type ScopedApiKeyScope = "read" | "upload" | "admin";
@@ -27,6 +28,13 @@ function extractBearerToken(authorization: string | undefined): string | null {
 }
 
 export const authenticate = createMiddleware<{ Variables: AppVariables }>(async (c, next) => {
+  if (isAuthBypassEnabled()) {
+    c.set("user", await getAuthBypassUser());
+    c.set("apiKeyScope", "admin");
+    await next();
+    return;
+  }
+
   const token = extractBearerToken(c.req.header("authorization"));
   if (token?.startsWith("eb_")) {
     const apiKeyUser = getApiKeyUser(token);
@@ -44,6 +52,13 @@ export const authenticate = createMiddleware<{ Variables: AppVariables }>(async 
 });
 
 export const requireAdmin = createMiddleware<{ Variables: AppVariables }>(async (c, next) => {
+  if (isAuthBypassEnabled()) {
+    c.set("user", await getAuthBypassUser());
+    c.set("apiKeyScope", "admin");
+    await next();
+    return;
+  }
+
   const token = extractBearerToken(c.req.header("authorization"));
   if (token?.startsWith("eb_")) {
     const apiKeyUser = getApiKeyUser(token);
@@ -65,6 +80,13 @@ export const requireAdmin = createMiddleware<{ Variables: AppVariables }>(async 
 });
 
 export const requireUpload = createMiddleware<{ Variables: AppVariables }>(async (c, next) => {
+  if (isAuthBypassEnabled()) {
+    c.set("user", await getAuthBypassUser());
+    c.set("apiKeyScope", "admin");
+    await next();
+    return;
+  }
+
   const token = extractBearerToken(c.req.header("authorization"));
   if (token?.startsWith("eb_")) {
     const apiKeyUser = getApiKeyUser(token);
