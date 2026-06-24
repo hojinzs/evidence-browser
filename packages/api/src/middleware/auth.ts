@@ -1,6 +1,12 @@
+import type { Context, Next } from "hono";
 import { createMiddleware } from "hono/factory";
 import { findApiKeyByHash, updateApiKeyLastUsed } from "@/lib/db/api-keys";
 import { validateSessionFromRequest } from "@/lib/auth/request-auth";
+import {
+  getAuthBypassUser,
+  isAuthBypassEnabled,
+  isAuthBypassUserId,
+} from "@/lib/auth/bypass";
 import type { AuthUser } from "@/lib/auth/types";
 
 type ScopedApiKeyScope = "read" | "upload" | "admin";
@@ -9,6 +15,7 @@ export type AppVariables = { user: AuthUser; apiKeyScope?: ScopedApiKeyScope };
 function getApiKeyUser(rawKey: string): { user: AuthUser; scope: ScopedApiKeyScope } | null {
   const apiKey = findApiKeyByHash(rawKey);
   if (!apiKey) return null;
+  if (isAuthBypassUserId(apiKey.user_id)) return null;
 
   updateApiKeyLastUsed(apiKey.id);
   return {
@@ -26,7 +33,18 @@ function extractBearerToken(authorization: string | undefined): string | null {
   return authorization.slice(7).trim() || null;
 }
 
+async function applyAuthBypass(c: Context<{ Variables: AppVariables }>, next: Next) {
+  c.set("user", await getAuthBypassUser());
+  c.set("apiKeyScope", "admin");
+  await next();
+}
+
 export const authenticate = createMiddleware<{ Variables: AppVariables }>(async (c, next) => {
+  if (isAuthBypassEnabled()) {
+    await applyAuthBypass(c, next);
+    return;
+  }
+
   const token = extractBearerToken(c.req.header("authorization"));
   if (token?.startsWith("eb_")) {
     const apiKeyUser = getApiKeyUser(token);
@@ -44,6 +62,11 @@ export const authenticate = createMiddleware<{ Variables: AppVariables }>(async 
 });
 
 export const requireAdmin = createMiddleware<{ Variables: AppVariables }>(async (c, next) => {
+  if (isAuthBypassEnabled()) {
+    await applyAuthBypass(c, next);
+    return;
+  }
+
   const token = extractBearerToken(c.req.header("authorization"));
   if (token?.startsWith("eb_")) {
     const apiKeyUser = getApiKeyUser(token);
@@ -65,6 +88,11 @@ export const requireAdmin = createMiddleware<{ Variables: AppVariables }>(async 
 });
 
 export const requireUpload = createMiddleware<{ Variables: AppVariables }>(async (c, next) => {
+  if (isAuthBypassEnabled()) {
+    await applyAuthBypass(c, next);
+    return;
+  }
+
   const token = extractBearerToken(c.req.header("authorization"));
   if (token?.startsWith("eb_")) {
     const apiKeyUser = getApiKeyUser(token);

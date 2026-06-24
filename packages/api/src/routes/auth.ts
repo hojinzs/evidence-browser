@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { login, logout, SESSION_COOKIE_NAME, validateSession } from "@/lib/auth";
+import { getAuthBypassUser, isAuthBypassEnabled } from "@/lib/auth/bypass";
 
 const auth = new Hono();
 
@@ -33,7 +34,11 @@ auth.post("/logout", (c) => {
   return c.json({ ok: true });
 });
 
-auth.get("/me", (c) => {
+auth.get("/me", async (c) => {
+  if (isAuthBypassEnabled()) {
+    return c.json({ user: await getAuthBypassUser() });
+  }
+
   const cookie = getCookie(c, SESSION_COOKIE_NAME);
   if (!cookie) return c.json({ error: "Unauthorized" }, 401);
 

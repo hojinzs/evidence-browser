@@ -7,21 +7,22 @@ import { requireAdmin, type AppVariables } from "@/middleware/auth";
 import { createWorkspace, findWorkspaceBySlug, listWorkspaces } from "@/lib/db/workspaces";
 import { getStorageAdapter } from "@/lib/storage";
 import { getEnv } from "@/config/env";
+import { AUTH_BYPASS_USERNAME, isAuthBypassEnabled } from "@/lib/auth/bypass";
 
 const setup = new Hono<{ Variables: AppVariables }>();
 
 setup.get("/status", (c) => {
-  const hasAdmin = countAdmins() > 0;
+  const hasAdmin = countAdmins({ excludeUsername: AUTH_BYPASS_USERNAME }) > 0;
   const hasWorkspace = listWorkspaces().length > 0;
   return c.json({
-    needsSetup: !hasAdmin || !hasWorkspace,
+    needsSetup: isAuthBypassEnabled() ? false : !hasAdmin || !hasWorkspace,
     hasAdmin,
     hasWorkspace,
   });
 });
 
 setup.post("/admin", async (c) => {
-  if (countAdmins() > 0) {
+  if (countAdmins({ excludeUsername: AUTH_BYPASS_USERNAME }) > 0) {
     return c.json({ error: "Admin already exists" }, 403);
   }
 
