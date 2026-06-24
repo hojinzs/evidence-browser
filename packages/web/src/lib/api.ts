@@ -60,6 +60,10 @@ export const api = {
       if (!res.ok) throw await parseError(res);
       return res.json() as Promise<{ bundle: Bundle }>;
     }),
+  loadDemoBundle: (ws: string) =>
+    apiFetch<{ bundle: Bundle }>(`/api/w/${ws}/bundle/demo`, {
+      method: "POST",
+    }),
   deleteBundle: (ws: string, bundleId: string) =>
     apiFetch<void>(`/api/w/${ws}/bundles/${bundleId}`, { method: "DELETE" }),
   getBundleMeta: (ws: string, bundleId: string) =>

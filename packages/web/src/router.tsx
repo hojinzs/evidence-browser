@@ -12,6 +12,7 @@ import {
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { TanStackRouterDevtools } from "@tanstack/router-devtools";
+import { PackageOpen } from "lucide-react";
 import { AppShell, MobileSidebarTrigger } from "@/components/layout/app-shell";
 import { Header } from "@/components/layout/header";
 import { BrandMark } from "@/components/layout/brand";
@@ -221,6 +222,7 @@ function WorkspacePage() {
   const bundlesQuery = useQuery({ queryKey: ["bundles", ws], queryFn: () => api.getBundles(ws), enabled: auth.isAuthenticated });
   const [bundleError, setBundleError] = React.useState("");
   const [deletingBundleId, setDeletingBundleId] = React.useState<string | null>(null);
+  const [loadingDemoBundle, setLoadingDemoBundle] = React.useState(false);
   const workspace = workspacesQuery.data?.workspaces.find((item) => item.slug === ws);
 
   React.useEffect(() => {
@@ -246,6 +248,20 @@ function WorkspacePage() {
       setBundleError(err instanceof ApiError ? err.message : "Network error");
     } finally {
       setDeletingBundleId(null);
+    }
+  }
+
+  async function handleLoadDemoBundle() {
+    setBundleError("");
+    setLoadingDemoBundle(true);
+    try {
+      const { bundle } = await api.loadDemoBundle(ws);
+      await refreshWorkspaceBundles();
+      await navigate({ to: bundleLandingUrl(ws, bundle.bundle_id) });
+    } catch (err) {
+      setBundleError(err instanceof ApiError ? err.message : "Network error");
+    } finally {
+      setLoadingDemoBundle(false);
     }
   }
 
@@ -287,7 +303,20 @@ function WorkspacePage() {
                   ))}
                 </Card>
               ) : (
-                <Card className="p-10 text-center text-muted-foreground">아직 번들이 없습니다</Card>
+                <Card className="flex flex-col items-center gap-4 p-10 text-center">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">아직 번들이 없습니다</p>
+                    <p className="mt-1 text-sm text-muted-foreground">샘플 번들을 불러와 렌더링을 바로 확인하세요.</p>
+                  </div>
+                  <Button
+                    onClick={() => void handleLoadDemoBundle()}
+                    disabled={loadingDemoBundle || auth.user?.role !== "admin"}
+                    title={auth.user?.role !== "admin" ? "관리자만 사용할 수 있습니다" : undefined}
+                  >
+                    <PackageOpen data-icon="inline-start" />
+                    {loadingDemoBundle ? "Loading demo..." : "Load demo bundle"}
+                  </Button>
+                </Card>
               )}
             </section>
           </div>

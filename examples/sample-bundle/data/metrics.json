@@ -1,0 +1,9 @@
+{
+  "bundleId": "sample",
+  "checks": {
+    "markdown": "passed",
+    "image": "passed",
+    "tree": "passed"
+  },
+  "generatedAt": "2026-06-24T15:58:05Z"
+}
