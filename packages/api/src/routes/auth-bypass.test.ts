@@ -14,8 +14,10 @@ vi.mock("../lib/db/index", async (importOriginal) => {
 });
 
 import { resetEnv } from "@/config/env";
+import { AUTH_BYPASS_USERNAME, resetAuthBypassUserCache } from "@/lib/auth/bypass";
 import { findUserByUsername } from "@/lib/db/users";
 import { requireUpload, type AppVariables } from "@/middleware/auth";
+import { apiKeyRoutes } from "./api-keys";
 import { authRoutes } from "./auth";
 import { checkAuth as checkMcpAuth } from "./mcp";
 import { setupRoutes } from "./setup";
@@ -24,6 +26,7 @@ import { workspaceRoutes } from "./workspace";
 function createTestApp() {
   const app = new Hono<{ Variables: AppVariables }>();
   app.route("/api/auth", authRoutes);
+  app.route("/api/api-keys", apiKeyRoutes);
   app.route("/api/setup", setupRoutes);
   app.route("/api/w", workspaceRoutes);
   app.post("/api/upload-check", requireUpload, (c) => c.json({ user: c.get("user") }));
@@ -39,6 +42,7 @@ describe("AUTH_BYPASS", () => {
     delete process.env.AUTH_BYPASS;
     delete process.env.MCP_API_KEY;
     resetEnv();
+    resetAuthBypassUserCache();
     vi.clearAllMocks();
   });
 
@@ -54,6 +58,7 @@ describe("AUTH_BYPASS", () => {
       process.env.MCP_API_KEY = originalMcpApiKey;
     }
     resetEnv();
+    resetAuthBypassUserCache();
   });
 
   it("keeps authentication enforced by default", async () => {
@@ -80,6 +85,29 @@ describe("AUTH_BYPASS", () => {
         role: "admin",
       },
     });
+  });
+
+  it("persists the bypass user as non-admin while exposing admin request context", async () => {
+    process.env.AUTH_BYPASS = "true";
+    resetEnv();
+    const app = createTestApp();
+
+    const first = await app.request("/api/auth/me");
+    const second = await app.request("/api/auth/me");
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+
+    const firstBody = await first.json();
+    const secondBody = await second.json();
+    expect(firstBody.user).toMatchObject({
+      username: AUTH_BYPASS_USERNAME,
+      role: "admin",
+    });
+    expect(secondBody.user.id).toBe(firstBody.user.id);
+
+    const storedBypassUser = findUserByUsername(AUTH_BYPASS_USERNAME);
+    expect(storedBypassUser).toMatchObject({ role: "user" });
   });
 
   it("skips setup requirements on a fresh database when enabled", async () => {
@@ -110,10 +138,71 @@ describe("AUTH_BYPASS", () => {
 
     expect(res.status).toBe(201);
     const storedBypassUser = findUserByUsername("__auth_bypass_admin__");
-    expect(storedBypassUser).toMatchObject({ role: "admin" });
+    expect(storedBypassUser).toMatchObject({ role: "user" });
     await expect(res.json()).resolves.toMatchObject({
       workspace: { slug: "local", created_by: storedBypassUser?.id },
     });
+  });
+
+  it("allows normal setup after disabling bypass on a fresh database", async () => {
+    process.env.AUTH_BYPASS = "true";
+    resetEnv();
+    const app = createTestApp();
+
+    const me = await app.request("/api/auth/me");
+    expect(me.status).toBe(200);
+
+    process.env.AUTH_BYPASS = "false";
+    resetEnv();
+
+    const status = await app.request("/api/setup/status");
+    expect(status.status).toBe(200);
+    await expect(status.json()).resolves.toEqual({
+      needsSetup: true,
+      hasAdmin: false,
+      hasWorkspace: false,
+    });
+
+    const admin = await app.request("/api/setup/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "admin", password: "password123" }),
+    });
+
+    expect(admin.status).toBe(200);
+    await expect(admin.json()).resolves.toMatchObject({
+      user: { username: "admin", role: "admin" },
+    });
+  });
+
+  it("rejects bypass-user API keys after bypass is disabled", async () => {
+    process.env.AUTH_BYPASS = "true";
+    resetEnv();
+    const app = createTestApp();
+
+    const created = await app.request("/api/api-keys", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "rollback", scope: "admin" }),
+    });
+
+    expect(created.status).toBe(201);
+    const { key } = await created.json();
+
+    process.env.AUTH_BYPASS = "false";
+    resetEnv();
+
+    const workspaces = await app.request("/api/w", {
+      headers: { authorization: `Bearer ${key}` },
+    });
+    expect(workspaces.status).toBe(401);
+
+    const mcpAuth = checkMcpAuth(
+      new Request("http://localhost/api/mcp", {
+        headers: { authorization: `Bearer ${key}` },
+      })
+    );
+    expect(mcpAuth?.status).toBe(401);
   });
 
   it("allows upload-scoped middleware without credentials when enabled", async () => {

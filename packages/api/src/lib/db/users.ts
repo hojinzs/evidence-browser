@@ -60,11 +60,16 @@ export function listUsers(): UserPublic[] {
   return stmt.all() as UserPublic[];
 }
 
-export function countAdmins(): number {
-  const stmt = db().prepare(
-    `SELECT COUNT(*) as count FROM users WHERE role = 'admin'`
-  );
-  const row = stmt.get() as { count: number };
+export function countAdmins(options?: { excludeUsername?: string }): number {
+  const excludeUsername = options?.excludeUsername;
+  const stmt = excludeUsername
+    ? db().prepare(
+        `SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND username != ?`
+      )
+    : db().prepare(`SELECT COUNT(*) as count FROM users WHERE role = 'admin'`);
+  const row = (excludeUsername ? stmt.get(excludeUsername) : stmt.get()) as {
+    count: number;
+  };
   return row.count;
 }
 

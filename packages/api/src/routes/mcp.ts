@@ -1,10 +1,11 @@
 import { Hono } from "hono";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { getEnv } from "@/config/env";
-import { isAuthBypassEnabled } from "@/lib/auth/bypass";
+import { isAuthBypassEnabled, isAuthBypassUserId } from "@/lib/auth/bypass";
 import { createMcpServer } from "@/lib/mcp/server";
 import { findApiKeyByHash, updateApiKeyLastUsed } from "@/lib/db/api-keys";
 
+// Exported for focused route auth tests without starting an MCP transport.
 export function checkAuth(request: Request): Response | null {
   if (isAuthBypassEnabled()) return null;
 
@@ -13,7 +14,7 @@ export function checkAuth(request: Request): Response | null {
   if (auth && auth.startsWith("Bearer eb_")) {
     const rawKey = auth.slice("Bearer ".length);
     const apiKey = findApiKeyByHash(rawKey);
-    if (!apiKey) {
+    if (!apiKey || isAuthBypassUserId(apiKey.user_id)) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
