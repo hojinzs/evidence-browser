@@ -13,6 +13,24 @@ A read-only viewer for structured evidence bundles. AI agents and CI pipelines c
 
 ## Quick Start
 
+### Docker
+
+Run the published image with a random session secret and local bundle storage:
+
+```bash
+docker run -p 3000:3000 \
+  -e AUTH_SECRET="$(openssl rand -base64 32)" \
+  -v "$PWD/data:/data" \
+  ghcr.io/hojinzs/evidence-browser:latest
+```
+
+Open [http://localhost:3000](http://localhost:3000) for the web app.
+
+`AUTH_SECRET` signs admin sessions and must be a real random value for any
+shared or production instance.
+
+### Local development
+
 ```bash
 # Install dependencies
 npm install
@@ -188,7 +206,17 @@ Bundle routes are scoped to a workspace. Use the workspace slug for `{ws}`; `{bu
 
 ## Deployment
 
-### Docker (standalone)
+### Docker
+
+```bash
+AUTH_SECRET="$(openssl rand -base64 32)" docker compose up
+```
+
+The compose file builds the local Docker image, maps `3000:3000`, and stores
+bundles under `./data` on the host. `AUTH_SECRET` is required; generate a fresh
+random value instead of committing or reusing a fixed value.
+
+For a local Node production build without Docker:
 
 ```bash
 npm run build

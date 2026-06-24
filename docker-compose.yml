@@ -9,4 +9,4 @@ services:
       - DATA_DIR=/data
       - STORAGE_TYPE=local
       - STORAGE_LOCAL_PATH=/data/bundles
-      - AUTH_SECRET=change-me-to-a-random-secret
+      - "AUTH_SECRET=${AUTH_SECRET:?Set AUTH_SECRET with: openssl rand -base64 32}"
