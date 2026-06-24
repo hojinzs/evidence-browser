@@ -43,7 +43,9 @@ const DEMO_BUNDLE_ID = "sample";
 
 function findSampleBundlePath(): string | null {
   const candidates = [
+    // Root workspace or Docker runtime (`/app/examples/sample.zip`).
     path.resolve(process.cwd(), "examples/sample.zip"),
+    // Package-local execution from compiled or source API routes.
     path.resolve(__dirname, "../../../../examples/sample.zip"),
   ];
 

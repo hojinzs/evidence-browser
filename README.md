@@ -25,7 +25,7 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) for the web app.
-In a workspace, click **Load demo bundle** or upload `examples/sample.zip` to render the bundled sample immediately.
+In a workspace, click **Load demo bundle** or run `eb bundle upload examples/sample.zip -w default` to render the bundled sample immediately.
 
 - Web dev server: `http://localhost:3000` (Vite)
 - API dev server: `http://localhost:3001` (proxied as `/api` from the web app)

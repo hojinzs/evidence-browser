@@ -308,7 +308,11 @@ function WorkspacePage() {
                     <p className="text-sm font-medium text-foreground">아직 번들이 없습니다</p>
                     <p className="mt-1 text-sm text-muted-foreground">샘플 번들을 불러와 렌더링을 바로 확인하세요.</p>
                   </div>
-                  <Button onClick={() => void handleLoadDemoBundle()} disabled={loadingDemoBundle || auth.user?.role !== "admin"}>
+                  <Button
+                    onClick={() => void handleLoadDemoBundle()}
+                    disabled={loadingDemoBundle || auth.user?.role !== "admin"}
+                    title={auth.user?.role !== "admin" ? "관리자만 사용할 수 있습니다" : undefined}
+                  >
                     <PackageOpen data-icon="inline-start" />
                     {loadingDemoBundle ? "Loading demo..." : "Load demo bundle"}
                   </Button>
