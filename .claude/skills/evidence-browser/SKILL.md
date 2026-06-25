@@ -78,7 +78,7 @@ node packages/cli/dist/bin.js upload /tmp/my-bundle.zip \
 On success the CLI prints:
 ```
 Uploaded: 20260427-1200-main-attempt1
-  View: http://127.0.0.1:3000/w/default/20260427-1200-main-attempt1
+  View: http://127.0.0.1:3000/w/default/b/20260427-1200-main-attempt1
 ```
 
 Parse the `View:` line for the bundle URL to return to the caller.
@@ -118,14 +118,14 @@ Derive `{branch-slug}` from `git rev-parse --abbrev-ref HEAD` with `/` replaced 
 
 | Skill | Role |
 |-------|------|
-| `/evidence-upload` | **Higher-level wrapper.** Handles manifest validation, ZIP packaging, login flow, and session-ID naming. Delegates the actual HTTP upload to `eb upload` (or the legacy script). Prefer `/evidence-upload` when you have a `.evidence/{session}/` directory to publish. |
+| `/evidence-upload` | **Higher-level wrapper.** Handles manifest validation, ZIP packaging, login flow, and session-ID naming. Delegates the actual HTTP upload to `eb upload` or the maintained QA helper. Prefer `/evidence-upload` when you have a `.evidence/{session}/` directory to publish. |
 | `/evidence-browser` (this skill) | **Lower-level primitive.** Use directly when you need fine-grained control: inspecting bundles, managing workspaces, rotating API keys, or uploading a pre-packaged ZIP you've assembled yourself. |
 
 ## References
 
 - `packages/cli/src/` — CLI source (TypeScript)
 - `packages/cli/dist/bin.js` — compiled entry point
-- `packages/legacy/src/app/api/w/[ws]/bundle/route.ts` — upload API contract (size cap, bundleId rules)
+- `packages/api/src/routes/bundle.ts` — upload API contract (size cap, bundleId rules)
 - `packages/shared/src/bundle/validate-zip.ts` — manifest schema authority
 - `docs/TEAM_WORKFLOW.md` — session ID format, recursive QA loop spec
 - `docs/CLI.md` — original CLI design spec

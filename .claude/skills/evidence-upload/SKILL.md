@@ -1,8 +1,8 @@
 ---
 name: evidence-upload
-description: Package a .evidence/{session}/ directory into a ZIP, log in as the QA admin, upload it to the local Evidence Browser instance via POST /api/w/{ws}/bundle, and return the bundle URL. Use this whenever an agent (or user) needs to surface test artifacts, QA runs, debug screenshots, or any structured evidence through Evidence Browser's own viewer. This is the canonical upload interface for the project — do NOT call `packages/legacy/scripts/qa-evidence-upload.ts` directly; go through this skill so pre-conditions, session-ID rules, and manifest validation stay in one place.
+description: Package a .evidence/{session}/ directory into a ZIP, log in as the QA admin, upload it to the local Evidence Browser instance via POST /api/w/{ws}/bundle, and return the bundle URL. Use this whenever an agent (or user) needs to surface test artifacts, QA runs, debug screenshots, or any structured evidence through Evidence Browser's own viewer. This is the canonical upload interface for the project — do NOT call `packages/cli/scripts/qa-evidence-upload.ts` directly; go through this skill so pre-conditions, session-ID rules, and manifest validation stay in one place.
 argument-hint: <path-to-.evidence/session-dir>
-allowed-tools: Bash(npx tsx packages/legacy/scripts/qa-evidence-upload.ts:*), Read
+allowed-tools: Bash(npx tsx packages/cli/scripts/qa-evidence-upload.ts:*), Read
 ---
 
 # /evidence-upload
@@ -42,7 +42,7 @@ Recommended format: `{YYYYMMDD-HHmm}-{branch-slug}-attempt{N}` — e.g. `2026041
 Run exactly this command from the project root, replacing `$ARGUMENTS` with the path to the session directory:
 
 ```bash
-npx tsx packages/legacy/scripts/qa-evidence-upload.ts $ARGUMENTS
+npx tsx packages/cli/scripts/qa-evidence-upload.ts $ARGUMENTS
 ```
 
 The script:
@@ -78,10 +78,10 @@ On success, parse `bundleUrl` from stdout and return it to the caller. On non-ze
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `Login response did not include a set-cookie header` | Login succeeded but cookie format changed | Check `packages/legacy/src/lib/auth/index.ts::SESSION_COOKIE_NAME` still equals `evidence_session` |
+| `Login response did not include a set-cookie header` | Login succeeded but cookie format changed | Check `packages/api/src/lib/auth/index.ts::SESSION_COOKIE_NAME` still equals `evidence_session` |
 | `Invalid session ID "..." : must not contain '/'` | Session dir name has slashes | Rename per the session ID format above |
 | `Upload failed: 413` | ZIP exceeds `MAX_BUNDLE_SIZE` | Trim the session dir (drop oversized logs/screenshots) or raise the env cap |
-| `ENOENT` on archiver | `archiver` not installed | Already in devDependencies; run `npm install` |
+| `ENOENT` on archiver | `archiver` not installed | Already in `packages/cli` dependencies; run `npm install` |
 
 ## Relationship to the `eb` CLI
 
@@ -92,12 +92,12 @@ The `eb` CLI (`evidence-browser-cli` package) is now implemented and available v
 | High-level | `/evidence-upload` (this skill) | Manifest validation, ZIP packaging, session-ID naming, QA env wiring |
 | Low-level | `/evidence-browser` | Raw `eb upload` / `eb bundle` / `eb workspace` / `eb api-key` commands |
 
-**Migration path:** The underlying script `packages/legacy/scripts/qa-evidence-upload.ts` can be replaced with a thin wrapper around `eb upload` when ready. This SKILL.md is the stable interface — only the implementation changes.
+**Migration path:** The underlying script `packages/cli/scripts/qa-evidence-upload.ts` can be replaced with a thin wrapper around `eb upload` when ready. This SKILL.md is the stable interface — only the implementation changes.
 
 ## References
 
-- `packages/legacy/scripts/qa-evidence-upload.ts` — current implementation
-- `packages/legacy/src/app/api/w/[ws]/bundle/route.ts` — upload API contract (size cap, bundleId rules, admin auth)
+- `packages/cli/scripts/qa-evidence-upload.ts` — current implementation
+- `packages/api/src/routes/bundle.ts` — upload API contract (size cap, bundleId rules, upload auth)
 - `packages/shared/src/bundle/validate-zip.ts::validateBundleZip` — manifest schema authority
 - `docs/TEAM_WORKFLOW.md` — session ID format, recursive loop spec
 - `.claude/skills/evidence-browser/SKILL.md` — low-level `eb` CLI reference

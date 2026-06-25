@@ -5,7 +5,7 @@
  * QA admin, and uploads the bundle to the local Evidence Browser instance.
  *
  * Usage:
- *   npx tsx scripts/qa-evidence-upload.ts .evidence/{session}
+ *   npx tsx packages/cli/scripts/qa-evidence-upload.ts .evidence/{session}
  *
  * Env (read from .env.local / process.env):
  *   QA_BASE_URL           default: http://127.0.0.1:3000
@@ -17,9 +17,10 @@
  *
  * Contract notes:
  *   - bundleId = basename of session directory. Must not contain `/`, `..`, `\0`
- *     (enforced by src/app/api/w/[ws]/bundle/route.ts).
- *   - manifest.json must validate per src/lib/bundle/extractor.ts.
- *   - Admin session cookie required (requireAdminFromRequest).
+ *     (enforced by packages/api/src/routes/bundle.ts).
+ *   - manifest.json must validate per packages/shared/src/bundle/validate-zip.ts.
+ *   - This helper uploads with an admin session cookie; the API route itself
+ *     accepts any `requireUpload` credential.
  */
 import archiver from "archiver";
 import fs from "fs";
@@ -153,7 +154,7 @@ async function main() {
   const [, , sessionDirArg] = process.argv;
   if (!sessionDirArg) {
     console.error(
-      "Usage: npx tsx scripts/qa-evidence-upload.ts .evidence/{session}"
+      "Usage: npx tsx packages/cli/scripts/qa-evidence-upload.ts .evidence/{session}"
     );
     process.exit(2);
   }
