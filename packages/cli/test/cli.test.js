@@ -695,6 +695,30 @@ test("bundle validate fails for an invalid local zip without server calls", asyn
   }
 });
 
+test("bundle validate reports missing manifest fields in English", async () => {
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "eb-cli-bundle-"));
+  const zipPath = path.join(tmpDir, "missing-title.zip");
+
+  try {
+    await writeZipEntries(zipPath, {
+      "manifest.json": `${JSON.stringify({ version: 1, index: "index.md" }, null, 2)}\n`,
+      "index.md": "# Missing title\n",
+    });
+
+    const result = spawnSync(process.execPath, [path.join(__dirname, "..", "dist", "bin.js"), "bundle", "validate", zipPath], {
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /Bundle validation failed: manifest\.json validation failed: missing required fields: title/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test("bundle create generates a valid manifest when one is absent", async () => {
   const fs = require("node:fs");
   const os = require("node:os");
@@ -721,6 +745,8 @@ test("bundle create generates a valid manifest when one is absent", async () => 
       zipPath,
       "--title",
       "Daily Report",
+      "--index",
+      "./notes/summary.md",
     ]);
     assert.deepEqual(lines, [`Created bundle: ${zipPath}`]);
     const manifest = JSON.parse(await readZipText(zipPath, "manifest.json"));

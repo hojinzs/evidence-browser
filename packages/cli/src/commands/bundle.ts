@@ -87,6 +87,11 @@ function handleCommandError(err: unknown): never {
 function formatValidationError(err: unknown): string {
   if (!(err instanceof Error)) return String(err);
 
+  const requiredFields = err.message.match(/(?:필수 필드 누락|Missing required fields?):\s*(.+)$/i);
+  if (requiredFields?.[1]) {
+    return `manifest.json validation failed: missing required fields: ${requiredFields[1]}`;
+  }
+
   if (err.name === "ManifestNotFoundError") {
     return "manifest.json was not found";
   }
@@ -116,7 +121,11 @@ async function pathExists(filePath: string): Promise<boolean> {
 }
 
 function normalizeBundlePath(filePath: string): string {
-  return filePath.split(path.sep).join("/");
+  return filePath
+    .split(path.sep)
+    .join("/")
+    .replace(/\\/g, "/")
+    .replace(/^(?:\.\/)+/, "");
 }
 
 async function collectFiles(dir: string): Promise<string[]> {
