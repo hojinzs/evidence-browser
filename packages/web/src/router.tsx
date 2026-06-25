@@ -337,7 +337,91 @@ function BundleFileRoutePage() {
   return <BundleView ws={ws} bundleId={bundleId} mode="file" currentFilePath={search.path} />;
 }
 
-function BundleView({
+function isClientApiError(error: unknown) {
+  return error instanceof ApiError && error.status >= 400 && error.status < 500;
+}
+
+export function BundleMetaQueryState({
+  isLoading,
+  error,
+  ws,
+  bundleId,
+}: {
+  isLoading: boolean;
+  error: unknown;
+  ws: string;
+  bundleId: string;
+}) {
+  if (isLoading) {
+    return <Card className="p-10 text-center text-muted-foreground">Loading bundle...</Card>;
+  }
+
+  if (error) {
+    const isNotFound = error instanceof ApiError && error.status === 404;
+    const title = isNotFound ? "Bundle not found" : "Failed to load bundle";
+    const detail = error instanceof Error ? error.message : "The bundle could not be loaded.";
+
+    return (
+      <Card className="p-10 text-center">
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Bundle <span className="font-mono text-foreground">{bundleId}</span> in workspace{" "}
+          <span className="font-mono text-foreground">{ws}</span>
+        </p>
+        {!isNotFound && <p className="mt-2 text-sm text-destructive">{detail}</p>}
+        <Link
+          to="/w/$ws"
+          params={{ ws }}
+          className="mt-5 inline-flex rounded-md px-3 py-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground"
+        >
+          ← Back to workspace
+        </Link>
+      </Card>
+    );
+  }
+
+  return null;
+}
+
+export function BundleFileErrorState({
+  filePath,
+  onRetry,
+  ws,
+  bundleId,
+  error,
+}: {
+  filePath: string;
+  onRetry: () => void;
+  ws: string;
+  bundleId: string;
+  error: unknown;
+}) {
+  return (
+    <Card className="p-10 text-center">
+      <p className="text-sm font-medium text-foreground">Failed to load file</p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        File <span className="font-mono text-foreground">{filePath}</span> could not be loaded.
+      </p>
+      <p className="mt-2 text-sm text-destructive">
+        {error instanceof Error ? error.message : "The file request failed."}
+      </p>
+      <div className="mt-5 flex flex-wrap justify-center gap-3">
+        <Button type="button" variant="outline" onClick={onRetry}>
+          Retry
+        </Button>
+        <Link
+          to="/w/$ws/b/$bundleId"
+          params={{ ws, bundleId }}
+          className="inline-flex h-9 items-center rounded-md px-3 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground"
+        >
+          ← Back to bundle
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
+export function BundleView({
   ws,
   bundleId,
   mode,
@@ -349,7 +433,12 @@ function BundleView({
   currentFilePath?: string | null;
 }) {
   const auth = useAuth();
-  const metaQuery = useQuery({ queryKey: ["bundle-meta", ws, bundleId], queryFn: () => api.getBundleMeta(ws, bundleId), enabled: auth.isAuthenticated });
+  const metaQuery = useQuery({
+    queryKey: ["bundle-meta", ws, bundleId],
+    queryFn: () => api.getBundleMeta(ws, bundleId),
+    enabled: auth.isAuthenticated,
+    retry: (count, err) => !isClientApiError(err) && count < 2,
+  });
   const activeFilePath = currentFilePath || metaQuery.data?.manifest.index || null;
   const activeFileType = activeFilePath ? detectFileType(activeFilePath) : null;
   const requiresTextContent = mode === "landing" || activeFileType === "markdown" || activeFileType === "html" || activeFileType === "code" || activeFileType === "text";
@@ -366,8 +455,22 @@ function BundleView({
     </TreeProvider>
   ) : null;
 
-  let content: React.ReactNode = <Card className="p-10 text-center text-muted-foreground">Loading bundle...</Card>;
-  if (metaQuery.data && activeFilePath && (!requiresTextContent || fileQuery.data)) {
+  let content: React.ReactNode = (
+    <BundleMetaQueryState isLoading={metaQuery.isLoading} error={metaQuery.error} ws={ws} bundleId={bundleId} />
+  );
+  if (metaQuery.data && activeFilePath && requiresTextContent && fileQuery.isLoading) {
+    content = <Card className="p-10 text-center text-muted-foreground">Loading file...</Card>;
+  } else if (metaQuery.data && activeFilePath && requiresTextContent && fileQuery.isError) {
+    content = (
+      <BundleFileErrorState
+        filePath={activeFilePath}
+        onRetry={() => void fileQuery.refetch()}
+        ws={ws}
+        bundleId={bundleId}
+        error={fileQuery.error}
+      />
+    );
+  } else if (metaQuery.data && activeFilePath && (!requiresTextContent || fileQuery.data)) {
     const fileType = activeFileType;
     if (mode === "landing" && fileType === "markdown") {
       content = <MarkdownViewer content={fileQuery.data ?? ""} workspaceSlug={ws} bundleId={bundleId} currentFilePath={metaQuery.data.manifest.index} />;
