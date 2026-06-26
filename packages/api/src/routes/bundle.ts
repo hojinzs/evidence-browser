@@ -118,7 +118,7 @@ bundle.post("/:ws/bundle/demo", requireUpload, async (c) => {
   try {
     title = (await validateBundleZip(samplePath)).title;
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : "번들 검증 실패" }, 400);
+    return c.json({ error: error instanceof Error ? error.message : "Bundle validation failed" }, 400);
   }
 
   const storage = getStorageAdapter();
@@ -185,7 +185,7 @@ bundle.post("/:ws/bundle", requireUpload, async (c) => {
     try {
       title = (await validateBundleZip(tmpZip)).title;
     } catch (error) {
-      return c.json({ error: error instanceof Error ? error.message : "번들 검증 실패" }, 400);
+      return c.json({ error: error instanceof Error ? error.message : "Bundle validation failed" }, 400);
     }
 
     const storage = getStorageAdapter();

@@ -6,8 +6,12 @@ import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestDb } from "@/lib/db/index";
 
-const { mockPutBundle } = vi.hoisted(() => ({
+const { mockPutBundle, mockValidateBundleZip, originalValidateBundleZip } = vi.hoisted(() => ({
   mockPutBundle: vi.fn(),
+  mockValidateBundleZip: vi.fn(),
+  originalValidateBundleZip: {
+    current: undefined as undefined | typeof import("@/lib/bundle/extractor").validateBundleZip,
+  },
 }));
 const authState = vi.hoisted(() => ({
   uploadUserId: "user-1",
@@ -36,9 +40,12 @@ vi.mock("@/lib/db/index", async (importOriginal) => {
 
 vi.mock("@/lib/bundle/extractor", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/bundle/extractor")>();
+  originalValidateBundleZip.current = original.validateBundleZip;
+  mockValidateBundleZip.mockImplementation(original.validateBundleZip);
   return {
     ...original,
     extractBundle: vi.fn(),
+    validateBundleZip: mockValidateBundleZip,
   };
 });
 
@@ -48,12 +55,13 @@ vi.mock("@/lib/storage", () => ({
   }),
 }));
 
-import { extractBundle } from "@/lib/bundle/extractor";
+import { extractBundle, validateBundleZip } from "@/lib/bundle/extractor";
 import { createWorkspace } from "@/lib/db/workspaces";
 import { createUser } from "@/lib/db/users";
 import { HTML_PREVIEW_CSP_HEADER, bundleRoutes } from "./bundle";
 
 const mockedExtractBundle = vi.mocked(extractBundle);
+const mockedValidateBundleZip = vi.mocked(validateBundleZip);
 let tempDir: string;
 
 function createTestApp() {
@@ -128,6 +136,7 @@ describe("demo bundle route", () => {
   beforeEach(() => {
     testDb = createTestDb();
     vi.clearAllMocks();
+    mockedValidateBundleZip.mockImplementation(originalValidateBundleZip.current!);
   });
 
   it("loads the shipped sample bundle into a workspace", async () => {
@@ -162,5 +171,36 @@ describe("demo bundle route", () => {
     expect(payload.bundle.bundle_id).toBe("sample");
     expect(payload.bundle.title).toBe("Evidence Browser Demo Bundle");
     expect(mockPutBundle).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns an English fallback when demo bundle validation throws a non-Error", async () => {
+    const admin = await createUser("admin", "password123", "admin");
+    authState.uploadUserId = admin.id;
+    createWorkspace("default", "Default", "Demo workspace", admin.id);
+    mockedValidateBundleZip.mockRejectedValue("invalid demo bundle");
+    const app = createTestApp();
+
+    const res = await app.request("/api/w/default/bundle/demo", { method: "POST" });
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: "Bundle validation failed" });
+    expect(mockPutBundle).not.toHaveBeenCalled();
+  });
+
+  it("returns an English fallback when uploaded bundle validation throws a non-Error", async () => {
+    const admin = await createUser("admin", "password123", "admin");
+    authState.uploadUserId = admin.id;
+    createWorkspace("default", "Default", "Demo workspace", admin.id);
+    mockedValidateBundleZip.mockRejectedValue("invalid uploaded bundle");
+    const formData = new FormData();
+    formData.set("bundleId", "bad-bundle");
+    formData.set("file", new File([new Uint8Array([1, 2, 3])], "bad-bundle.zip", { type: "application/zip" }));
+    const app = createTestApp();
+
+    const res = await app.request("/api/w/default/bundle", { method: "POST", body: formData });
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: "Bundle validation failed" });
+    expect(mockPutBundle).not.toHaveBeenCalled();
   });
 });
