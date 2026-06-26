@@ -1,6 +1,18 @@
 # Evidence Browser
 
-A read-only viewer for structured evidence bundles. AI agents and CI pipelines create zip bundles containing test results, reports, and artifacts — Evidence Browser renders them in a browsable, shareable interface.
+[![CI](https://github.com/hojinzs/evidence-browser/actions/workflows/ci.yml/badge.svg)](https://github.com/hojinzs/evidence-browser/actions/workflows/ci.yml)
+[![Docker](https://github.com/hojinzs/evidence-browser/actions/workflows/docker.yml/badge.svg)](https://github.com/hojinzs/evidence-browser/actions/workflows/docker.yml)
+[![GHCR](https://img.shields.io/badge/GHCR-evidence--browser-0f6fff?logo=github)](https://github.com/hojinzs/evidence-browser/pkgs/container/evidence-browser)
+[![npm](https://img.shields.io/npm/v/evidence-browser-cli?label=eb%20CLI)](https://www.npmjs.com/package/evidence-browser-cli)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Stop dumping CI and agent test results into public HTML reports. Evidence Browser renders zip evidence bundles in an auth-gated, VS Code-like browser for teams reviewing logs, screenshots, reports, and run artifacts.
+
+![Evidence Browser bundle viewer with file tree](docs/assets/bundle-viewer.png)
+
+<p align="center">
+  <img src="docs/assets/evidence-browser-demo.gif" alt="Short Evidence Browser walkthrough showing workspaces, bundle list, bundle viewer, and admin screens" width="720">
+</p>
 
 ## Features
 
@@ -10,6 +22,8 @@ A read-only viewer for structured evidence bundles. AI agents and CI pipelines c
 - **Authentication** — Built-in username/password session auth for admin and API access
 - **AI Agent integration** — `/llm.txt` endpoint and MCP server for programmatic access
 - **Hierarchical bundle IDs** — `org/repo/pr-42/run-1` maps to nested storage paths
+- **First-run setup** — `/setup` guides the initial admin, storage check, and workspace creation
+- **`eb` CLI** — Log in with an API key, create/validate bundles, upload evidence, and manage workspaces
 
 ## Quick Start
 
@@ -29,6 +43,9 @@ Open [http://localhost:3000](http://localhost:3000) for the web app.
 `AUTH_SECRET` signs admin sessions and must be a real random value for any
 shared or production instance.
 
+On a new instance, the app redirects to `/setup` until the first admin account
+and workspace exist.
+
 ### Local development
 
 ```bash
@@ -43,10 +60,54 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) for the web app.
-In a workspace, click **Load demo bundle** or run `eb bundle upload examples/sample.zip -w default` to render the bundled sample immediately.
+In a workspace, click **Load demo bundle** or run `eb upload examples/sample.zip --workspace default` to render the bundled sample immediately.
 
 - Web dev server: `http://localhost:3000` (Vite)
 - API dev server: `http://localhost:3001` (proxied as `/api` from the web app)
+
+### First-run setup wizard
+
+The `/setup` wizard appears automatically when an instance has no real admin
+or no workspace. It walks through:
+
+1. **Admin** — create the first username/password admin account.
+2. **Storage** — verify the configured local or S3/R2 storage adapter can be read.
+3. **Workspace** — create the first workspace slug, name, and optional description.
+
+After setup, sign in with the admin account, open **Settings** to create an API
+key, then use that key with the `eb` CLI.
+
+### `eb` CLI quickstart
+
+Install the CLI:
+
+```bash
+npm install -g evidence-browser-cli
+```
+
+Save your server URL and API key locally:
+
+```bash
+eb login http://localhost:3000
+# API key: eb_...
+```
+
+Create and upload a bundle:
+
+```bash
+eb bundle create examples/sample-bundle --output /tmp/sample.zip
+eb bundle validate /tmp/sample.zip
+eb upload /tmp/sample.zip --workspace default --bundle-id sample
+```
+
+For CI, skip the local config file and pass credentials through environment
+variables:
+
+```bash
+EB_URL=https://evidence.example.com \
+EB_API_KEY=$EVIDENCE_BROWSER_API_KEY \
+eb upload dist/evidence.zip --workspace ci-results --bundle-id "pr-42-run-1"
+```
 
 ## Environment Variables
 
