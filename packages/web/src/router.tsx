@@ -510,6 +510,7 @@ export function BundleView({
 }) {
   const auth = useAuth();
   const isShareMode = Boolean(shareToken);
+  const canCreateShareLink = auth.user?.role === "admin";
   const metaQuery = useQuery({
     queryKey: isShareMode ? ["shared-bundle-meta", shareToken] : ["bundle-meta", ws, bundleId],
     queryFn: () => isShareMode ? api.getSharedBundleMeta(shareToken!) : api.getBundleMeta(ws, bundleId),
@@ -567,7 +568,7 @@ export function BundleView({
         userName={isShareMode ? null : auth.user?.username}
         mobileTrigger={sidebar ? <MobileSidebarTrigger sidebar={sidebar} /> : undefined}
         nav={<span className="text-[13px] text-muted-foreground">{metaQuery.data?.manifest.title ?? bundleId}</span>}
-        actions={!isShareMode && auth.isAuthenticated ? <CopyShareLinkButton ws={ws} bundleId={bundleId} /> : undefined}
+        actions={!isShareMode && canCreateShareLink ? <CopyShareLinkButton ws={ws} bundleId={bundleId} /> : undefined}
       />
       {sidebar ? (
         <AppShell sidebar={sidebar} filePath={currentFilePath}>

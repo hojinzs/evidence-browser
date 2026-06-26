@@ -47,6 +47,7 @@ export const HTML_PREVIEW_CSP_HEADER = [
 const bundle = new Hono<{ Variables: AppVariables }>();
 const shareBundle = new Hono();
 const DEMO_BUNDLE_ID = "sample";
+const SHARE_TOKEN_PATTERN = /^ebs_[A-Za-z0-9_-]{43}$/;
 
 function findSampleBundlePath(): string | null {
   const candidates = [
@@ -174,6 +175,7 @@ async function bundlePreviewResponse(c: Context, key: string) {
 function resolveShareStorageKey(c: Context): string | Response {
   const token = c.req.param("token");
   if (!token) return c.json({ error: "Share link not found" }, 404);
+  if (!SHARE_TOKEN_PATTERN.test(token)) return c.json({ error: "Share link not found" }, 404);
   const shareToken = findActiveBundleShareToken(token);
   if (!shareToken) return c.json({ error: "Share link not found" }, 404);
   return shareToken.bundle.storage_key;
@@ -229,7 +231,7 @@ bundle.post("/:ws/bundle/demo", requireUpload, async (c) => {
   try {
     title = (await validateBundleZip(samplePath)).title;
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : "번들 검증 실패" }, 400);
+    return c.json({ error: error instanceof Error ? error.message : "Bundle validation failed" }, 400);
   }
 
   const storage = getStorageAdapter();
@@ -296,7 +298,7 @@ bundle.post("/:ws/bundle", requireUpload, async (c) => {
     try {
       title = (await validateBundleZip(tmpZip)).title;
     } catch (error) {
-      return c.json({ error: error instanceof Error ? error.message : "번들 검증 실패" }, 400);
+      return c.json({ error: error instanceof Error ? error.message : "Bundle validation failed" }, 400);
     }
 
     const storage = getStorageAdapter();
@@ -359,10 +361,14 @@ bundle.post("/:ws/bundles/:bundleId/share-tokens", requireUpload, async (c) => {
   const body = await c.req.json().catch(() => ({})) as { expiresAt?: unknown };
   let expiresAt: string | null = null;
   if (body.expiresAt !== undefined && body.expiresAt !== null) {
-    if (typeof body.expiresAt !== "string" || Number.isNaN(Date.parse(body.expiresAt))) {
+    if (typeof body.expiresAt !== "string") {
       return c.json({ error: "Invalid expiresAt" }, 400);
     }
-    expiresAt = body.expiresAt;
+    const expiresMs = Date.parse(body.expiresAt);
+    if (Number.isNaN(expiresMs)) {
+      return c.json({ error: "Invalid expiresAt" }, 400);
+    }
+    expiresAt = new Date(expiresMs).toISOString();
   }
 
   const created = createBundleShareToken({

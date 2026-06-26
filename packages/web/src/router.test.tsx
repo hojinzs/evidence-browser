@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError } from "@/lib/api";
 import { BundleFileErrorState, BundleMetaQueryState, BundleView } from "./router";
 
+let mockAuthUser = { id: "user-1", username: "Ada", role: "admin" as "admin" | "user" };
+
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
   const resolveHref = (to: string, params?: Record<string, string>) =>
@@ -32,7 +34,7 @@ vi.mock("@/lib/auth", async (importOriginal) => {
   return {
     ...actual,
     useAuth: () => ({
-      user: { id: "user-1", username: "Ada", role: "admin" },
+      user: mockAuthUser,
       isLoading: false,
       isAuthenticated: true,
       refresh: vi.fn(async () => undefined),
@@ -53,6 +55,7 @@ function renderWithQueryClient(ui: React.ReactElement) {
 describe("bundle query states", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    mockAuthUser = { id: "user-1", username: "Ada", role: "admin" };
   });
 
   it("shows a not found state with a workspace back link for a missing bundle", () => {
@@ -210,5 +213,27 @@ describe("bundle query states", () => {
     expect(api.createBundleShareToken).toHaveBeenCalledWith("infra", "run-42");
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/s/public-token`);
     expect(await screen.findByText("Copied")).toBeInTheDocument();
+  });
+
+  it("hides the share link action from non-admin users", async () => {
+    mockAuthUser = { id: "user-2", username: "Grace", role: "user" };
+    vi.spyOn(api, "getBundleMeta").mockResolvedValueOnce({
+      manifest: {
+        version: 1,
+        title: "Run 42",
+        index: "reports/index.md",
+        generated_at: "2026-06-24T00:00:00.000Z",
+        files: [],
+      },
+      tree: [],
+    });
+    vi.spyOn(api, "getBundleFileText").mockResolvedValueOnce("# Run 42");
+    const createShareToken = vi.spyOn(api, "createBundleShareToken");
+
+    renderWithQueryClient(<BundleView ws="infra" bundleId="run-42" mode="landing" />);
+
+    expect((await screen.findAllByText("Run 42")).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Copy share link" })).not.toBeInTheDocument();
+    expect(createShareToken).not.toHaveBeenCalled();
   });
 });

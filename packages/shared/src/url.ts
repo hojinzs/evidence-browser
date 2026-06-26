@@ -28,11 +28,11 @@ export function bundleLandingUrl(workspace: string, bundleId: string): string {
 }
 
 export function shareFileUrl(token: string, filePath: string): string {
-  return `/s/${token}/f?path=${encodeURIComponent(filePath)}`;
+  return `${shareLandingUrl(token)}/f?path=${encodeURIComponent(filePath)}`;
 }
 
 export function shareLandingUrl(token: string): string {
-  return `/s/${token}`;
+  return `/s/${encodeURIComponent(token)}`;
 }
 
 export function workspaceUrl(workspace: string): string {
@@ -51,7 +51,7 @@ export function apiShareUrl(
   token: string,
   endpoint: "meta" | "tree" | "file" | "preview"
 ): string {
-  return `/api/s/${token}/${endpoint}`;
+  return `/api/s/${encodeURIComponent(token)}/${endpoint}`;
 }
 
 export function storageKey(workspace: string, bundleId: string): string {

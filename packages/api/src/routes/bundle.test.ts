@@ -359,6 +359,37 @@ describe("bundle share token management routes", () => {
 
     expect(res.status).toBe(400);
   });
+
+  it("normalizes accepted share token expiry input before storage", async () => {
+    const admin = await createUser("admin-share-expiry-normalized", "password123", "admin");
+    authState.uploadUserId = admin.id;
+    const workspace = createWorkspace("infra", "Infrastructure", "Test workspace", admin.id);
+    createBundle({
+      bundleId: "pr-42-run-1",
+      workspaceId: workspace.id,
+      title: "Bundle fixture",
+      storageKey: "infra/pr-42-run-1",
+      sizeBytes: 1024,
+      uploadedBy: admin.id,
+    });
+    const app = createTestApp();
+
+    const res = await app.request("/api/w/infra/bundles/pr-42-run-1/share-tokens", {
+      method: "POST",
+      body: JSON.stringify({ expiresAt: "Fri, 01 Jan 2100 00:00:00 GMT" }),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    expect(res.status).toBe(201);
+    const payload = await res.json() as {
+      token: string;
+      shareToken: { expires_at: string | null };
+    };
+    expect(payload.shareToken.expires_at).toBe("2100-01-01T00:00:00.000Z");
+
+    const publicRes = await app.request(`/api/s/${payload.token}/meta`);
+    expect(publicRes.status).toBe(200);
+  });
 });
 
 describe("demo bundle route", () => {

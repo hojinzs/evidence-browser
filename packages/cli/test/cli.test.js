@@ -713,7 +713,7 @@ test("bundle validate reports missing manifest fields in English", async () => {
     });
     assert.equal(result.status, 1);
     assert.equal(result.stdout, "");
-    assert.match(result.stderr, /Bundle validation failed: manifest\.json validation failed: missing required fields: title/);
+    assert.match(result.stderr, /Bundle validation failed: manifest\.json validation failed: Missing required field\(s\): title/);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

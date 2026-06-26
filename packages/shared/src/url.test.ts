@@ -61,6 +61,10 @@ describe("workspace-aware URL helpers", () => {
       "/s/ebs_token/f?path=logs%2Fapp.log"
     );
     expect(apiShareUrl("ebs_token", "file")).toBe("/api/s/ebs_token/file");
+    expect(shareLandingUrl("ebs_token/with+reserved")).toBe("/s/ebs_token%2Fwith%2Breserved");
+    expect(apiShareUrl("ebs_token/with+reserved", "meta")).toBe(
+      "/api/s/ebs_token%2Fwith%2Breserved/meta"
+    );
   });
 
   it("builds storage keys for flat bundle ids", () => {

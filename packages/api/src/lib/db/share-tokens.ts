@@ -78,7 +78,9 @@ export function findActiveBundleShareToken(rawToken: string): ActiveBundleShareT
        b.created_at as b_created_at
      FROM bundle_share_tokens st
      JOIN bundles b ON b.id = st.bundle_id
-     WHERE st.token_hash = ? AND st.revoked_at IS NULL`
+     WHERE st.token_hash = ?
+       AND st.revoked_at IS NULL
+       AND (st.expires_at IS NULL OR datetime(st.expires_at) > datetime('now'))`
   );
   const row = stmt.get(tokenHash) as (BundleShareToken & {
     b_id: string;
@@ -91,32 +93,6 @@ export function findActiveBundleShareToken(rawToken: string): ActiveBundleShareT
     b_created_at: string;
   }) | undefined;
   if (!row) return undefined;
-
-  if (row.expires_at === null) {
-    return {
-      id: row.id,
-      bundle_id: row.bundle_id,
-      token_prefix: row.token_prefix,
-      token_hash: row.token_hash,
-      created_by: row.created_by,
-      expires_at: row.expires_at,
-      revoked_at: row.revoked_at,
-      created_at: row.created_at,
-      bundle: {
-        id: row.b_id,
-        bundle_id: row.b_bundle_id,
-        workspace_id: row.b_workspace_id,
-        title: row.b_title,
-        storage_key: row.b_storage_key,
-        size_bytes: row.b_size_bytes,
-        uploaded_by: row.b_uploaded_by,
-        created_at: row.b_created_at,
-      },
-    };
-  }
-
-  const expiresMs = Date.parse(row.expires_at);
-  if (Number.isNaN(expiresMs) || expiresMs <= Date.now()) return undefined;
 
   return {
     id: row.id,
