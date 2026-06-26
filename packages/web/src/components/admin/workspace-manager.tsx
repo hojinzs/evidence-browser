@@ -12,7 +12,7 @@ interface WorkspaceManagerProps {
 }
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleString("ko-KR");
+  return new Date(value).toLocaleString("en-US");
 }
 
 export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
@@ -54,7 +54,7 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm("워크스페이스를 삭제하시겠습니까? 번들 데이터도 함께 삭제됩니다.")) return;
+    if (!window.confirm("Delete this workspace? Bundle data will also be deleted.")) return;
     try {
       await api.deleteWorkspace(id);
       await refreshWorkspaces();
@@ -108,7 +108,7 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
           <span />
         </div>
         {workspaces.length === 0 ? (
-          <div className="px-4 py-8 text-center text-[13px] text-muted-foreground">워크스페이스가 없습니다.</div>
+          <div className="px-4 py-8 text-center text-[13px] text-muted-foreground">No workspaces found.</div>
         ) : (
           workspaces.map((workspace) => (
             <div key={workspace.id} className="border-b border-border last:border-b-0">
@@ -144,24 +144,24 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
                     <Input
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      placeholder="이름"
+                      placeholder="Name"
                       required
                     />
                     <textarea
                       value={editDescription}
                       onChange={(e) => setEditDescription(e.target.value)}
-                      placeholder="설명"
+                      placeholder="Description"
                       className="min-h-[92px] w-full rounded-lg border border-input bg-black/30 px-3 py-2 text-[13px] text-foreground placeholder:text-[oklch(0.55_0_0)] transition-colors duration-150 outline-none focus:border-primary focus:ring-3 focus:ring-ring"
                     />
                   </div>
                   <div className="mt-3 flex items-center gap-2">
                     <Button type="submit" size="sm" disabled={editLoading}>
                       <Check className="mr-1 size-4" />
-                      {editLoading ? "저장 중" : "저장"}
+                      {editLoading ? "Saving" : "Save"}
                     </Button>
                     <Button type="button" variant="ghost" size="sm" onClick={handleCancelEdit}>
                       <X className="mr-1 size-4" />
-                      취소
+                      Cancel
                     </Button>
                   </div>
                   {editError && <p className="mt-3 text-sm text-destructive">{editError}</p>}
@@ -182,7 +182,7 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
           }}
         >
           <Plus className="mr-1 size-4" />
-          워크스페이스 추가
+          Add workspace
         </Button>
       ) : (
         <Card className="p-4">
@@ -196,23 +196,23 @@ export function WorkspaceManager({ workspaces }: WorkspaceManagerProps) {
                 className="font-mono"
               />
               <Input
-                placeholder="이름"
+                placeholder="Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
               />
             </div>
             <Input
-              placeholder="설명 (선택)"
+              placeholder="Description (optional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={loading}>
-                {loading ? "..." : "생성"}
+                {loading ? "..." : "Create"}
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => setShowForm(false)}>
-                취소
+                Cancel
               </Button>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}

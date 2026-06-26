@@ -23,7 +23,7 @@ function formatSize(bytes: number): string {
 
 function formatDate(iso: string): string {
   const d = new Date(`${iso}Z`);
-  return d.toLocaleDateString("ko-KR", {
+  return d.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -67,8 +67,8 @@ export function BundleCard({
           size="icon-sm"
           onClick={() => onDelete(bundleId)}
           disabled={isDeleting}
-          aria-label={`${bundleId} 삭제`}
-          title="번들 삭제"
+          aria-label={`Delete ${bundleId}`}
+          title="Delete bundle"
         >
           <Trash2 className="size-4 text-destructive" />
         </Button>
