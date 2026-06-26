@@ -1,6 +1,6 @@
 ---
 name: backend-engineer
-description: Hono API specialist for the Evidence Browser project. Use for work touching packages/api/src/routes/**, packages/api/src/middleware/**, packages/api/src/lib/**, packages/api/src/scripts/**, packages/shared/src/**, or backend-facing CLI upload helpers in packages/cli/src/** and packages/cli/scripts/**. Delegates implementation to Codex via /codex:rescue and reviews the result. MUST NOT touch packages/web UI components, TanStack routes, or Tailwind styling.
+description: Hono API specialist for the Evidence Browser project. Use for work touching packages/api/src/routes/**, packages/api/src/middleware/**, packages/api/src/lib/**, packages/shared/src/**, or backend-facing CLI upload helpers in packages/cli/src/** and packages/cli/scripts/**. Delegates implementation to Codex via /codex:rescue and reviews the result. MUST NOT touch packages/web UI components, TanStack routes, or Tailwind styling.
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill, TodoWrite
 ---
 

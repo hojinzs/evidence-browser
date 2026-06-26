@@ -203,8 +203,7 @@ Before the team can operate:
 3. **Workspace exists**: default slug is `default`; create via setup wizard or admin panel
 4. **`.env.local` is configured**:
    - `AUTH_SECRET` — random 32-byte base64
-   - `QA_ADMIN_USERNAME` — admin account username (matches login API field name)
-   - `QA_ADMIN_PASSWORD` — admin account password
+   - `EB_API_KEY` — API key with `upload` or `admin` scope; create it in Admin panel -> API Keys -> Create, or with `eb api-key create --scope upload --workspace default`
    - `QA_WORKSPACE_SLUG` — default `default`
    - `QA_BASE_URL` — default `http://127.0.0.1:3000`
 5. **Playwright MCP available**: `mcp__plugin_playwright_playwright__*` tools enabled

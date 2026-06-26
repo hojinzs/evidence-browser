@@ -2,7 +2,7 @@
 name: evidence-upload
 description: Package a .evidence/{session}/ directory into a ZIP, upload it to Evidence Browser with the eb CLI, and return the bundle URL. Use this whenever an agent or user needs to surface test artifacts, QA runs, debug screenshots, or structured evidence through Evidence Browser's own viewer. This is the canonical high-level upload interface for the project.
 argument-hint: <path-to-.evidence/session-dir>
-allowed-tools: Bash(zip:*), Bash(eb upload:*), Bash(node packages/cli/dist/bin.js upload:*), Read
+allowed-tools: Bash(zip:*), Bash(rm:*), Bash(node packages/cli/dist/bin.js *), Bash(eb *), Read
 ---
 
 # /evidence-upload
@@ -20,8 +20,8 @@ Upload a prepared `.evidence/{session}/` directory to Evidence Browser and retur
 
 ## Pre-conditions (fail fast if missing)
 
-1. **Server reachable** — `$QA_BASE_URL` or `$EB_URL` must point at Evidence Browser. Local default is `http://127.0.0.1:3000`.
-2. **Upload-capable credentials available** — use an API key with `upload` or `admin` scope via `EB_API_KEY` or `--api-key`. An admin session also works at the API layer, but this skill uses the non-interactive CLI path and therefore expects an API key.
+1. **Server reachable** — `EB_URL` or `--url` must point at Evidence Browser. The wrapper command below maps `QA_BASE_URL` to `EB_URL` for team QA sessions; direct `eb upload` users should set `EB_URL`, pass `--url`, or use `eb login`.
+2. **Upload-capable credentials available** — use an API key with `upload` or `admin` scope via `EB_API_KEY` or `--api-key`. Create a key in Admin panel -> API Keys -> Create, or run `eb api-key create --scope upload --workspace default`. An admin session also works at the API layer, but this skill uses the non-interactive CLI path and therefore expects an API key.
 3. **CLI built or installed** — prefer `node packages/cli/dist/bin.js`; use global `eb` only when it is known to be installed.
 4. **`.evidence/{session}/` directory exists** and contains at minimum:
    - `manifest.json` — `{ "version": 1, "title": "...", "index": "index.md" }`
@@ -87,7 +87,7 @@ Uploaded: 20260427-1200-main-attempt1
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `Missing Evidence Browser URL` | No URL from flags, env, or config | Set `EB_URL` or `QA_BASE_URL` |
+| `Missing Evidence Browser URL` | No URL from flags, `EB_URL`, or CLI config | Set `EB_URL`, pass `--url`, or run `eb login`; `QA_BASE_URL` is only mapped by this wrapper snippet |
 | `Missing API key` | Non-interactive CLI has no credential | Set `EB_API_KEY` or pass `--api-key` |
 | `Request failed (403)` | API key scope insufficient | Use a key with `upload` or `admin` scope |
 | `Request failed (413)` | ZIP exceeds `MAX_BUNDLE_SIZE` | Trim the session dir or raise the env cap |

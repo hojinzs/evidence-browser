@@ -108,14 +108,15 @@ Vite dev serves the SPA on port 3000 and proxies `/api` to the Hono dev server o
 | `GET` | `/api/w` | `routes/workspace.ts` | user |
 | `GET` | `/api/w/:ws/bundle` | `routes/bundle.ts` | user |
 | `POST` | `/api/w/:ws/bundle` | `routes/bundle.ts` | `requireUpload` |
-| `POST` | `/api/w/:ws/bundle/demo` | `routes/bundle.ts` | admin |
+| `POST` | `/api/w/:ws/bundle/demo` | `routes/bundle.ts` | `requireUpload` |
 | `GET` | `/api/w/:ws/bundles/:bundleId/meta` | `routes/bundle.ts` | user |
 | `GET` | `/api/w/:ws/bundles/:bundleId/tree` | `routes/bundle.ts` | user |
 | `GET` | `/api/w/:ws/bundles/:bundleId/file?path=` | `routes/bundle.ts` | user |
 | `GET` | `/api/w/:ws/bundles/:bundleId/preview?path=` | `routes/bundle.ts` | user |
-| `DELETE` | `/api/w/:ws/bundles/:bundleId` | `routes/bundle.ts` | admin |
-| `POST` | `/api/w/:ws/bundles/:bundleId/share` | `routes/bundle.ts` | user |
-| `GET` | `/api/s/:token/*` | `routes/bundle.ts` | share token |
+| `DELETE` | `/api/w/:ws/bundles/:bundleId` | `routes/bundle.ts` | `requireUpload` |
+| `GET/POST` | `/api/w/:ws/bundles/:bundleId/share-tokens` | `routes/bundle.ts` | `requireUpload` |
+| `DELETE` | `/api/w/:ws/bundles/:bundleId/share-tokens/:tokenId` | `routes/bundle.ts` | `requireUpload` |
+| `GET` | `/api/s/:token/{meta,tree,file,preview}` | `routes/bundle.ts` | share token |
 | `GET/POST/PATCH/DELETE` | `/api/admin/*` | `routes/admin.ts` | admin |
 | `GET/POST/DELETE` | `/api/api-keys/*` | `routes/api-keys.ts` | user/admin by operation |
 | `GET/POST` | `/api/setup/*` | `routes/setup.ts` | setup/admin by operation |
