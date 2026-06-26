@@ -258,6 +258,28 @@ describe("public share bundle routes", () => {
     expect(mockedExtractBundle).not.toHaveBeenCalled();
   });
 
+  it("serves public file content for an active share token", async () => {
+    fs.mkdirSync(path.join(tempDir, "logs"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, "logs", "app.txt"), "shared log output");
+    const { admin, bundle } = await seedBundle({});
+    const { token } = createBundleShareToken({
+      bundleInternalId: bundle.id,
+      createdBy: admin.id,
+    });
+    const app = createTestApp();
+
+    const res = await app.request(`/api/s/${token}/file?path=logs%2Fapp.txt`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("text/plain; charset=utf-8");
+    expect(res.headers.get("Content-Security-Policy")).toBe(
+      "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'"
+    );
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    await expect(res.text()).resolves.toBe("shared log output");
+    expect(mockedExtractBundle).toHaveBeenCalledWith("infra/pr-42-run-1");
+  });
+
   it("serves public HTML previews with the same restrictive headers", async () => {
     fs.writeFileSync(path.join(tempDir, "report.html"), "<h1>Report</h1>");
     const { admin, bundle } = await seedBundle({});
