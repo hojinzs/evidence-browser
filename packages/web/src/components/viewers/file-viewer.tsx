@@ -12,6 +12,7 @@ import { getShikiLanguage } from "@/lib/files/detect";
 interface FileViewerProps {
   workspaceSlug: string;
   bundleId: string;
+  shareToken?: string | null;
   filePath: string;
   content?: string;
   isBinary?: boolean;
@@ -20,6 +21,7 @@ interface FileViewerProps {
 export function FileViewer({
   workspaceSlug,
   bundleId,
+  shareToken,
   filePath,
   content,
   isBinary,
@@ -27,9 +29,9 @@ export function FileViewer({
   if (isBinary || content === undefined) {
     const fileType = detectFileType(filePath);
     if (fileType === "image") {
-      return <ImageViewer workspaceSlug={workspaceSlug} bundleId={bundleId} filePath={filePath} />;
+      return <ImageViewer workspaceSlug={workspaceSlug} bundleId={bundleId} shareToken={shareToken} filePath={filePath} />;
     }
-    return <DownloadFallback workspaceSlug={workspaceSlug} bundleId={bundleId} filePath={filePath} />;
+    return <DownloadFallback workspaceSlug={workspaceSlug} bundleId={bundleId} shareToken={shareToken} filePath={filePath} />;
   }
 
   const fileType = detectFileType(filePath);
@@ -41,6 +43,7 @@ export function FileViewer({
           content={content}
           workspaceSlug={workspaceSlug}
           bundleId={bundleId}
+          shareToken={shareToken}
           currentFilePath={filePath}
         />
       );
@@ -49,6 +52,7 @@ export function FileViewer({
         <HtmlViewer
           workspaceSlug={workspaceSlug}
           bundleId={bundleId}
+          shareToken={shareToken}
           filePath={filePath}
           content={content}
         />
@@ -62,10 +66,10 @@ export function FileViewer({
         />
       );
     case "image":
-      return <ImageViewer workspaceSlug={workspaceSlug} bundleId={bundleId} filePath={filePath} />;
+      return <ImageViewer workspaceSlug={workspaceSlug} bundleId={bundleId} shareToken={shareToken} filePath={filePath} />;
     case "text":
       return <TextViewer content={content} />;
     default:
-      return <DownloadFallback workspaceSlug={workspaceSlug} bundleId={bundleId} filePath={filePath} />;
+      return <DownloadFallback workspaceSlug={workspaceSlug} bundleId={bundleId} shareToken={shareToken} filePath={filePath} />;
   }
 }

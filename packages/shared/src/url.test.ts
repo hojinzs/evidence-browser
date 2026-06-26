@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   apiBundleUrl,
+  apiShareUrl,
   bundleFileUrl,
   bundleLandingUrl,
   parseSegments,
+  shareFileUrl,
+  shareLandingUrl,
   storageKey,
   workspaceUrl,
 } from "./url";
@@ -49,6 +52,18 @@ describe("workspace-aware URL helpers", () => {
     );
     expect(apiBundleUrl("infra", "pr-42-run-1", "preview")).toBe(
       "/api/w/infra/bundles/pr-42-run-1/preview"
+    );
+  });
+
+  it("builds share URLs", () => {
+    expect(shareLandingUrl("ebs_token")).toBe("/s/ebs_token");
+    expect(shareFileUrl("ebs_token", "logs/app.log")).toBe(
+      "/s/ebs_token/f?path=logs%2Fapp.log"
+    );
+    expect(apiShareUrl("ebs_token", "file")).toBe("/api/s/ebs_token/file");
+    expect(shareLandingUrl("ebs_token/with+reserved")).toBe("/s/ebs_token%2Fwith%2Breserved");
+    expect(apiShareUrl("ebs_token/with+reserved", "meta")).toBe(
+      "/api/s/ebs_token%2Fwith%2Breserved/meta"
     );
   });
 

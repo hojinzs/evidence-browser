@@ -3,7 +3,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { authRoutes } from "@/routes/auth";
-import { bundleRoutes } from "@/routes/bundle";
+import { bundleRoutes, shareBundleRoutes } from "@/routes/bundle";
 import { workspaceRoutes } from "@/routes/workspace";
 import { adminRoutes } from "@/routes/admin";
 import { apiKeyRoutes } from "@/routes/api-keys";
@@ -17,6 +17,7 @@ export function createApp() {
   app.route("/api/auth", authRoutes);
   app.route("/api/w", workspaceRoutes);
   app.route("/api/w", bundleRoutes);
+  app.route("/api/s", shareBundleRoutes);
   app.route("/api/api-keys", apiKeyRoutes);
   app.route("/api/admin", adminRoutes);
   app.route("/api/health", healthRoutes);

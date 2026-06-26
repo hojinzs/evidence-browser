@@ -12,7 +12,7 @@ import {
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { TanStackRouterDevtools } from "@tanstack/router-devtools";
-import { PackageOpen } from "lucide-react";
+import { Check, Copy, PackageOpen } from "lucide-react";
 import { AppShell, MobileSidebarTrigger } from "@/components/layout/app-shell";
 import { Header } from "@/components/layout/header";
 import { BrandMark } from "@/components/layout/brand";
@@ -31,7 +31,7 @@ import { ApiKeyManager } from "@/components/admin/api-key-manager";
 import { UserApiKeyManager } from "@/components/settings/user-api-key-manager";
 import { api, ApiError } from "@/lib/api";
 import { useAuth, AuthProvider } from "@/lib/auth";
-import { bundleFileUrl, bundleLandingUrl } from "@/lib/url";
+import { bundleLandingUrl, shareLandingUrl } from "@/lib/url";
 import { detectFileType } from "@/lib/files/detect";
 import type { TreeNode } from "@/lib/bundle/types";
 
@@ -337,6 +337,17 @@ function BundleFileRoutePage() {
   return <BundleView ws={ws} bundleId={bundleId} mode="file" currentFilePath={search.path} />;
 }
 
+function ShareRoutePage() {
+  const { token } = shareRoute.useParams();
+  return <BundleView ws="" bundleId={token} shareToken={token} mode="landing" />;
+}
+
+function ShareFileRoutePage() {
+  const { token } = shareFileRoute.useParams();
+  const search = shareFileRoute.useSearch();
+  return <BundleView ws="" bundleId={token} shareToken={token} mode="file" currentFilePath={search.path} />;
+}
+
 function isClientApiError(error: unknown) {
   return error instanceof ApiError && error.status >= 400 && error.status < 500;
 }
@@ -346,11 +357,13 @@ export function BundleMetaQueryState({
   error,
   ws,
   bundleId,
+  isShareMode = false,
 }: {
   isLoading: boolean;
   error: unknown;
   ws: string;
   bundleId: string;
+  isShareMode?: boolean;
 }) {
   if (isLoading) {
     return <Card className="p-10 text-center text-muted-foreground">Loading bundle...</Card>;
@@ -365,17 +378,27 @@ export function BundleMetaQueryState({
       <Card className="p-10 text-center">
         <p className="text-sm font-medium text-foreground">{title}</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Bundle <span className="font-mono text-foreground">{bundleId}</span> in workspace{" "}
-          <span className="font-mono text-foreground">{ws}</span>
+          {isShareMode ? (
+            <>
+              Share token <span className="font-mono text-foreground">{bundleId}</span>
+            </>
+          ) : (
+            <>
+              Bundle <span className="font-mono text-foreground">{bundleId}</span> in workspace{" "}
+              <span className="font-mono text-foreground">{ws}</span>
+            </>
+          )}
         </p>
         {!isNotFound && <p className="mt-2 text-sm text-destructive">{detail}</p>}
-        <Link
-          to="/w/$ws"
-          params={{ ws }}
-          className="mt-5 inline-flex rounded-md px-3 py-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground"
-        >
-          ← Back to workspace
-        </Link>
+        {!isShareMode && (
+          <Link
+            to="/w/$ws"
+            params={{ ws }}
+            className="mt-5 inline-flex rounded-md px-3 py-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground"
+          >
+            ← Back to workspace
+          </Link>
+        )}
       </Card>
     );
   }
@@ -389,12 +412,16 @@ export function BundleFileErrorState({
   ws,
   bundleId,
   error,
+  backHref,
+  backLabel = "← Back to bundle",
 }: {
   filePath: string;
   onRetry: () => void;
   ws: string;
   bundleId: string;
   error: unknown;
+  backHref?: string;
+  backLabel?: string;
 }) {
   return (
     <Card className="p-10 text-center">
@@ -409,54 +436,105 @@ export function BundleFileErrorState({
         <Button type="button" variant="outline" onClick={onRetry}>
           Retry
         </Button>
-        <Link
-          to="/w/$ws/b/$bundleId"
-          params={{ ws, bundleId }}
-          className="inline-flex h-9 items-center rounded-md px-3 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground"
-        >
-          ← Back to bundle
-        </Link>
+        {backHref ? (
+          <a
+            href={backHref}
+            className="inline-flex h-9 items-center rounded-md px-3 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground"
+          >
+            {backLabel}
+          </a>
+        ) : (
+          <Link
+            to="/w/$ws/b/$bundleId"
+            params={{ ws, bundleId }}
+            className="inline-flex h-9 items-center rounded-md px-3 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground"
+          >
+            {backLabel}
+          </Link>
+        )}
       </div>
     </Card>
+  );
+}
+
+function CopyShareLinkButton({ ws, bundleId }: { ws: string; bundleId: string }) {
+  const [state, setState] = React.useState<"idle" | "copying" | "copied" | "error">("idle");
+
+  async function handleCopy() {
+    setState("copying");
+    try {
+      const response = await api.createBundleShareToken(ws, bundleId);
+      if (!response.token) throw new Error("Share token response did not include a token.");
+      const shareUrl = `${window.location.origin}${shareLandingUrl(response.token)}`;
+      await navigator.clipboard.writeText(shareUrl);
+      setState("copied");
+      window.setTimeout(() => setState("idle"), 2000);
+    } catch {
+      setState("error");
+      window.setTimeout(() => setState("idle"), 3000);
+    }
+  }
+
+  const isCopied = state === "copied";
+
+  return (
+    <Button
+      type="button"
+      variant={isCopied ? "secondary" : "outline"}
+      size="sm"
+      onClick={() => void handleCopy()}
+      disabled={state === "copying"}
+      aria-label="Copy share link"
+      title={state === "error" ? "Failed to copy share link" : "Copy share link"}
+    >
+      {isCopied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      <span className="hidden sm:inline">
+        {state === "copying" ? "Copying..." : state === "copied" ? "Copied" : state === "error" ? "Retry share link" : "Copy share link"}
+      </span>
+    </Button>
   );
 }
 
 export function BundleView({
   ws,
   bundleId,
+  shareToken = null,
   mode,
   currentFilePath = null,
 }: {
   ws: string;
   bundleId: string;
+  shareToken?: string | null;
   mode: "landing" | "file";
   currentFilePath?: string | null;
 }) {
   const auth = useAuth();
+  const isShareMode = Boolean(shareToken);
+  const canCreateShareLink = auth.user?.role === "admin";
   const metaQuery = useQuery({
-    queryKey: ["bundle-meta", ws, bundleId],
-    queryFn: () => api.getBundleMeta(ws, bundleId),
-    enabled: auth.isAuthenticated,
+    queryKey: isShareMode ? ["shared-bundle-meta", shareToken] : ["bundle-meta", ws, bundleId],
+    queryFn: () => isShareMode ? api.getSharedBundleMeta(shareToken!) : api.getBundleMeta(ws, bundleId),
+    enabled: isShareMode || auth.isAuthenticated,
     retry: (count, err) => !isClientApiError(err) && count < 2,
   });
   const activeFilePath = currentFilePath || metaQuery.data?.manifest.index || null;
   const activeFileType = activeFilePath ? detectFileType(activeFilePath) : null;
   const requiresTextContent = mode === "landing" || activeFileType === "markdown" || activeFileType === "html" || activeFileType === "code" || activeFileType === "text";
   const fileQuery = useQuery({
-    queryKey: ["bundle-file", ws, bundleId, activeFilePath],
-    queryFn: () => api.getBundleFileText(ws, bundleId, activeFilePath!),
-    enabled: auth.isAuthenticated && Boolean(activeFilePath) && requiresTextContent,
+    queryKey: isShareMode ? ["shared-bundle-file", shareToken, activeFilePath] : ["bundle-file", ws, bundleId, activeFilePath],
+    queryFn: () => isShareMode ? api.getSharedBundleFileText(shareToken!, activeFilePath!) : api.getBundleFileText(ws, bundleId, activeFilePath!),
+    enabled: (isShareMode || auth.isAuthenticated) && Boolean(activeFilePath) && requiresTextContent,
     retry: (count, err) => !(err instanceof ApiError && err.status >= 400 && err.status < 500) && count < 2,
   });
 
   const sidebar = metaQuery.data ? (
-    <TreeProvider bundleId={bundleId} workspaceSlug={ws} currentFilePath={currentFilePath} initialExpandedPaths={getFirstLevelDirs(metaQuery.data.tree)}>
+    <TreeProvider bundleId={bundleId} workspaceSlug={ws} shareToken={shareToken} currentFilePath={currentFilePath} initialExpandedPaths={getFirstLevelDirs(metaQuery.data.tree)}>
       <FileTree tree={metaQuery.data.tree} bundleId={metaQuery.data.manifest.title} />
     </TreeProvider>
   ) : null;
 
   let content: React.ReactNode = (
-    <BundleMetaQueryState isLoading={metaQuery.isLoading} error={metaQuery.error} ws={ws} bundleId={bundleId} />
+    <BundleMetaQueryState isLoading={metaQuery.isLoading} error={metaQuery.error} ws={ws} bundleId={bundleId} isShareMode={isShareMode} />
   );
   if (metaQuery.data && activeFilePath && requiresTextContent && fileQuery.isLoading) {
     content = <Card className="p-10 text-center text-muted-foreground">Loading file...</Card>;
@@ -468,39 +546,41 @@ export function BundleView({
         ws={ws}
         bundleId={bundleId}
         error={fileQuery.error}
+        backHref={isShareMode && shareToken ? shareLandingUrl(shareToken) : undefined}
       />
     );
   } else if (metaQuery.data && activeFilePath && (!requiresTextContent || fileQuery.data)) {
     const fileType = activeFileType;
     if (mode === "landing" && fileType === "markdown") {
-      content = <MarkdownViewer content={fileQuery.data ?? ""} workspaceSlug={ws} bundleId={bundleId} currentFilePath={metaQuery.data.manifest.index} />;
+      content = <MarkdownViewer content={fileQuery.data ?? ""} workspaceSlug={ws} bundleId={bundleId} shareToken={shareToken} currentFilePath={metaQuery.data.manifest.index} />;
     } else if (fileType === "markdown" || fileType === "html" || fileType === "code" || fileType === "text") {
-      content = <FileViewer workspaceSlug={ws} bundleId={bundleId} filePath={activeFilePath} content={fileQuery.data} />;
+      content = <FileViewer workspaceSlug={ws} bundleId={bundleId} shareToken={shareToken} filePath={activeFilePath} content={fileQuery.data} />;
     } else {
-      content = <FileViewer workspaceSlug={ws} bundleId={bundleId} filePath={activeFilePath} />;
+      content = <FileViewer workspaceSlug={ws} bundleId={bundleId} shareToken={shareToken} filePath={activeFilePath} />;
     }
   }
 
-  return (
-    <RequireAuth>
-      <div className="flex h-screen flex-col">
-        <Header
-          title={ws}
-          filePath={currentFilePath}
-          userName={auth.user?.username}
-          mobileTrigger={sidebar ? <MobileSidebarTrigger sidebar={sidebar} /> : undefined}
-          nav={<span className="text-[13px] text-muted-foreground">{bundleId}</span>}
-        />
-        {sidebar ? (
-          <AppShell sidebar={sidebar} filePath={currentFilePath}>
-            <div className="app-fade-up page-frame max-w-none px-4 py-8 lg:px-8">{content}</div>
-          </AppShell>
-        ) : (
+  const view = (
+    <div className="flex h-screen flex-col">
+      <Header
+        title={isShareMode ? "Shared bundle" : ws}
+        filePath={currentFilePath}
+        userName={isShareMode ? null : auth.user?.username}
+        mobileTrigger={sidebar ? <MobileSidebarTrigger sidebar={sidebar} /> : undefined}
+        nav={<span className="text-[13px] text-muted-foreground">{metaQuery.data?.manifest.title ?? bundleId}</span>}
+        actions={!isShareMode && canCreateShareLink ? <CopyShareLinkButton ws={ws} bundleId={bundleId} /> : undefined}
+      />
+      {sidebar ? (
+        <AppShell sidebar={sidebar} filePath={currentFilePath}>
           <div className="app-fade-up page-frame max-w-none px-4 py-8 lg:px-8">{content}</div>
-        )}
-      </div>
-    </RequireAuth>
+        </AppShell>
+      ) : (
+        <div className="app-fade-up page-frame max-w-none px-4 py-8 lg:px-8">{content}</div>
+      )}
+    </div>
   );
+
+  return isShareMode ? view : <RequireAuth>{view}</RequireAuth>;
 }
 
 function PlaceholderPage({ title }: { title: string }) {
@@ -1081,6 +1161,8 @@ const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: "/login"
 const workspaceRoute = createRoute({ getParentRoute: () => rootRoute, path: "/w/$ws", component: WorkspacePage });
 const bundleRoute = createRoute({ getParentRoute: () => rootRoute, path: "/w/$ws/b/$bundleId", component: BundleRoutePage });
 const bundleFileRoute = createRoute({ getParentRoute: () => rootRoute, path: "/w/$ws/b/$bundleId/f", validateSearch: (search: Record<string, unknown>) => ({ path: typeof search.path === "string" ? search.path : "" }), component: BundleFileRoutePage });
+const shareRoute = createRoute({ getParentRoute: () => rootRoute, path: "/s/$token", component: ShareRoutePage });
+const shareFileRoute = createRoute({ getParentRoute: () => rootRoute, path: "/s/$token/f", validateSearch: (search: Record<string, unknown>) => ({ path: typeof search.path === "string" ? search.path : "" }), component: ShareFileRoutePage });
 const adminRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin", component: AdminOverviewPage });
 const adminUsersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin/users", component: AdminUsersPage });
 const adminWorkspacesRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin/workspaces", component: AdminWorkspacesPage });
@@ -1094,6 +1176,8 @@ const routeTree = rootRoute.addChildren([
   workspaceRoute,
   bundleRoute,
   bundleFileRoute,
+  shareRoute,
+  shareFileRoute,
   adminRoute,
   adminUsersRoute,
   adminWorkspacesRoute,

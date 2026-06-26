@@ -14,6 +14,7 @@ interface TreeContextValue {
   currentFilePath: string | null;
   bundleId: string;
   workspaceSlug: string;
+  shareToken: string | null;
   toggleFolder: (path: string) => void;
 }
 
@@ -32,6 +33,7 @@ interface TreeProviderProps {
   children: ReactNode;
   bundleId: string;
   workspaceSlug: string;
+  shareToken?: string | null;
   currentFilePath: string | null;
   initialExpandedPaths?: string[];
 }
@@ -40,6 +42,7 @@ export function TreeProvider({
   children,
   bundleId,
   workspaceSlug,
+  shareToken = null,
   currentFilePath,
   initialExpandedPaths = [],
 }: TreeProviderProps) {
@@ -80,7 +83,7 @@ export function TreeProvider({
 
   return (
     <TreeContext.Provider
-      value={{ expandedPaths, currentFilePath, bundleId, workspaceSlug, toggleFolder }}
+      value={{ expandedPaths, currentFilePath, bundleId, workspaceSlug, shareToken, toggleFolder }}
     >
       {children}
     </TreeContext.Provider>

@@ -5,6 +5,7 @@ import type {
   AuthUser,
   Bundle,
   BundleMetaResponse,
+  BundleShareTokenPublic,
   UserPublic,
   Workspace,
   WorkspaceWithBundleCount,
@@ -66,12 +67,22 @@ export const api = {
     }),
   deleteBundle: (ws: string, bundleId: string) =>
     apiFetch<void>(`/api/w/${ws}/bundles/${bundleId}`, { method: "DELETE" }),
+  createBundleShareToken: (ws: string, bundleId: string) =>
+    apiFetch<{ token: string; shareToken: BundleShareTokenPublic }>(`/api/w/${ws}/bundles/${bundleId}/share-tokens`, {
+      method: "POST",
+    }),
   getBundleMeta: (ws: string, bundleId: string) =>
     apiFetch<BundleMetaResponse>(`/api/w/${ws}/bundles/${bundleId}/meta`),
   getBundleTree: (ws: string, bundleId: string) =>
     apiFetch<{ tree: import("@/lib/bundle/types").TreeNode[] }>(`/api/w/${ws}/bundles/${bundleId}/tree`),
   getBundleFileText: (ws: string, bundleId: string, filePath: string) =>
     apiText(`/api/w/${ws}/bundles/${bundleId}/file?path=${encodeURIComponent(filePath)}`),
+  getSharedBundleMeta: (token: string) =>
+    apiFetch<BundleMetaResponse>(`/api/s/${encodeURIComponent(token)}/meta`),
+  getSharedBundleTree: (token: string) =>
+    apiFetch<{ tree: import("@/lib/bundle/types").TreeNode[] }>(`/api/s/${encodeURIComponent(token)}/tree`),
+  getSharedBundleFileText: (token: string, filePath: string) =>
+    apiText(`/api/s/${encodeURIComponent(token)}/file?path=${encodeURIComponent(filePath)}`),
   getMyApiKeys: () => apiFetch<{ keys: ApiKeyPublic[] }>("/api/api-keys"),
   getAdminApiKeys: () => apiFetch<{ keys: ApiKeyWithUser[] }>("/api/admin/api-keys"),
   createApiKey: (body: { name: string; scope: ApiKeyScope; userId?: string; expiresAt?: string }) =>

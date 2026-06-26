@@ -60,6 +60,19 @@ CREATE TABLE IF NOT EXISTS api_keys (
 );
 CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
+
+CREATE TABLE IF NOT EXISTS bundle_share_tokens (
+  id           TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  bundle_id    TEXT NOT NULL REFERENCES bundles(id) ON DELETE CASCADE,
+  token_prefix TEXT NOT NULL,
+  token_hash   TEXT NOT NULL UNIQUE,
+  created_by   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at   TEXT,
+  revoked_at   TEXT,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_bundle_share_tokens_bundle ON bundle_share_tokens(bundle_id);
+CREATE INDEX IF NOT EXISTS idx_bundle_share_tokens_hash ON bundle_share_tokens(token_hash);
 `;
 
 let _db: Database.Database | null = null;

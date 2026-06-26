@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { Link } from "@tanstack/react-router";
-import { bundleFileUrl, apiBundleUrl } from "@/lib/url";
+import { viewerBundleFileUrl, viewerApiBundleUrl } from "@/lib/url";
 import type { Components } from "react-markdown";
 
 function resolveRelativePath(currentFilePath: string, href: string): string {
@@ -37,10 +37,11 @@ interface MarkdownViewerProps {
   content: string;
   workspaceSlug: string;
   bundleId: string;
+  shareToken?: string | null;
   currentFilePath: string;
 }
 
-export function MarkdownViewer({ content, workspaceSlug, bundleId, currentFilePath }: MarkdownViewerProps) {
+export function MarkdownViewer({ content, workspaceSlug, bundleId, shareToken, currentFilePath }: MarkdownViewerProps) {
   const components: Components = {
     a({ href, children, ...props }) {
       if (!href) return <a {...props}>{children}</a>;
@@ -49,15 +50,15 @@ export function MarkdownViewer({ content, workspaceSlug, bundleId, currentFilePa
       }
       if (href.startsWith("#")) return <a href={href} {...props}>{children}</a>;
       const resolvedPath = resolveRelativePath(currentFilePath, href);
-      return <Link to={bundleFileUrl(workspaceSlug, bundleId, resolvedPath)} {...props}>{children}</Link>;
+      return <Link to={viewerBundleFileUrl({ workspaceSlug, bundleId, shareToken }, resolvedPath)} {...props}>{children}</Link>;
     },
     img({ src, alt, ...props }) {
       if (!src || typeof src !== "string") return null;
       if (src.startsWith("http://") || src.startsWith("https://")) {
-        return <img src={src} alt={alt ?? ""} className="max-w-full" {...props} />;
+        return <img src={src} alt={alt ?? ""} className="max-w-full" referrerPolicy={shareToken ? "no-referrer" : undefined} {...props} />;
       }
       const resolvedPath = resolveRelativePath(currentFilePath, src);
-      const apiSrc = `${apiBundleUrl(workspaceSlug, bundleId, "file")}?path=${encodeURIComponent(resolvedPath)}`;
+      const apiSrc = `${viewerApiBundleUrl({ workspaceSlug, bundleId, shareToken }, "file")}?path=${encodeURIComponent(resolvedPath)}`;
       return <img src={apiSrc} alt={alt ?? ""} className="max-w-full" {...props} />;
     },
     h1({ children, ...props }) { const id = slugify(extractText(children)); return <h1 id={id} {...props}>{children}</h1>; },

@@ -15,9 +15,10 @@ interface HeaderProps {
   mobileTrigger?: ReactNode;
   backHref?: string;
   nav?: ReactNode;
+  actions?: ReactNode;
 }
 
-export function Header({ title, filePath, userName, mobileTrigger, backHref, nav }: HeaderProps) {
+export function Header({ title, filePath, userName, mobileTrigger, backHref, nav, actions }: HeaderProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -53,17 +54,24 @@ export function Header({ title, filePath, userName, mobileTrigger, backHref, nav
 
         <div className="flex-1" />
 
-        <div className="flex items-center gap-2 shrink-0">
-          {userName && <span className="hidden text-[13px] text-muted-foreground sm:inline">{userName}</span>}
-          <Link to="/settings" aria-label="Settings">
-            <Button variant="ghost" size="icon-sm">
-              <Settings className="size-4" />
-            </Button>
-          </Link>
-          <Button variant="secondary" size="icon-sm" onClick={handleLogout} aria-label="Sign out">
-            <LogOut className="size-4" />
-          </Button>
-        </div>
+        {(actions || userName) && (
+          <div className="flex items-center gap-2 shrink-0">
+            {actions}
+            {userName && (
+              <>
+                <span className="hidden text-[13px] text-muted-foreground sm:inline">{userName}</span>
+                <Link to="/settings" aria-label="Settings">
+                  <Button variant="ghost" size="icon-sm">
+                    <Settings className="size-4" />
+                  </Button>
+                </Link>
+                <Button variant="secondary" size="icon-sm" onClick={handleLogout} aria-label="Sign out">
+                  <LogOut className="size-4" />
+                </Button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

@@ -37,13 +37,13 @@ export async function validateBundleZip(zipPath: string): Promise<{ title: strin
   try {
     parsed = JSON.parse(manifestContent);
   } catch {
-    throw new ManifestValidationError("유효한 JSON이 아닙니다");
+    throw new ManifestValidationError("Invalid JSON");
   }
 
   const result = ManifestSchema.safeParse(parsed);
   if (!result.success) {
     const missing = result.error.issues.map((issue) => issue.path.join(".")).join(", ");
-    throw new ManifestValidationError(`필수 필드 누락: ${missing}`);
+    throw new ManifestValidationError(`Missing required field(s): ${missing}`);
   }
 
   if (!filenames.has(result.data.index)) {
