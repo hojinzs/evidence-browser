@@ -52,11 +52,11 @@ Derive `{branch-slug}` from `git rev-parse --abbrev-ref HEAD` with `/` replaced 
 {
   "version": 1,
   "title": "QA Run: {session}",
-  "indexFile": "index.md"
+  "index": "index.md"
 }
 ```
 
-Use `src/lib/bundle/extractor.ts` (`validateBundleZip`) as the authoritative schema — if your manifest doesn't validate there, the upload will 400.
+Use `packages/shared/src/bundle/validate-zip.ts::validateBundleZip` and `packages/shared/src/bundle/manifest.ts::ManifestSchema` as the authoritative schema — if your manifest doesn't validate there, the upload will 400.
 
 ## Workflow (one attempt)
 
@@ -126,7 +126,8 @@ If any pre-condition fails, report to the user — do not attempt to bootstrap t
 
 - `docs/TEAM_WORKFLOW.md` — full recursive loop spec
 - `.claude/skills/evidence-upload/SKILL.md` — canonical upload interface (use via Skill tool; do not call the underlying script directly)
-- `src/lib/bundle/extractor.ts` — manifest validator (use as schema reference)
-- `src/app/api/w/[ws]/bundle/route.ts` — upload API contract
+- `packages/shared/src/bundle/validate-zip.ts` — manifest validator (schema reference)
+- `packages/api/src/routes/bundle.ts` — upload API contract
 - `docs/CLI.md` — future `eb` CLI spec (evidence-upload skill is its precursor)
-- `playwright.config.ts` — existing E2E setup (reuse patterns, not necessarily the runner)
+- `packages/web/vite.config.ts` — web test and dev-server setup
+- `tests/fixtures/evidence` — maintained evidence fixture matrix

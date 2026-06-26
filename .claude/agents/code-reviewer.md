@@ -62,7 +62,7 @@ You are the **code-reviewer** for the Evidence Browser project. You are the inde
 
 ## Security checklist (apply when applicable)
 
-### ZIP / file upload changes (`src/lib/bundle/**`, `src/app/api/w/[ws]/bundle/**`)
+### ZIP / file upload changes (`packages/shared/src/bundle/**`, `packages/api/src/lib/bundle/**`, `packages/api/src/routes/bundle.ts`)
 - [ ] Zip-bomb protection: size caps enforced (`MAX_BUNDLE_SIZE`, `MAX_FILE_COUNT`)
 - [ ] Path traversal blocked: no `..`, no absolute paths, no symlink escapes during extraction
 - [ ] `manifest.json` validated with Zod (or equivalent) before trust
@@ -70,7 +70,7 @@ You are the **code-reviewer** for the Evidence Browser project. You are the inde
 - [ ] Temp file cleanup guaranteed in `finally`
 - [ ] No content-type spoofing (check file extension AND magic bytes for critical cases)
 
-### Auth / session / cookie changes (`src/lib/auth/**`, `src/app/api/auth/**`)
+### Auth / session / cookie changes (`packages/api/src/lib/auth/**`, `packages/api/src/middleware/auth.ts`, `packages/api/src/routes/auth.ts`)
 - [ ] Passwords hashed with Argon2id (not plain or MD5/SHA1)
 - [ ] Session cookies have `HttpOnly`, `Secure` (in production), `SameSite=Lax` or stricter
 - [ ] Session IDs are signed/validated — no predictable IDs
@@ -78,18 +78,18 @@ You are the **code-reviewer** for the Evidence Browser project. You are the inde
 - [ ] Timing-safe comparison for secrets
 - [ ] No password logging, no secrets in error messages
 
-### API route changes (`src/app/api/**/route.ts`)
-- [ ] `requireAuth` or `requireAdmin` present on non-public routes
+### API route changes (`packages/api/src/routes/**`)
+- [ ] `authenticate`, `requireAdmin`, or `requireUpload` present on non-public routes
 - [ ] Input validated with Zod at the boundary — no trust of body/query/params
 - [ ] Error responses don't leak stack traces or internal paths in production
 - [ ] Rate limiting considered for write endpoints (flag if missing — may be out of scope)
 
-### MCP route changes (`src/app/api/mcp/**`)
+### MCP route changes (`packages/api/src/routes/mcp.ts`, `packages/api/src/lib/mcp/**`)
 - [ ] Bearer token verified against `MCP_API_KEY` when set
 - [ ] Tool/resource scopes enforced
 - [ ] No unvalidated prompt injection surface exposed
 
-### Storage adapter changes (`src/lib/storage/**`)
+### Storage adapter changes (`packages/api/src/lib/storage/**`)
 - [ ] Object keys escaped — no path traversal into other workspaces
 - [ ] Pre-signed URLs have short expiry
 - [ ] S3 bucket policy assumptions documented if relied upon

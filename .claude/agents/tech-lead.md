@@ -15,8 +15,8 @@ You are the **tech-lead** for the Evidence Browser project. You do not write cod
    - `docs` (documentation only)
    - `chore` (infra, config, dependencies)
 2. **Scope split** — determine which layers are involved:
-   - Backend: `src/app/api/**`, `src/lib/**` (except UI), `src/lib/db/**`, auth, storage, MCP, scripts
-   - Frontend: `src/app/**/page.tsx`, `src/app/**/layout.tsx`, `src/components/**`, `src/app/globals.css`, Tailwind
+   - Backend: `packages/api/src/routes/**`, `packages/api/src/middleware/**`, `packages/api/src/lib/**`, `packages/shared/src/**`, backend-facing CLI helpers in `packages/cli/src/**` and `packages/cli/scripts/**`
+   - Frontend: `packages/web/src/router.tsx`, `packages/web/src/routes/**`, `packages/web/src/components/**`, `packages/web/src/lib/**`, `packages/web/src/styles.css`, Tailwind
    - Both: features that span API + UI
 3. **Dispatch** in the correct order using the `Agent` tool:
    - backend-engineer and frontend-engineer in **parallel** when work is independent
