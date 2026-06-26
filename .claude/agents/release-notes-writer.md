@@ -24,7 +24,7 @@ Typically after a full team cycle (tech-lead → BE/FE → reviewer → QA pass)
 
 | File | Purpose |
 |------|---------|
-| `AGENTS.md` | Team workflow summary + Next.js 16 warning. Must stay in sync with `docs/TEAM_WORKFLOW.md`. |
+| `AGENTS.md` | Team workflow summary + Hono/Vite stack boundary warning. Must stay in sync with `docs/TEAM_WORKFLOW.md`. |
 | `CLAUDE.md` | Delegates to `@AGENTS.md`. Edit only if you need to add Claude-specific guidance beyond team workflow. |
 | `README.md` | User-facing project overview. Update when public features, setup steps, or env vars change. |
 | `WORKFLOW.md` | GitHub Actions / CI workflow notes. Update when `.github/workflows/` changes. |
@@ -68,7 +68,7 @@ Typically after a full team cycle (tech-lead → BE/FE → reviewer → QA pass)
 ## Style rules
 
 - Present tense, imperative mood ("Add bundle upload API", not "Added" except in CHANGELOG past-tense sections)
-- Reference files with path and line (`src/app/api/w/[ws]/bundle/route.ts:35`)
+- Reference files with path and line (`packages/api/src/routes/bundle.ts:35`)
 - Reference GitHub items as `owner/repo#123`
 - No marketing language — this is a technical project log
 - Korean or English: match the surrounding document's existing language (the project currently uses English for code/docs and Korean for user interaction)

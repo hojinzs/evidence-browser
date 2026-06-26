@@ -7,8 +7,8 @@ This is the canonical spec for how the Claude Code sub-agent team operates on th
 | Agent | File | Skill used | Domain |
 |-------|------|------------|--------|
 | `tech-lead` | `.claude/agents/tech-lead.md` | — | Triage, decomposition, dispatch, recursive loop coordination |
-| `backend-engineer` | `.claude/agents/backend-engineer.md` | `/codex:rescue` | API routes, DB, auth, storage, MCP, bundle pipeline, scripts |
-| `frontend-engineer` | `.claude/agents/frontend-engineer.md` | `/frontend-design` | Pages, layouts, components, Tailwind, globals.css, Figma integration |
+| `backend-engineer` | `.claude/agents/backend-engineer.md` | `/codex:rescue` | Hono routes, middleware, DB, auth, storage, MCP, bundle pipeline, shared validators, backend CLI helpers |
+| `frontend-engineer` | `.claude/agents/frontend-engineer.md` | `/frontend-design` | Vite/TanStack routes, React components, Tailwind, `packages/web/src/styles.css`, Figma integration |
 | `code-reviewer` | `.claude/agents/code-reviewer.md` | — | Diff review + security checklist between impl and QA |
 | `qa-engineer` | `.claude/agents/qa-engineer.md` | — | TC design, Playwright MCP, evidence bundling, upload, recursive verification |
 | `release-notes-writer` | `.claude/agents/release-notes-writer.md` | — | AGENTS.md / README / CHANGELOG after a cycle |
@@ -122,7 +122,7 @@ Schema authority: `packages/shared/src/bundle/validate-zip.ts::validateBundleZip
 
 `POST /api/w/{ws}/bundle` (served by `packages/api/src/routes/bundle.ts`; in local dev this is reached via the web dev proxy at `http://127.0.0.1:3000/api/...`)
 
-- **Auth**: upload-capable API key or admin session cookie required (`requireUpload`)
+- **Auth**: `requireUpload` — API key with scope `upload` or `admin`, or an admin session (`packages/api/src/middleware/auth.ts`)
 - **Body**: multipart form data
   - `file` — ZIP file, must end with `.zip`
   - `bundleId` — optional; defaults to filename stem; must match the flat slug rule (`^[a-z0-9][a-z0-9._-]{0,127}$`)
@@ -131,15 +131,15 @@ Schema authority: `packages/shared/src/bundle/validate-zip.ts::validateBundleZip
 
 ### Canonical upload interface: `/evidence-upload` skill
 
-Agents **must** upload through the `/evidence-upload` skill (`.claude/skills/evidence-upload/SKILL.md`), not by calling the script directly. The skill currently wraps `packages/cli/scripts/qa-evidence-upload.ts`, which handles login + ZIP + POST in one step against the current API runtime.
+Agents **must** upload through the `/evidence-upload` skill (`.claude/skills/evidence-upload/SKILL.md`), not by calling upload scripts directly. The skill packages `.evidence/{session}/` into a ZIP and invokes the maintained `eb upload` CLI path.
 
-**Why the skill layer**: `packages/cli/scripts/qa-evidence-upload.ts` is the **precursor implementation** of a higher-level `eb bundle create` + `eb upload` flow. When the CLI fully covers directory packaging:
+**Why the skill layer**: the `eb` CLI is the upload mechanism, while `/evidence-upload` preserves the agent-facing directory contract:
 
-- The script can be replaced with a thin call to `eb`
-- The skill interface (`/evidence-upload <dir>`) stays stable
-- No agent spec needs to change
+- Agents keep passing `.evidence/{session}/`
+- The skill owns ZIP packaging and bundleId naming
+- The CLI owns the HTTP upload
 
-Routing every upload through the skill keeps the agent contracts decoupled from the current script and lets the implementation swap out cleanly.
+Routing every upload through the skill keeps the agent contracts decoupled from CLI packaging details.
 
 ### bundleId convention
 
@@ -162,7 +162,7 @@ loop:
   qa-engineer.runAttempt(attempt)
     → build .evidence/{session}/ where session includes "attempt{N}"
     → run TCs + edge cases
-    → upload via /evidence-upload skill (QA helper script under the hood for now)
+    → upload via /evidence-upload skill (eb upload under the hood)
     → open uploaded bundle URL via Playwright MCP
     → verify render
 
@@ -214,8 +214,9 @@ If any pre-condition is missing, the agent should fail fast and tell the user ra
 ## References
 
 - `.claude/agents/*.md` — agent specs
-- `packages/cli/scripts/qa-evidence-upload.ts` — temporary upload helper used by the skill until CLI directory packaging lands
+- `.claude/skills/evidence-upload/SKILL.md` — high-level evidence upload wrapper around `eb upload`
+- `.claude/skills/evidence-browser/SKILL.md` — low-level `eb` CLI reference
 - `packages/shared/src/bundle/validate-zip.ts` — manifest schema authority
 - `packages/api/src/routes/bundle.ts` — upload API contract for `POST /api/w/{ws}/bundle`
+- `packages/api/src/middleware/auth.ts` — `requireUpload` auth scope
 - `docs/DESIGN_GUIDE.md` — frontend SSOT
-- `/home/hojinzs/.claude/plans/snoopy-wobbling-brooks.md` — original team setup plan

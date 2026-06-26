@@ -1,5 +1,7 @@
 # Refactor Plan Status
 
+> COMPLETED — migration shipped; retained for historical context. For the current implementation, read `docs/ARCHITECTURE.md`.
+
 This migration is complete.
 
 Evidence Browser now uses the maintained npm workspace layout:
@@ -17,5 +19,6 @@ Current implementation references:
 - Bundle upload API: `packages/api/src/routes/bundle.ts`
 - Bundle manifest validation: `packages/shared/src/bundle/validate-zip.ts`
 - URL helpers: `packages/shared/src/url.ts`
-- QA upload helper: `packages/cli/scripts/qa-evidence-upload.ts`
+- Evidence upload skill: `.claude/skills/evidence-upload/SKILL.md`
+- CLI upload path: `packages/cli/src/**` (`eb upload`)
 - CLI docs: `docs/CLI.md`
