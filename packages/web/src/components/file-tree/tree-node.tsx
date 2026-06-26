@@ -5,7 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { ChevronRight, ChevronDown, Folder, FolderOpen, FileText, FileCode, Image } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTree } from "./tree-context";
-import { bundleFileUrl } from "@/lib/url";
+import { viewerBundleFileUrl } from "@/lib/url";
 import type { TreeNode } from "@/lib/bundle/types";
 
 function getFileIcon(name: string) {
@@ -25,7 +25,7 @@ interface TreeNodeProps {
 
 export const TreeNodeComponent = memo(function TreeNodeComponent({ node, level, bundleId }: TreeNodeProps) {
   const navigate = useNavigate();
-  const { expandedPaths, currentFilePath, workspaceSlug, toggleFolder } = useTree();
+  const { expandedPaths, currentFilePath, workspaceSlug, shareToken, toggleFolder } = useTree();
   const isDirectory = node.type === "directory";
   const isExpanded = expandedPaths.has(node.path);
   const isActive = currentFilePath === node.path;
@@ -35,7 +35,7 @@ export const TreeNodeComponent = memo(function TreeNodeComponent({ node, level, 
     if (isDirectory) {
       toggleFolder(node.path);
     } else {
-      void navigate({ to: bundleFileUrl(workspaceSlug, bundleId, node.path) });
+      void navigate({ to: viewerBundleFileUrl({ workspaceSlug, bundleId, shareToken }, node.path) });
     }
   };
 

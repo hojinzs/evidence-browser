@@ -1,21 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { apiBundleUrl } from "@/lib/url";
+import { viewerApiBundleUrl } from "@/lib/url";
 import { CodeViewer } from "./code-viewer";
 
 interface HtmlViewerProps {
   workspaceSlug: string;
   bundleId: string;
+  shareToken?: string | null;
   filePath: string;
   content: string;
 }
 
 type HtmlMode = "preview" | "source";
 
-export function HtmlViewer({ workspaceSlug, bundleId, filePath, content }: HtmlViewerProps) {
+export function HtmlViewer({ workspaceSlug, bundleId, shareToken, filePath, content }: HtmlViewerProps) {
   const [mode, setMode] = useState<HtmlMode>("preview");
-  const previewUrl = `${apiBundleUrl(workspaceSlug, bundleId, "preview")}?path=${encodeURIComponent(filePath)}`;
+  const previewUrl = `${viewerApiBundleUrl({ workspaceSlug, bundleId, shareToken }, "preview")}?path=${encodeURIComponent(filePath)}`;
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-[0_12px_32px_rgba(0,0,0,0.24)]">

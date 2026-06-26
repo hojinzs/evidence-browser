@@ -15,10 +15,14 @@ vi.mock("../lib/db/index", async (importOriginal) => {
 
 import { resetEnv } from "@/config/env";
 import { AUTH_BYPASS_USERNAME, resetAuthBypassUserCache } from "@/lib/auth/bypass";
+import { createBundle } from "@/lib/db/bundles";
+import { createBundleShareToken } from "@/lib/db/share-tokens";
 import { findUserByUsername } from "@/lib/db/users";
+import { createWorkspace } from "@/lib/db/workspaces";
 import { requireUpload, type AppVariables } from "@/middleware/auth";
 import { apiKeyRoutes } from "./api-keys";
 import { authRoutes } from "./auth";
+import { bundleRoutes } from "./bundle";
 import { checkAuth as checkMcpAuth } from "./mcp";
 import { setupRoutes } from "./setup";
 import { workspaceRoutes } from "./workspace";
@@ -29,6 +33,7 @@ function createTestApp() {
   app.route("/api/api-keys", apiKeyRoutes);
   app.route("/api/setup", setupRoutes);
   app.route("/api/w", workspaceRoutes);
+  app.route("/api/w", bundleRoutes);
   app.post("/api/upload-check", requireUpload, (c) => c.json({ user: c.get("user") }));
   return app;
 }
@@ -203,6 +208,42 @@ describe("AUTH_BYPASS", () => {
       })
     );
     expect(mcpAuth?.status).toBe(401);
+  });
+
+  it("does not accept share tokens as authenticated API credentials", async () => {
+    process.env.AUTH_BYPASS = "true";
+    resetEnv();
+    const app = createTestApp();
+
+    const adminRes = await app.request("/api/auth/me");
+    const { user } = await adminRes.json() as { user: { id: string } };
+    const workspace = createWorkspace("infra", "Infrastructure", "Test workspace", user.id);
+    const bundle = createBundle({
+      bundleId: "run-42",
+      workspaceId: workspace.id,
+      title: "Run 42",
+      storageKey: "infra/run-42",
+      sizeBytes: 1024,
+      uploadedBy: user.id,
+    });
+    const { token } = createBundleShareToken({
+      bundleInternalId: bundle.id,
+      createdBy: user.id,
+    });
+
+    process.env.AUTH_BYPASS = "false";
+    resetEnv();
+
+    const listRes = await app.request("/api/w/infra/bundle", {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const createShareRes = await app.request("/api/w/infra/bundles/run-42/share-tokens", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(listRes.status).toBe(401);
+    expect(createShareRes.status).toBe(401);
   });
 
   it("allows upload-scoped middleware without credentials when enabled", async () => {

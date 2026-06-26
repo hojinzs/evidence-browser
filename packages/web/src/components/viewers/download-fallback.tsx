@@ -2,16 +2,17 @@
 
 import { FileQuestion, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { apiBundleUrl } from "@/lib/url";
+import { viewerApiBundleUrl } from "@/lib/url";
 
 interface DownloadFallbackProps {
   workspaceSlug: string;
   bundleId: string;
+  shareToken?: string | null;
   filePath: string;
 }
 
-export function DownloadFallback({ workspaceSlug, bundleId, filePath }: DownloadFallbackProps) {
-  const downloadUrl = `${apiBundleUrl(workspaceSlug, bundleId, "file")}?path=${encodeURIComponent(filePath)}`;
+export function DownloadFallback({ workspaceSlug, bundleId, shareToken, filePath }: DownloadFallbackProps) {
+  const downloadUrl = `${viewerApiBundleUrl({ workspaceSlug, bundleId, shareToken }, "file")}?path=${encodeURIComponent(filePath)}`;
   const fileName = filePath.includes("/")
     ? filePath.slice(filePath.lastIndexOf("/") + 1)
     : filePath;
