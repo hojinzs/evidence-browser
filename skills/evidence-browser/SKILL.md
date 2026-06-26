@@ -68,7 +68,7 @@ eb upload /tmp/my-bundle.zip \
 On success the CLI prints:
 ```
 Uploaded: 20260427-1200-main-attempt1
-  View: http://127.0.0.1:3000/w/default/20260427-1200-main-attempt1
+  View: http://127.0.0.1:3000/w/default/b/20260427-1200-main-attempt1
 ```
 
 Parse the `View:` line for the bundle URL to return to the caller.

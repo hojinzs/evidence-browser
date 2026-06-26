@@ -193,7 +193,7 @@ Do not include raw secrets in evidence. Replace token/password/cookie/API key va
 
 ## Recommended fixture matrix
 
-Use existing fixtures under `packages/legacy/fixtures` when available, or create equivalent temporary fixtures during QA.
+Use existing fixtures under `tests/fixtures/evidence` when available, or create equivalent temporary fixtures during QA.
 
 Minimum matrix for bundle/rendering changes:
 
