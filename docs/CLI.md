@@ -3,326 +3,375 @@
 ## 개요
 
 `eb`는 Evidence Browser 서버와 통신하는 커맨드라인 도구입니다.
-번들 업로드, 목록 조회, 로컬 검증을 지원합니다. CI 파이프라인과 AI 에이전트를 주요 사용 대상으로 설계합니다.
+CI 파이프라인과 AI 에이전트가 evidence bundle을 만들고, 검증하고,
+업로드하고, 이후 필요한 파일을 다시 조회할 수 있게 합니다.
 
-서버 내부에 직접 접근하지 않고 REST API만 사용합니다.
+현재 CLI는 서버 API만 사용합니다. 인증은 브라우저 세션 쿠키가 아니라
+Evidence Browser API key로 처리합니다.
 
 ---
 
 ## 설치
 
 ```bash
-npm install -g @evidence-browser/cli
-# 또는
-pnpm add -g @evidence-browser/cli
+npm install -g evidence-browser-cli
+```
+
+개발 체크아웃에서는 workspace 스크립트로 빌드하거나 실행할 수 있습니다.
+
+```bash
+npm install
+npm run build:cli
+node packages/cli/dist/bin.js --help
 ```
 
 ---
 
-## 설정
+## 인증과 설정
 
-### 인증 정보 저장 위치
+### API key
 
-```
-~/.config/evidence-browser/config.json
-```
-
-```json
-{
-  "server": "https://evidence.example.com",
-  "session": "<signed-session-cookie-value>"
-}
-```
-
-### 우선순위 (높은 것이 이김)
-
-1. 플래그 (`--server`, `--token`)
-2. 환경변수 (`EB_SERVER`, `EB_TOKEN`)
-3. `config.json`
-
-### 환경변수
-
-| 변수 | 설명 |
-|------|------|
-| `EB_SERVER` | 서버 URL (`https://evidence.example.com`) |
-| `EB_TOKEN` | 세션 쿠키 값 (CI 환경에서 사용) |
-
----
-
-## 커맨드 레퍼런스
-
-### `eb login`
-
-서버에 로그인하고 세션을 `config.json`에 저장합니다.
-
-```
-eb login [url]
-```
-
-| 인수 | 설명 |
-|------|------|
-| `url` | 서버 URL (생략 시 기존 설정 사용) |
+1. 브라우저에서 Evidence Browser에 로그인합니다.
+2. Settings/API Keys 화면에서 API key를 생성합니다.
+3. CLI에서 `eb login <url>`을 실행하고 API key를 입력합니다.
 
 ```bash
 eb login https://evidence.example.com
-# Username: admin
-# Password: ****
-# 로그인 성공 (admin)
+# API key: eb_...
+```
+
+`eb login`은 입력한 key를 검증한 뒤 로컬 설정 파일에 저장합니다.
+
+### 설정 파일
+
+기본 저장 위치:
+
+```text
+~/.config/evidence-browser/config.json
+```
+
+내용:
+
+```json
+{
+  "url": "https://evidence.example.com",
+  "apiKey": "eb_..."
+}
+```
+
+`XDG_CONFIG_HOME`이 설정되어 있으면
+`$XDG_CONFIG_HOME/evidence-browser/config.json`을 사용합니다.
+
+### 우선순위
+
+서버 URL과 API key는 다음 순서로 결정됩니다. 앞의 값이 뒤의 값을
+덮어씁니다.
+
+1. 명령 플래그: `--url`, `--api-key`
+2. 환경변수: `EB_URL`, `EB_API_KEY`
+3. 로컬 설정 파일: `config.json`
+
+### CI 환경변수
+
+| 변수 | 설명 |
+|------|------|
+| `EB_URL` | Evidence Browser 서버 URL |
+| `EB_API_KEY` | `read`, `upload`, 또는 `admin` scope를 가진 API key |
+
+예시:
+
+```bash
+EB_URL=https://evidence.example.com \
+EB_API_KEY=$EVIDENCE_BROWSER_API_KEY \
+eb upload dist/evidence.zip --workspace ci-results --bundle-id "pr-42-run-1"
 ```
 
 ---
+
+## 빠른 시작
+
+```bash
+eb login https://evidence.example.com
+eb bundle create ./evidence --output dist/evidence.zip
+eb bundle validate dist/evidence.zip
+eb upload dist/evidence.zip --workspace ci-results --bundle-id "pr-42-run-1"
+```
+
+서버에 이미 ZIP bundle이 있으면 생성 단계 없이 바로 업로드할 수 있습니다.
+
+```bash
+eb upload report.zip --workspace default
+```
+
+---
+
+## 명령 레퍼런스
+
+### `eb login [url]`
+
+서버 URL과 API key를 저장합니다. `url`을 생략하면 프롬프트로 입력받습니다.
+
+```bash
+eb login https://evidence.example.com
+```
+
+성공 시 저장된 서버, masked key, 설정 파일 경로를 출력합니다.
 
 ### `eb logout`
 
-저장된 세션을 삭제합니다.
+저장된 로컬 설정 파일을 삭제합니다.
 
-```
+```bash
 eb logout
 ```
 
----
-
 ### `eb whoami`
 
-현재 로그인된 계정 정보를 출력합니다.
+현재 설정된 서버 URL, masked API key, 설정 파일 경로, 인증 상태를 출력합니다.
+서버에 연결해 key가 유효한지도 확인합니다.
 
-```
+```bash
 eb whoami
 ```
 
-```
-서버:     https://evidence.example.com
-사용자:   admin (admin)
-```
-
 ---
 
-### `eb bundle upload`
+## Upload
 
-ZIP 번들을 서버에 업로드합니다. admin 권한 필요.
+### `eb upload <file>`
 
-```
-eb bundle upload <file> --workspace <slug> [options]
-```
-
-| 플래그 | 설명 | 기본값 |
-|--------|------|--------|
-| `--workspace`, `-w` | 워크스페이스 slug (필수) | — |
-| `--id` | 번들 ID (생략 시 파일명에서 추출) | `{filename without .zip}` |
-| `--server` | 서버 URL 오버라이드 | config.json |
+ZIP bundle을 워크스페이스에 업로드합니다. 이것이 구현된 업로드 명령입니다.
+`eb bundle upload` 하위 명령은 없습니다.
 
 ```bash
-eb bundle upload report.zip --workspace ci-results
-
-eb bundle upload report.zip \
-  --workspace ci-results \
-  --id "pr-42-run-1"
-
-# CI 환경 (환경변수 사용)
-EB_SERVER=https://evidence.example.com \
-EB_TOKEN=$SESSION_COOKIE \
-eb bundle upload dist/report.zip --workspace nightly
+eb upload <file> --workspace <slug> [--bundle-id <id>] [--url <url>] [--api-key <key>]
 ```
 
-**번들 ID 규칙:**
-- flat slug만 허용 (`pr-42-run-1`)
-- 권장 정규식: `^[a-z0-9][a-z0-9._-]{0,127}$`
-- `/`, `\\`, 공백, `..`, `\0`, `%2F` 같은 퍼센트 인코딩 입력값, 대문자 불가
+| 옵션 | 설명 |
+|------|------|
+| `--workspace <slug>` | 업로드 대상 워크스페이스 slug |
+| `--bundle-id <id>` | 번들 ID를 파일명 대신 명시 |
+| `--url <url>` | 서버 URL override |
+| `--api-key <key>` | API key override |
+
+```bash
+eb upload report.zip --workspace ci-results
+eb upload report.zip --workspace ci-results --bundle-id "pr-42-run-1"
+```
+
+업로드 성공 시 bundle ID와 viewer URL을 출력합니다.
 
 ---
 
-### `eb bundle validate`
+## Bundle
 
-서버 없이 로컬에서 번들의 유효성을 검증합니다.
+### `eb bundle create <dir>`
 
+디렉터리를 bundle ZIP으로 패키징합니다.
+
+```bash
+eb bundle create <dir> [--output <file>] [--title <title>] [--index <path>]
 ```
-eb bundle validate <file>
+
+| 옵션 | 설명 |
+|------|------|
+| `--output`, `-o` | 출력 ZIP 경로 |
+| `--title <title>` | 생성할 `manifest.json`의 title |
+| `--index <path>` | 생성할 `manifest.json`의 index 파일 |
+
+디렉터리에 `manifest.json`이 이미 있으면 그대로 사용합니다. 없으면 CLI가
+`version`, `title`, `index`를 가진 manifest를 생성합니다. `--index`가 없으면
+루트 `index.md`, 그 다음 첫 번째 Markdown 파일을 찾습니다.
+
+```bash
+eb bundle create ./report --output dist/report.zip --title "PR #42 evidence"
 ```
+
+### `eb bundle validate <file>`
+
+서버 연결 없이 로컬 bundle ZIP을 검증합니다.
 
 ```bash
 eb bundle validate report.zip
-# Bundle is valid: PR #42 테스트 결과
-```
-
-실패 예시:
-
-```bash
-eb bundle validate broken.zip
-# Bundle validation failed: manifest.json was not found
-# Exit code: 1
 ```
 
 검증 항목:
-- `manifest.json` 존재 여부
-- JSON 파싱 가능 여부
-- `version` (number), `title` (string), `index` (string) 필드 존재
-- `index`가 가리키는 파일이 ZIP 내에 존재
 
-> 이 커맨드는 서버 연결 없이 동작합니다. CI에서 업로드 전 사전 검증에 사용하세요.
+- ZIP 파일 존재와 확장자
+- `manifest.json` 존재와 JSON 파싱
+- `version`, `title`, `index` 필수 필드
+- `index`가 가리키는 파일 존재
 
----
+### `eb bundle list <workspace>`
 
-### `eb bundle create`
-
-디렉터리를 번들 ZIP으로 패키징합니다.
-
-```
-eb bundle create <dir> [options]
-```
-
-| 플래그 | 설명 | 기본값 |
-|--------|------|--------|
-| `--output`, `-o` | 출력 파일 경로 | `{dir-name}.zip` |
-| `--title` | `manifest.json`의 title | 디렉터리 이름 |
-| `--index` | `manifest.json`의 index | `index.md` |
+워크스페이스의 bundle 목록을 JSON으로 출력합니다.
 
 ```bash
-# 기본 사용
-eb bundle create ./report
-# Created bundle: /path/to/report.zip
-
-# 옵션 지정
-eb bundle create ./report \
-  --output dist/pr-42.zip \
-  --title "PR #42 테스트 결과" \
-  --index report.md
-# Created bundle: /path/to/dist/pr-42.zip
+eb bundle list ci-results
 ```
 
-이미 `manifest.json`이 디렉터리 안에 있으면 그대로 사용하고 `--title` / `--index` 플래그를 무시합니다.
-`manifest.json`이 없으면 CLI가 ZIP 안에 `version`, `title`, `index`를 포함한 manifest를 생성합니다. `--index`가 없으면 루트 `index.md`를 우선 사용하고, 없으면 첫 번째 Markdown 파일 (`.md` 또는 `.markdown`)을 결정적으로 선택합니다.
+### `eb bundle info <workspace> <bundleId>`
 
----
-
-### `eb bundle list`
-
-워크스페이스의 번들 목록을 출력합니다.
-
-```
-eb bundle list --workspace <slug> [options]
-```
-
-| 플래그 | 설명 | 기본값 |
-|--------|------|--------|
-| `--workspace`, `-w` | 워크스페이스 slug (필수) | — |
-| `--json` | JSON 형식으로 출력 | false |
+bundle manifest와 파일 트리 metadata를 JSON으로 출력합니다.
 
 ```bash
-eb bundle list --workspace ci-results
+eb bundle info ci-results pr-42-run-1
+```
 
-# BUNDLE ID              TITLE                  UPLOADED
-# pr-42-run-1            PR #42 테스트 결과      2026-04-10 14:32
-# pr-41-run-2            PR #41 재실행           2026-04-09 11:20
+### `eb bundle tree <workspace> <bundleId>`
+
+bundle 파일 트리를 터미널 tree 형식으로 출력합니다.
+
+```bash
+eb bundle tree ci-results pr-42-run-1
+```
+
+### `eb bundle download <workspace> <bundleId>`
+
+bundle 내부 파일 하나를 stdout으로 출력합니다.
+
+```bash
+eb bundle download ci-results pr-42-run-1 --file logs/app.log > app.log
+```
+
+| 옵션 | 설명 |
+|------|------|
+| `--file <path>` | bundle 내부 파일 경로 |
+
+### `eb bundle delete <workspace> <bundleId>`
+
+bundle을 삭제합니다. 기본적으로 확인 프롬프트를 띄웁니다.
+
+```bash
+eb bundle delete ci-results pr-42-run-1
+eb bundle delete ci-results pr-42-run-1 --force
 ```
 
 ---
+
+## Workspace
 
 ### `eb workspace list`
 
-워크스페이스 목록을 출력합니다.
-
-```
-eb workspace list [options]
-```
-
-| 플래그 | 설명 |
-|--------|------|
-| `--json` | JSON 형식으로 출력 |
+워크스페이스 목록을 JSON으로 출력합니다.
 
 ```bash
 eb workspace list
-
-# SLUG          NAME              BUNDLES
-# ci-results    CI 결과            24
-# nightly       야간 빌드           7
 ```
 
----
+### `eb workspace create <slug> <name>`
 
-### `eb user list` _(admin)_
-
-사용자 목록을 출력합니다. admin 권한 필요.
-
-```
-eb user list
-```
-
----
-
-### `eb user create` _(admin)_
-
-사용자를 생성합니다. admin 권한 필요.
-
-```
-eb user create <username> [options]
-```
-
-| 플래그 | 설명 | 기본값 |
-|--------|------|--------|
-| `--role` | `admin` 또는 `user` | `user` |
-| `--password` | 비밀번호 (생략 시 프롬프트) | — |
+워크스페이스를 생성합니다.
 
 ```bash
-eb user create alice --role user
-eb user create bob --role admin --password hunter2
+eb workspace create ci-results "CI Results" --description "Pull request evidence"
+```
+
+### `eb workspace update <slug>`
+
+워크스페이스 이름이나 설명을 수정합니다. `--name` 또는 `--description` 중
+하나는 필요합니다.
+
+```bash
+eb workspace update ci-results --name "CI Evidence"
+eb workspace update ci-results --description "Nightly and PR runs"
+```
+
+### `eb workspace delete <slug>`
+
+워크스페이스와 그 bundle을 삭제합니다. 기본적으로 확인 프롬프트를 띄웁니다.
+
+```bash
+eb workspace delete ci-results
+eb workspace delete ci-results --force
+```
+
+---
+
+## API key
+
+### `eb api-key list`
+
+현재 사용자 API key 목록을 JSON으로 출력합니다.
+
+```bash
+eb api-key list
+```
+
+Admin key로 모든 사용자의 key를 보려면 `--admin`을 사용합니다.
+
+```bash
+eb api-key list --admin
+```
+
+### `eb api-key create <name>`
+
+API key를 생성합니다. scope는 `read`, `upload`, `admin` 중 하나입니다.
+
+```bash
+eb api-key create ci-uploader --scope upload
+eb api-key create automation-admin --scope admin
+```
+
+응답에는 다시 볼 수 없는 원문 key와 저장된 record가 포함됩니다.
+
+### `eb api-key delete <keyId>`
+
+API key를 삭제합니다.
+
+```bash
+eb api-key delete key_123
+```
+
+---
+
+## Bundle ID와 URL
+
+`eb upload`에서 `--bundle-id`를 생략하면 서버는 업로드 파일명에서 `.zip`을
+제외한 값을 bundle ID로 사용합니다. 계층형 ID를 쓰는 경우 viewer URL에서는
+슬래시를 URL encoding해야 합니다.
+
+```bash
+eb upload report.zip --workspace ci-results --bundle-id "org/repo/pr-42/run-1"
+```
+
+---
+
+## GitHub Actions 예시
+
+```yaml
+- name: Upload evidence bundle
+  env:
+    EB_URL: ${{ secrets.EVIDENCE_BROWSER_URL }}
+    EB_API_KEY: ${{ secrets.EVIDENCE_BROWSER_API_KEY }}
+  run: |
+    eb bundle create .evidence/current --output dist/evidence.zip
+    eb bundle validate dist/evidence.zip
+    eb upload dist/evidence.zip \
+      --workspace ci-results \
+      --bundle-id "pr-${{ github.event.pull_request.number }}-run-${{ github.run_number }}"
+```
+
+---
+
+## curl 대비
+
+```bash
+curl -X POST "$EB_URL/api/w/ci-results/bundle" \
+  -H "Authorization: Bearer $EB_API_KEY" \
+  -F "file=@report.zip" \
+  -F "bundleId=pr-42-run-1"
+```
+
+동일한 업로드를 CLI로 실행하면 다음과 같습니다.
+
+```bash
+eb upload report.zip --workspace ci-results --bundle-id pr-42-run-1
 ```
 
 ---
 
 ## 종료 코드
 
-| 코드 | 의미 |
-|------|------|
-| `0` | 성공 |
-| `1` | 일반 오류 (검증 실패, 파일 없음 등) |
-| `2` | 인증 오류 (미로그인, 권한 없음) |
-| `3` | 서버 연결 오류 |
-
----
-
-## CI 사용 예시
-
-### GitHub Actions
-
-```yaml
-- name: Upload evidence bundle
-  env:
-    EB_SERVER: ${{ secrets.EVIDENCE_SERVER_URL }}
-    EB_TOKEN: ${{ secrets.EVIDENCE_SESSION_TOKEN }}
-  run: |
-    eb bundle validate dist/report.zip
-    eb bundle upload dist/report.zip \
-      --workspace ci-results \
-      --id "pr-${{ github.event.pull_request.number }}-run-${{ github.run_number }}"
-```
-
-### curl 대비 장점
-
-```bash
-# 기존 방식
-curl -X POST $SERVER/api/w/ci-results/bundle \
-  -b "evidence_session=$TOKEN" \
-  -F "file=@report.zip" \
-  -F "bundleId=pr-42-run-1"
-
-# eb 사용
-eb bundle upload report.zip \
-  --workspace ci-results \
-  --id pr-42-run-1
-```
-
----
-
-## 미결 사항
-
-- [ ] 세션 쿠키 외 API 키 인증 방식 지원 여부 (현재 서버에 API 키 엔드포인트 없음)
-- [ ] `eb bundle delete` 커맨드 필요 여부
-- [ ] 번들 ID 중복 시 동작: 오류 vs 덮어쓰기 (`--overwrite` 플래그?)
-- [ ] `eb bundle create` 에서 `.ebignore` 지원 여부
-- [ ] 패키지명: `@evidence-browser/cli` vs `eb` vs 다른 이름
-- [ ] bundle ID 자동 생성 규칙 표준화: `pr-42-run-1`, `{date}-attempt1`, `org-repo-pr-42-run-1` 중 어떤 템플릿을 기본값으로 둘지 결정
-
-## 구현 전제
-
-- **모노리포 전환(npm workspaces) 전제**. `manifest.json` 스키마(`src/lib/bundle/extractor.ts::validateBundleZip`), `storageKey`/URL helper, bundleId 검증 규칙을 웹앱과 CLI가 공유해야 하므로 `packages/web` + `packages/cli` + `packages/shared` 구조로 재배치. 현재 `package-lock.json` 사용 중이므로 가장 가벼운 경로는 npm workspaces. CLI 구현 태스크가 올라올 때 첫 단계로 이 전환을 수행하고 shared 로직을 추출한다.
-- **선행 구현물**: `packages/cli/scripts/qa-evidence-upload.ts` 및 이를 래핑한 `/evidence-upload` skill(`.claude/skills/evidence-upload/SKILL.md`)이 디렉터리 패키징 + 업로드 플로우의 프로토타입 역할을 한다. CLI가 디렉터리 패키징까지 지원하면 skill 본문의 Bash 호출만 `eb` 로 교체하고 skill 인터페이스(`/evidence-upload <dir>`)는 그대로 유지한다.
+현재 구현은 실패 시 `stderr`에 오류를 출력하고 `1`로 종료합니다. 성공 시
+`0`으로 종료합니다.
