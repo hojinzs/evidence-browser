@@ -16,7 +16,7 @@ const selectClassName =
   "h-9 rounded-lg border border-input bg-black/30 px-3 text-[13px] text-foreground outline-none transition-colors duration-150 focus:border-primary focus:ring-3 focus:ring-ring";
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleString("ko-KR");
+  return new Date(value).toLocaleString("en-US");
 }
 
 export function UserList({ users }: UserListProps) {
@@ -52,7 +52,7 @@ export function UserList({ users }: UserListProps) {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm("사용자를 삭제하시겠습니까?")) return;
+    if (!window.confirm("Delete this user?")) return;
     try {
       await api.deleteUser(id);
       await refreshUsers();
@@ -84,7 +84,7 @@ export function UserList({ users }: UserListProps) {
           <span />
         </div>
         {users.length === 0 ? (
-          <div className="px-4 py-8 text-center text-[13px] text-muted-foreground">사용자가 없습니다.</div>
+          <div className="px-4 py-8 text-center text-[13px] text-muted-foreground">No users found.</div>
         ) : (
           users.map((user) => (
             <div
@@ -101,7 +101,7 @@ export function UserList({ users }: UserListProps) {
                   variant="ghost"
                   size="sm"
                   onClick={() => handleToggleRole(user.id, user.role)}
-                  title={user.role === "admin" ? "일반 사용자로 변경" : "관리자로 변경"}
+                  title={user.role === "admin" ? "Change to standard user" : "Change to admin"}
                 >
                   {user.role === "admin" ? "Demote" : "Promote"}
                 </Button>
@@ -117,7 +117,7 @@ export function UserList({ users }: UserListProps) {
       {!showForm ? (
         <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
           <UserPlus className="mr-1 size-4" />
-          사용자 추가
+          Add user
         </Button>
       ) : (
         <Card className="p-4">
@@ -147,10 +147,10 @@ export function UserList({ users }: UserListProps) {
                 <option value="admin">Admin</option>
               </select>
               <Button type="submit" size="sm" disabled={loading}>
-                {loading ? "..." : "생성"}
+                {loading ? "..." : "Create"}
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => setShowForm(false)}>
-                취소
+                Cancel
               </Button>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}

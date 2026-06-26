@@ -21,7 +21,7 @@ export function UploadForm({ workspaceSlug, onUploaded }: UploadFormProps) {
 
   const upload = useCallback(async (file: File) => {
     if (!file.name.endsWith(".zip")) {
-      setError("ZIP 파일만 업로드 가능합니다");
+      setError("Only ZIP files can be uploaded");
       setState("error");
       return;
     }
@@ -91,9 +91,9 @@ export function UploadForm({ workspaceSlug, onUploaded }: UploadFormProps) {
     <Card className={`relative rounded-lg border-2 border-dashed p-6 text-center transition-colors ${dragOver ? "border-primary bg-primary/8" : state === "error" ? "border-destructive/50 bg-destructive/5" : "surface-card-hover border-border bg-card"}`} onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop}>
       <input ref={fileInputRef} type="file" accept=".zip" className="hidden" onChange={handleFileSelect} />
       {state === "idle" && <div className="space-y-3"><Upload className="mx-auto size-8 text-muted-foreground" /><p className="text-[14px] text-foreground">Drop a ZIP bundle here</p><p className="text-sm text-muted-foreground"><button type="button" onClick={() => fileInputRef.current?.click()} className="font-medium text-primary transition-colors duration-150 hover:text-primary/80">Select file</button>{" "}or drag and drop</p><p className="text-xs text-[oklch(0.55_0_0)]">.zip only</p></div>}
-      {state === "uploading" && <div className="space-y-2"><Loader2 className="size-8 text-primary mx-auto animate-spin" /><p className="text-sm text-muted-foreground">업로드 중... {progress}%</p><div className="mx-auto h-1.5 w-48 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary transition-all duration-200" style={{ width: `${progress}%` }} /></div></div>}
-      {state === "success" && <div className="space-y-2"><CheckCircle className="mx-auto size-8 text-success" /><p className="text-sm text-success">업로드 완료!</p></div>}
-      {state === "error" && <div className="space-y-2"><XCircle className="mx-auto size-8 text-destructive" /><p className="text-sm text-destructive">{error}</p><Button variant="outline" size="sm" onClick={() => setState("idle")}>다시 시도</Button></div>}
+      {state === "uploading" && <div className="space-y-2"><Loader2 className="size-8 text-primary mx-auto animate-spin" /><p className="text-sm text-muted-foreground">Uploading... {progress}%</p><div className="mx-auto h-1.5 w-48 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary transition-all duration-200" style={{ width: `${progress}%` }} /></div></div>}
+      {state === "success" && <div className="space-y-2"><CheckCircle className="mx-auto size-8 text-success" /><p className="text-sm text-success">Upload complete.</p></div>}
+      {state === "error" && <div className="space-y-2"><XCircle className="mx-auto size-8 text-destructive" /><p className="text-sm text-destructive">{error}</p><Button variant="outline" size="sm" onClick={() => setState("idle")}>Try again</Button></div>}
     </Card>
   );
 }

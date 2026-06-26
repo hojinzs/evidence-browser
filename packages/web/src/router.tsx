@@ -68,7 +68,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen bg-background">
         <Header title="Admin" userName={auth.user?.username} nav={<Link to="/" className="rounded-md px-3 py-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground">← Workspaces</Link>} />
         <main className="page-frame py-12">
-          <Card className="p-10 text-center text-muted-foreground">관리자 권한이 필요합니다.</Card>
+          <Card className="p-10 text-center text-muted-foreground">Admin access is required.</Card>
         </main>
       </div>
     );
@@ -162,7 +162,7 @@ function LoginPage() {
             <input id="password" type="password" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" size="lg" className="w-full" disabled={loading}>{loading ? "로그인 중..." : "Sign in"}</Button>
+          <Button type="submit" size="lg" className="w-full" disabled={loading}>{loading ? "Signing in..." : "Sign in"}</Button>
         </form>
       </Card>
     </div>
@@ -205,7 +205,7 @@ function WorkspacesPage() {
               ))}
             </Card>
           ) : (
-            <Card className="p-10 text-center text-muted-foreground">워크스페이스가 없습니다</Card>
+            <Card className="p-10 text-center text-muted-foreground">No workspaces found</Card>
           )}
         </main>
       </div>
@@ -237,7 +237,7 @@ function WorkspacePage() {
   }
 
   async function handleDeleteBundle(bundleId: string) {
-    if (!window.confirm(`번들 '${bundleId}'를 삭제하시겠습니까?`)) return;
+    if (!window.confirm(`Delete bundle '${bundleId}'?`)) return;
 
     setBundleError("");
     setDeletingBundleId(bundleId);
@@ -305,13 +305,13 @@ function WorkspacePage() {
               ) : (
                 <Card className="flex flex-col items-center gap-4 p-10 text-center">
                   <div>
-                    <p className="text-sm font-medium text-foreground">아직 번들이 없습니다</p>
-                    <p className="mt-1 text-sm text-muted-foreground">샘플 번들을 불러와 렌더링을 바로 확인하세요.</p>
+                    <p className="text-sm font-medium text-foreground">No bundles yet</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Load the sample bundle to preview rendering right away.</p>
                   </div>
                   <Button
                     onClick={() => void handleLoadDemoBundle()}
                     disabled={loadingDemoBundle || auth.user?.role !== "admin"}
-                    title={auth.user?.role !== "admin" ? "관리자만 사용할 수 있습니다" : undefined}
+                    title={auth.user?.role !== "admin" ? "Only admins can use this" : undefined}
                   >
                     <PackageOpen data-icon="inline-start" />
                     {loadingDemoBundle ? "Loading demo..." : "Load demo bundle"}
@@ -590,7 +590,7 @@ function PlaceholderPage({ title }: { title: string }) {
       <div className="min-h-screen bg-background">
         <Header title={title} userName={auth.user?.username} nav={<Link to="/" className="rounded-md px-3 py-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground">← Workspaces</Link>} />
         <main className="page-frame py-12">
-          <Card className="p-10 text-center text-muted-foreground">{title} 화면은 아직 Vite 앱으로 완전히 이식되지 않았습니다.</Card>
+          <Card className="p-10 text-center text-muted-foreground">{title} has not been fully migrated to the Vite app yet.</Card>
         </main>
       </div>
     </RequireAuth>
@@ -998,8 +998,8 @@ function SetupPage() {
   const [storageResult, setStorageResult] = React.useState<{ ok: boolean; storageType?: string; bundleCount?: number; error?: string } | null>(null);
 
   async function handleCreateAdmin() {
-    if (password !== passwordConfirm) { setError("비밀번호가 일치하지 않습니다"); return; }
-    if (password.length < 4) { setError("비밀번호는 4자 이상이어야 합니다"); return; }
+    if (password !== passwordConfirm) { setError("Passwords do not match"); return; }
+    if (password.length < 4) { setError("Password must be at least 4 characters"); return; }
     setError(""); setLoading(true);
     try {
       await api.setupAdmin(username, password);
@@ -1036,9 +1036,9 @@ function SetupPage() {
   }
 
   const steps: { key: SetupStep; label: string }[] = [
-    { key: "admin", label: "관리자 계정" },
-    { key: "storage", label: "스토리지" },
-    { key: "workspace", label: "워크스페이스" },
+    { key: "admin", label: "Admin account" },
+    { key: "storage", label: "Storage" },
+    { key: "workspace", label: "Workspace" },
   ];
   const stepOrder: SetupStep[] = ["admin", "storage", "workspace", "done"];
   const currentIndex = step ? stepOrder.indexOf(step) : 0;
@@ -1054,7 +1054,7 @@ function SetupPage() {
           <div className="text-center">
             <BrandMark />
             <h1 className="mt-6 text-2xl font-bold">Evidence Browser Setup</h1>
-            <p className="mt-2 text-sm text-muted-foreground">초기 설정을 완료해주세요</p>
+            <p className="mt-2 text-sm text-muted-foreground">Complete the initial setup</p>
           </div>
 
           <div className="flex items-center justify-center gap-2">
@@ -1076,7 +1076,7 @@ function SetupPage() {
           <div className="rounded-lg border border-border p-6 space-y-4">
             {step === "admin" && (
               <>
-                <p className="text-sm font-medium">관리자 계정 생성</p>
+                <p className="text-sm font-medium">Create an admin account</p>
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <label htmlFor="setup-username" className="text-sm">Username</label>
@@ -1087,56 +1087,56 @@ function SetupPage() {
                     <input id="setup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
                   </div>
                   <div className="space-y-1">
-                    <label htmlFor="setup-password-confirm" className="text-sm">Password 확인</label>
+                    <label htmlFor="setup-password-confirm" className="text-sm">Confirm password</label>
                     <input id="setup-password-confirm" type="password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
                   </div>
                 </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <button onClick={handleCreateAdmin} disabled={loading} className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                  {loading ? "처리 중..." : "다음"}
+                  {loading ? "Processing..." : "Next"}
                 </button>
               </>
             )}
 
             {step === "storage" && (
               <>
-                <p className="text-sm font-medium">스토리지 연결 확인</p>
-                <p className="text-xs text-muted-foreground">환경변수로 설정된 스토리지를 확인합니다. 변경하려면 환경변수 수정 후 재시작하세요.</p>
+                <p className="text-sm font-medium">Verify storage connection</p>
+                <p className="text-xs text-muted-foreground">Checks the storage configured through environment variables. To change it, update the environment and restart.</p>
                 {storageResult && (
                   <div className={`rounded-md p-3 text-sm ${storageResult.ok ? "bg-green-950 text-green-300" : "bg-destructive/10 text-destructive"}`}>
-                    {storageResult.ok ? `연결 성공 (번들 ${storageResult.bundleCount}개 발견, type: ${storageResult.storageType})` : `연결 실패: ${storageResult.error}`}
+                    {storageResult.ok ? `Connection successful (${storageResult.bundleCount} bundles found, type: ${storageResult.storageType})` : `Connection failed: ${storageResult.error}`}
                   </div>
                 )}
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <button onClick={handleVerifyStorage} disabled={loading} className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                  {loading ? "확인 중..." : "연결 확인"}
+                  {loading ? "Checking..." : "Check connection"}
                 </button>
                 <button onClick={() => setStep("workspace")} className="w-full rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-                  건너뛰기
+                  Skip
                 </button>
               </>
             )}
 
             {step === "workspace" && (
               <>
-                <p className="text-sm font-medium">첫 워크스페이스 생성</p>
+                <p className="text-sm font-medium">Create your first workspace</p>
                 <div className="space-y-3">
                   <div className="space-y-1">
-                    <label htmlFor="ws-slug" className="text-sm">Slug (URL 경로)</label>
+                    <label htmlFor="ws-slug" className="text-sm">Slug (URL path)</label>
                     <input id="ws-slug" value={wsSlug} onChange={(e) => setWsSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="my-workspace" className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
                   </div>
                   <div className="space-y-1">
-                    <label htmlFor="ws-name" className="text-sm">이름</label>
+                    <label htmlFor="ws-name" className="text-sm">Name</label>
                     <input id="ws-name" value={wsName} onChange={(e) => setWsName(e.target.value)} placeholder="My Workspace" className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
                   </div>
                   <div className="space-y-1">
-                    <label htmlFor="ws-desc" className="text-sm">설명 (선택)</label>
+                    <label htmlFor="ws-desc" className="text-sm">Description (optional)</label>
                     <input id="ws-desc" value={wsDesc} onChange={(e) => setWsDesc(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
                   </div>
                 </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <button onClick={handleCreateWorkspace} disabled={loading} className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                  {loading ? "생성 중..." : "완료"}
+                  {loading ? "Creating..." : "Finish"}
                 </button>
               </>
             )}
@@ -1144,8 +1144,8 @@ function SetupPage() {
             {step === "done" && (
               <div className="py-4 text-center space-y-2">
                 <div className="text-4xl">✓</div>
-                <p className="font-medium">설정 완료!</p>
-                <p className="text-sm text-muted-foreground">대시보드로 이동합니다...</p>
+                <p className="font-medium">Setup complete.</p>
+                <p className="text-sm text-muted-foreground">Opening the dashboard...</p>
               </div>
             )}
           </div>
