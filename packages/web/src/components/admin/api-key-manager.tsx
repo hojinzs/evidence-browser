@@ -28,7 +28,7 @@ function ScopeBadge({ scope }: { scope: ApiKeyScope }) {
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString("ko-KR", {
+  return new Date(value).toLocaleDateString("en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -78,7 +78,7 @@ export function ApiKeyManager({ initialKeys, users }: ApiKeyManagerProps) {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm("이 API 키를 삭제하시겠습니까?")) return;
+    if (!window.confirm("Delete this API key?")) return;
     try {
       await api.deleteApiKey(id);
       await refreshKeys();
@@ -100,22 +100,22 @@ export function ApiKeyManager({ initialKeys, users }: ApiKeyManagerProps) {
           <div className="flex items-start gap-3">
             <KeyRound className="mt-0.5 size-4 shrink-0 text-primary" />
             <div className="min-w-0 flex-1 space-y-2">
-              <p className="text-[13px] font-medium text-foreground">API 키가 생성되었습니다</p>
+              <p className="text-[13px] font-medium text-foreground">API key created</p>
               <div className="flex items-center gap-2">
                 <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-background px-3 py-1.5 font-mono text-[13px] text-foreground">
                   {newKey}
                 </code>
                 <Button variant="outline" size="sm" onClick={() => handleCopy(newKey)}>
                   {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
-                  {copied ? "복사됨" : "복사"}
+                  {copied ? "Copied" : "Copy"}
                 </Button>
               </div>
-              <p className="text-[12px] text-destructive">이 창을 닫으면 다시 볼 수 없습니다. 지금 바로 저장하세요.</p>
+              <p className="text-[12px] text-destructive">You cannot view this key again after closing this panel. Save it now.</p>
             </div>
           </div>
           <div className="flex justify-end">
             <Button variant="ghost" size="sm" onClick={() => setNewKey(null)}>
-              닫기
+              Close
             </Button>
           </div>
         </Card>
@@ -133,7 +133,7 @@ export function ApiKeyManager({ initialKeys, users }: ApiKeyManagerProps) {
           <span />
         </div>
         {initialKeys.length === 0 ? (
-          <div className="px-4 py-8 text-center text-[13px] text-muted-foreground">API 키가 없습니다.</div>
+          <div className="px-4 py-8 text-center text-[13px] text-muted-foreground">No API keys found.</div>
         ) : (
           initialKeys.map((key) => (
             <div
@@ -148,7 +148,7 @@ export function ApiKeyManager({ initialKeys, users }: ApiKeyManagerProps) {
               <span className="truncate text-[13px] text-muted-foreground">{formatDate(key.last_used_at)}</span>
               <span className="truncate text-[13px] text-muted-foreground">{formatDate(key.created_at)}</span>
               <div className="flex justify-end">
-                <Button variant="ghost" size="sm" onClick={() => handleDelete(key.id)} aria-label="키 삭제">
+                <Button variant="ghost" size="sm" onClick={() => handleDelete(key.id)} aria-label="Delete key">
                   <Trash2 className="size-4 text-destructive" />
                 </Button>
               </div>
@@ -160,14 +160,14 @@ export function ApiKeyManager({ initialKeys, users }: ApiKeyManagerProps) {
       {!showForm ? (
         <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
           <Plus className="mr-1 size-4" />
-          API 키 생성
+          Create API key
         </Button>
       ) : (
         <Card className="p-4">
           <form onSubmit={handleCreate} className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <Input
-                placeholder="키 이름 (예: MCP CLI)"
+                placeholder="Key name (e.g. MCP CLI)"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -191,11 +191,11 @@ export function ApiKeyManager({ initialKeys, users }: ApiKeyManagerProps) {
                 <option value="upload">upload</option>
                 <option value="admin">admin</option>
               </select>
-              <Input type="date" placeholder="만료일 (선택)" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+              <Input type="date" placeholder="Expiration date (optional)" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
             </div>
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={loading}>
-                {loading ? "..." : "생성"}
+                {loading ? "..." : "Create"}
               </Button>
               <Button
                 type="button"
@@ -206,7 +206,7 @@ export function ApiKeyManager({ initialKeys, users }: ApiKeyManagerProps) {
                   setError("");
                 }}
               >
-                취소
+                Cancel
               </Button>
             </div>
             {error && <p className="text-[13px] text-destructive">{error}</p>}

@@ -21,14 +21,14 @@ export function DownloadFallback({ workspaceSlug, bundleId, filePath }: Download
       <FileQuestion className="size-16 text-muted-foreground/50" />
       <div className="text-center space-y-2">
         <p className="text-muted-foreground">
-          미리보기를 지원하지 않는 파일입니다
+          Preview is not supported for this file
         </p>
         <p className="text-sm text-muted-foreground/70 font-mono">{fileName}</p>
       </div>
       <a href={downloadUrl} download={fileName}>
         <Button variant="outline">
           <Download className="size-4 mr-2" />
-          다운로드
+          Download
         </Button>
       </a>
     </div>

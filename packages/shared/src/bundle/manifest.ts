@@ -32,7 +32,7 @@ export async function parseManifest(cacheDir: string): Promise<Manifest> {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new ManifestValidationError("유효한 JSON이 아닙니다");
+    throw new ManifestValidationError("Invalid JSON");
   }
 
   // Validate schema
@@ -41,7 +41,7 @@ export async function parseManifest(cacheDir: string): Promise<Manifest> {
     const missing = result.error.issues
       .map((i) => i.path.join("."))
       .join(", ");
-    throw new ManifestValidationError(`필수 필드 누락: ${missing}`);
+    throw new ManifestValidationError(`Missing required field(s): ${missing}`);
   }
 
   // Check index file exists

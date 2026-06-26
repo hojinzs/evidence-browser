@@ -45,21 +45,21 @@ export class FileCountLimitError extends Error {
 
 export class ManifestNotFoundError extends Error {
   constructor() {
-    super("manifest.json을 찾을 수 없습니다");
+    super("manifest.json was not found");
     this.name = "ManifestNotFoundError";
   }
 }
 
 export class ManifestValidationError extends Error {
   constructor(details: string) {
-    super(`manifest.json 검증 실패: ${details}`);
+    super(`manifest.json validation failed: ${details}`);
     this.name = "ManifestValidationError";
   }
 }
 
 export class IndexFileNotFoundError extends Error {
   constructor(indexPath: string) {
-    super(`${indexPath}를 찾을 수 없습니다`);
+    super(`Index file not found: ${indexPath}`);
     this.name = "IndexFileNotFoundError";
   }
 }
