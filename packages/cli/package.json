@@ -19,15 +19,19 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "npm run build && node --test $(find test -type f -name '*.test.js' | sort)",
-    "prepack": "mkdir -p skills/evidence-browser && cp ../../skills/evidence-browser/SKILL.md skills/evidence-browser/SKILL.md",
-    "postpack": "rm -rf skills",
+    "test": "npm -w @evidence-browser/shared run build && npm run build && node --test $(find test -type f -name '*.test.js' | sort)",
+    "prepack": "npm run build && npm -w @evidence-browser/shared run build && rm -rf dist/vendor/shared && mkdir -p dist/vendor/shared skills/evidence-browser && cp -R ../shared/dist/. dist/vendor/shared/ && find dist/vendor/shared -name '*.test.*' -delete && cp ../../skills/evidence-browser/SKILL.md skills/evidence-browser/SKILL.md",
+    "postpack": "rm -rf skills dist/vendor",
     "release": "npm publish --access public"
   },
   "dependencies": {
-    "commander": "^12.0.0"
+    "archiver": "^8.0.0",
+    "commander": "^12.0.0",
+    "yauzl-promise": "^4.0.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/archiver": "^8.0.0",
     "@types/node": "^20",
     "typescript": "^5"
   }

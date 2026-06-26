@@ -1,6 +1,4 @@
-# Evidence Browser CLI (`eb`) — 스펙
-
-> 상태: 설계 단계. 구현 전 확정 필요.
+# Evidence Browser CLI (`eb`)
 
 ## 개요
 
@@ -143,18 +141,15 @@ eb bundle validate <file>
 
 ```bash
 eb bundle validate report.zip
-# ✓ manifest.json 파싱 성공
-# ✓ 필수 필드 확인 (version, title, index)
-# ✓ index 파일 존재 확인 (index.md)
-# 검증 통과
+# Bundle is valid: PR #42 테스트 결과
 ```
 
 실패 예시:
 
 ```bash
 eb bundle validate broken.zip
-# ✗ manifest.json을 찾을 수 없습니다
-# 종료 코드: 1
+# Bundle validation failed: manifest.json was not found
+# Exit code: 1
 ```
 
 검증 항목:
@@ -184,15 +179,18 @@ eb bundle create <dir> [options]
 ```bash
 # 기본 사용
 eb bundle create ./report
+# Created bundle: /path/to/report.zip
 
 # 옵션 지정
 eb bundle create ./report \
   --output dist/pr-42.zip \
   --title "PR #42 테스트 결과" \
   --index report.md
+# Created bundle: /path/to/dist/pr-42.zip
 ```
 
-이미 `manifest.json`이 디렉터리 안에 있으면 그대로 사용하고 플래그를 무시합니다.
+이미 `manifest.json`이 디렉터리 안에 있으면 그대로 사용하고 `--title` / `--index` 플래그를 무시합니다.
+`manifest.json`이 없으면 CLI가 ZIP 안에 `version`, `title`, `index`를 포함한 manifest를 생성합니다. `--index`가 없으면 루트 `index.md`를 우선 사용하고, 없으면 첫 번째 Markdown 파일 (`.md` 또는 `.markdown`)을 결정적으로 선택합니다.
 
 ---
 
