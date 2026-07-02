@@ -42,6 +42,9 @@ data/
 # gh-symphony runtime state
 .runtime/
 
+# claude code agent worktrees
+.claude/worktrees/
+
 # vercel
 .vercel
 
