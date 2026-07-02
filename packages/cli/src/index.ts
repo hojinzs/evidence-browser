@@ -4,9 +4,9 @@ import { registerAuth } from "./commands/auth";
 import { registerBundle } from "./commands/bundle";
 import { registerUpload } from "./commands/upload";
 import { registerWorkspace } from "./commands/workspace";
+import pkg from "../package.json";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { version } = require("../package.json") as { version: string };
+const { version } = pkg as { version: string };
 
 export function createCli(): Command {
   const program = new Command()

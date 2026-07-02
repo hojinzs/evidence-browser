@@ -22,7 +22,8 @@
     "test": "npm -w @evidence-browser/shared run build && npm run build && node --test $(find test -type f -name '*.test.js' | sort)",
     "prepack": "npm run build && npm -w @evidence-browser/shared run build && rm -rf dist/vendor/shared && mkdir -p dist/vendor/shared skills/evidence-browser && cp -R ../shared/dist/. dist/vendor/shared/ && find dist/vendor/shared -name '*.test.*' -delete && cp ../../skills/evidence-browser/SKILL.md skills/evidence-browser/SKILL.md",
     "postpack": "rm -rf skills dist/vendor",
-    "release": "npm publish --access public"
+    "release": "npm publish --access public",
+    "lint": "eslint ."
   },
   "dependencies": {
     "archiver": "^8.0.0",

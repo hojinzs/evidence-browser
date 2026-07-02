@@ -6,7 +6,6 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
-  redirect,
   useLocation,
   useNavigate,
 } from "@tanstack/react-router";
@@ -581,20 +580,6 @@ export function BundleView({
   );
 
   return isShareMode ? view : <RequireAuth>{view}</RequireAuth>;
-}
-
-function PlaceholderPage({ title }: { title: string }) {
-  const auth = useAuth();
-  return (
-    <RequireAuth>
-      <div className="min-h-screen bg-background">
-        <Header title={title} userName={auth.user?.username} nav={<Link to="/" className="rounded-md px-3 py-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground">← Workspaces</Link>} />
-        <main className="page-frame py-12">
-          <Card className="p-10 text-center text-muted-foreground">{title} has not been fully migrated to the Vite app yet.</Card>
-        </main>
-      </div>
-    </RequireAuth>
-  );
 }
 
 function AdminShell({ children }: { children: React.ReactNode }) {
