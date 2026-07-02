@@ -17,14 +17,19 @@
     "build:api": "npm -w @evidence-browser/api run build",
     "build:web": "npm -w @evidence-browser/web run build",
     "start": "npm -w @evidence-browser/api run start",
-    "lint": "npm run typecheck:shared && npm run typecheck:api && npm run typecheck:web && npm run typecheck:cli",
+    "lint": "npm run lint:eslint && npm run typecheck",
+    "lint:eslint": "npm run lint:api && npm run lint:web && npm run lint:cli && npm run lint:shared",
+    "lint:api": "npm -w @evidence-browser/api run lint",
+    "lint:web": "npm -w @evidence-browser/web run lint",
+    "lint:cli": "npm -w evidence-browser-cli run lint",
+    "lint:shared": "npm -w @evidence-browser/shared run lint",
     "test": "npm run test:shared && npm run test:api && npm run test:web && npm run test:cli",
     "test:api": "npm -w @evidence-browser/api run test",
     "test:cli": "npm -w evidence-browser-cli run test",
     "test:web": "npm -w @evidence-browser/web run test",
     "build:shared": "npm -w @evidence-browser/shared run build",
     "test:shared": "npm -w @evidence-browser/shared run test",
-    "typecheck": "npm run typecheck:api && npm run typecheck:web",
+    "typecheck": "npm run typecheck:shared && npm run typecheck:api && npm run typecheck:web && npm run typecheck:cli",
     "typecheck:shared": "npm -w @evidence-browser/shared run typecheck",
     "typecheck:api": "npm -w @evidence-browser/api run typecheck",
     "typecheck:web": "npm -w @evidence-browser/web run typecheck",
@@ -35,6 +40,12 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
-    "concurrently": "^9.2.1"
+    "@eslint/js": "^9.39.4",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^16.5.0",
+    "typescript-eslint": "^8.62.1"
   }
 }

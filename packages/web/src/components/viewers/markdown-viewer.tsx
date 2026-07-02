@@ -20,10 +20,11 @@ function resolveRelativePath(currentFilePath: string, href: string): string {
 }
 
 function slugify(text: string): string {
-  return text.toLowerCase().replace(/\s+/g, "-").replace(/[^\p{L}\p{N}\-]/gu, "");
+  return text.toLowerCase().replace(/\s+/g, "-").replace(/[^\p{L}\p{N}-]/gu, "");
 }
 
-const { src: _src, ...protocolsWithoutSrc } = defaultSchema.protocols ?? {};
+const protocolsWithoutSrc = { ...(defaultSchema.protocols ?? {}) };
+delete protocolsWithoutSrc.src;
 const sanitizeSchema = {
   ...defaultSchema,
   attributes: {

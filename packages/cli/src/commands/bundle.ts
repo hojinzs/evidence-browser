@@ -1,6 +1,7 @@
 import { Command } from "commander";
-import type { Archiver, ZipArchive } from "archiver";
+import { ZipArchive, type Archiver } from "archiver";
 import fs from "fs";
+import { createRequire } from "module";
 import path from "path";
 import type { Readable, Writable } from "stream";
 import {
@@ -31,12 +32,10 @@ interface SharedBundleValidator {
   validateBundleZip(zipPath: string): Promise<{ title: string }>;
 }
 
-const { ZipArchive: ZipArchiveCtor } = require("archiver") as {
-  ZipArchive: new (options?: { zlib?: { level: number } }) => ZipArchive;
-};
+const nodeRequire = createRequire(__filename);
 
 function createZipArchive(): Archiver {
-  return new ZipArchiveCtor({ zlib: { level: 9 } });
+  return new ZipArchive({ zlib: { level: 9 } });
 }
 
 async function validateBundleZipFile(zipPath: string): Promise<{ title: string }> {
@@ -45,7 +44,7 @@ async function validateBundleZipFile(zipPath: string): Promise<{ title: string }
 
   for (const candidate of candidates) {
     try {
-      const shared = require(candidate) as Partial<SharedBundleValidator>;
+      const shared = nodeRequire(candidate) as Partial<SharedBundleValidator>;
       if (typeof shared.validateBundleZip === "function") {
         return shared.validateBundleZip(zipPath);
       }
