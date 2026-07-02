@@ -7,6 +7,20 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      AUTH_SECRET: test-secret
+      STORAGE_LOCAL_PATH: ./data/bundles
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
   test:
     runs-on: ubuntu-latest
     env:
@@ -16,9 +30,37 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run lint
       - run: npm test
+
+  build:
+    runs-on: ubuntu-latest
+    env:
+      AUTH_SECRET: test-secret
+      STORAGE_LOCAL_PATH: ./data/bundles
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - run: npm run build
+
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    env:
+      AUTH_SECRET: test-secret
+      AUTH_BYPASS: "true"
+      STORAGE_LOCAL_PATH: ./data/bundles
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e:smoke
