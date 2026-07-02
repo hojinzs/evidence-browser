@@ -23,7 +23,7 @@ hooks:
   before_remove: null
   timeout_ms: 60000
 agent:
-  max_concurrent_agents: 10
+  max_concurrent_agents: 3
   max_retry_backoff_ms: 30000
   retry_base_delay_ms: 10000
   max_turns: 20
