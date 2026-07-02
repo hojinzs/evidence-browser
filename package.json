@@ -27,6 +27,7 @@
     "test:api": "npm -w @evidence-browser/api run test",
     "test:cli": "npm -w evidence-browser-cli run test",
     "test:web": "npm -w @evidence-browser/web run test",
+    "e2e:smoke": "npm run build && npm -w @evidence-browser/web run e2e:smoke",
     "build:shared": "npm -w @evidence-browser/shared run build",
     "test:shared": "npm -w @evidence-browser/shared run test",
     "typecheck": "npm run typecheck:shared && npm run typecheck:api && npm run typecheck:web && npm run typecheck:cli",
@@ -41,6 +42,7 @@
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.61.1",
     "concurrently": "^9.2.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",

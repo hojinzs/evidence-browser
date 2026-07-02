@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
     "test": "vitest run src",
+    "e2e:smoke": "playwright test",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "preview": "vite preview",
     "lint": "eslint ."
