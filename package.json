@@ -13,7 +13,7 @@
     "dev": "concurrently --kill-others-on-fail --names api,web \"PORT=3001 npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm -w @evidence-browser/api run dev",
     "dev:web": "npm -w @evidence-browser/web run dev",
-    "build": "npm run build:shared && npm run build:api && npm run build:web && rm -rf web && cp -R packages/web/dist web",
+    "build": "npm run build:shared && npm run build:api && npm run build:web",
     "build:api": "npm -w @evidence-browser/api run build",
     "build:web": "npm -w @evidence-browser/web run build",
     "start": "npm -w @evidence-browser/api run start",
