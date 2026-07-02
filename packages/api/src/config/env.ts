@@ -34,6 +34,9 @@ const envSchema = z
     // MCP
     MCP_API_KEY: z.string().optional(),
 
+    // Static SPA
+    STATIC_ROOT: z.string().optional(),
+
     // Auth
     AUTH_SECRET: z.string().optional().default("evidence-browser-default-secret-change-me"),
     AUTH_BYPASS: booleanFromString,

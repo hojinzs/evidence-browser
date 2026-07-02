@@ -48,8 +48,8 @@ RUN if [ "$(apk --print-arch)" = "aarch64" ]; then \
 # Copy compiled Hono API (includes shared via relative paths in dist/shared/)
 COPY --from=builder /app/packages/api/dist ./dist
 
-# Copy compiled Vite SPA
-COPY --from=builder /app/packages/web/dist ./web
+# Copy compiled Vite SPA at the same canonical path served locally
+COPY --from=builder /app/packages/web/dist ./packages/web/dist
 
 # Copy shipped demo bundle for the one-click empty-state CTA
 COPY --from=builder /app/examples/sample.zip ./examples/sample.zip
