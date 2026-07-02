@@ -1,14 +1,12 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2020",
     "module": "CommonJS",
-    "moduleResolution": "Node",
+    "moduleResolution": "Node10",
     "outDir": "./dist",
+    // Intentionally compiles imported shared sources into dist/shared so the
+    // Docker image can run from packages/api/dist without a separate shared copy.
     "rootDir": "..",
-    "strict": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
     "declaration": false,
     "baseUrl": ".",
     "paths": {
@@ -17,6 +15,6 @@
       "@evidence-browser/shared/*": ["../shared/src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts"],
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "../shared/src/types/**/*.d.ts"],
   "exclude": ["node_modules", "dist"]
 }
