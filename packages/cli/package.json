@@ -19,7 +19,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "npm -w @evidence-browser/shared run build && npm run build && node --test $(find test -type f -name '*.test.js' | sort)",
+    "test": "npm -w @evidence-browser/shared run build && npm run build && ( test -n \"$(find test -type f -name '*.test.js' -print -quit)\" || (echo \"No CLI test files found under packages/cli/test\" >&2; exit 1) ) && node --test $(find test -type f -name '*.test.js' | sort)",
     "prepack": "npm run build && npm -w @evidence-browser/shared run build && rm -rf dist/vendor/shared && mkdir -p dist/vendor/shared skills/evidence-browser && cp -R ../shared/dist/. dist/vendor/shared/ && find dist/vendor/shared -name '*.test.*' -delete && cp ../../skills/evidence-browser/SKILL.md skills/evidence-browser/SKILL.md",
     "postpack": "rm -rf skills dist/vendor",
     "release": "npm publish --access public",
