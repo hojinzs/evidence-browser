@@ -7,6 +7,7 @@ import {
   updateWorkspace,
 } from "../lib/api-client";
 import { addServerOptions, resolveServerOptions, type ServerOptionsInput } from "../lib/command-options";
+import { handleCommandError, printJson } from "../lib/output";
 
 type WorkspaceCommandOptions = ServerOptionsInput;
 
@@ -21,15 +22,6 @@ interface WorkspaceDeleteCommandOptions extends WorkspaceCommandOptions {
 interface WorkspaceUpdateCommandOptions extends WorkspaceCommandOptions {
   name?: string;
   description?: string;
-}
-
-function printJson(value: unknown): void {
-  console.log(JSON.stringify(value, null, 2));
-}
-
-function handleCommandError(err: unknown): never {
-  console.error(err instanceof Error ? err.message : String(err));
-  process.exit(1);
 }
 
 async function confirmWorkspaceDelete(slug: string): Promise<void> {
