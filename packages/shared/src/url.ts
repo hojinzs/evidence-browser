@@ -1,3 +1,5 @@
+import { isValidBundleId } from "./bundle/upload-validation";
+
 export interface ParsedSegments {
   bundleId: string;
   filePath: string | null;
@@ -58,16 +60,7 @@ export function storageKey(workspace: string, bundleId: string): string {
   if (!workspace || workspace.includes("..") || workspace.includes("/") || workspace.includes("\\") || workspace.includes("\0")) {
     throw new Error("Invalid workspace identifier");
   }
-  if (
-    !bundleId ||
-    bundleId.includes("..") ||
-    bundleId.includes("/") ||
-    bundleId.includes("\\") ||
-    bundleId.includes("\0") ||
-    bundleId !== bundleId.toLowerCase() ||
-    /%[0-9a-f]{2}/i.test(bundleId) ||
-    !/^[a-z0-9][a-z0-9._-]{0,127}$/.test(bundleId)
-  ) {
+  if (!isValidBundleId(bundleId)) {
     throw new Error("Invalid bundle identifier");
   }
   return `${workspace}/${bundleId}`;
