@@ -4,6 +4,7 @@ import path from "path";
 import type Database from "better-sqlite3";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetEnv } from "@/config/env";
 import { createTestDb } from "@/lib/db/index";
 
 const { mockPutBundle, mockValidateBundleZip, originalValidateBundleZip } = vi.hoisted(() => ({
@@ -56,7 +57,7 @@ vi.mock("@/lib/storage", () => ({
 }));
 
 import { extractBundle, validateBundleZip } from "@/lib/bundle/extractor";
-import { createBundle } from "@/lib/db/bundles";
+import { createBundle, findBundle } from "@/lib/db/bundles";
 import {
   createBundleShareToken,
   revokeBundleShareToken,
@@ -68,6 +69,15 @@ import { HTML_PREVIEW_CSP_HEADER, bundleRoutes, shareBundleRoutes } from "./bund
 const mockedExtractBundle = vi.mocked(extractBundle);
 const mockedValidateBundleZip = vi.mocked(validateBundleZip);
 let tempDir: string;
+const originalMaxBundleSize = process.env.MAX_BUNDLE_SIZE;
+
+function restoreMaxBundleSize() {
+  if (originalMaxBundleSize === undefined) {
+    delete process.env.MAX_BUNDLE_SIZE;
+  } else {
+    process.env.MAX_BUNDLE_SIZE = originalMaxBundleSize;
+  }
+}
 
 function createTestApp() {
   const app = new Hono();
@@ -98,6 +108,99 @@ async function seedBundle(data: {
   });
 
   return { admin, workspace, bundle };
+}
+
+function crc32(buffer: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc ^= byte;
+    for (let i = 0; i < 8; i += 1) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function makeZip(files: Record<string, string>): Buffer {
+  const localParts: Buffer[] = [];
+  const centralParts: Buffer[] = [];
+  let offset = 0;
+
+  for (const [filename, content] of Object.entries(files)) {
+    const name = Buffer.from(filename);
+    const data = Buffer.from(content);
+    const checksum = crc32(data);
+
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0, 6);
+    local.writeUInt16LE(0, 8);
+    local.writeUInt16LE(0, 10);
+    local.writeUInt16LE(0, 12);
+    local.writeUInt32LE(checksum, 14);
+    local.writeUInt32LE(data.byteLength, 18);
+    local.writeUInt32LE(data.byteLength, 22);
+    local.writeUInt16LE(name.byteLength, 26);
+    local.writeUInt16LE(0, 28);
+    localParts.push(local, name, data);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0, 8);
+    central.writeUInt16LE(0, 10);
+    central.writeUInt16LE(0, 12);
+    central.writeUInt16LE(0, 14);
+    central.writeUInt32LE(checksum, 16);
+    central.writeUInt32LE(data.byteLength, 20);
+    central.writeUInt32LE(data.byteLength, 24);
+    central.writeUInt16LE(name.byteLength, 28);
+    central.writeUInt16LE(0, 30);
+    central.writeUInt16LE(0, 32);
+    central.writeUInt16LE(0, 34);
+    central.writeUInt16LE(0, 36);
+    central.writeUInt32LE(0, 38);
+    central.writeUInt32LE(offset, 42);
+    centralParts.push(central, name);
+
+    offset += local.byteLength + name.byteLength + data.byteLength;
+  }
+
+  const centralDirectory = Buffer.concat(centralParts);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(0, 4);
+  end.writeUInt16LE(0, 6);
+  end.writeUInt16LE(Object.keys(files).length, 8);
+  end.writeUInt16LE(Object.keys(files).length, 10);
+  end.writeUInt32LE(centralDirectory.byteLength, 12);
+  end.writeUInt32LE(offset, 16);
+  end.writeUInt16LE(0, 20);
+
+  return Buffer.concat([...localParts, centralDirectory, end]);
+}
+
+function makeValidBundleZip(title = "Uploaded Bundle"): Buffer {
+  return makeZip({
+    "manifest.json": JSON.stringify({ version: 1, title, index: "index.md" }),
+    "index.md": "# Uploaded Bundle\n",
+  });
+}
+
+async function seedUploadWorkspace(username = "admin-upload") {
+  const admin = await createUser(username, "password123", "admin");
+  authState.uploadUserId = admin.id;
+  const workspace = createWorkspace("default", "Default", "Upload workspace", admin.id);
+  return { admin, workspace };
+}
+
+function formDataForUpload(file: Buffer, filename: string, bundleId?: string) {
+  const formData = new FormData();
+  if (bundleId !== undefined) formData.set("bundleId", bundleId);
+  formData.set("file", new File([new Uint8Array(file)], filename, { type: "application/zip" }));
+  return formData;
 }
 
 describe("bundle preview route", () => {
@@ -316,6 +419,131 @@ describe("public share bundle routes", () => {
     const res = await app.request(`/api/s/${token}/meta`, { method: "POST" });
 
     expect(res.status).toBe(404);
+  });
+});
+
+describe("bundle upload route", () => {
+  beforeEach(() => {
+    testDb = createTestDb();
+    vi.clearAllMocks();
+    restoreMaxBundleSize();
+    resetEnv();
+    mockedValidateBundleZip.mockImplementation(originalValidateBundleZip.current!);
+  });
+
+  afterEach(() => {
+    restoreMaxBundleSize();
+    resetEnv();
+    vi.clearAllMocks();
+  });
+
+  it("accepts a valid multipart bundle ZIP and stores metadata", async () => {
+    const { admin, workspace } = await seedUploadWorkspace("admin-upload-valid");
+    const zip = makeValidBundleZip("Valid Upload Fixture");
+    const app = createTestApp();
+
+    const res = await app.request("/api/w/default/bundle", {
+      method: "POST",
+      body: formDataForUpload(zip, "valid-upload.zip", "valid-upload"),
+    });
+
+    expect(res.status).toBe(201);
+    const payload = await res.json() as {
+      bundle: {
+        bundle_id: string;
+        title: string;
+        storage_key: string;
+        size_bytes: number;
+        uploaded_by: string;
+      };
+    };
+    expect(payload.bundle).toMatchObject({
+      bundle_id: "valid-upload",
+      title: "Valid Upload Fixture",
+      storage_key: "default/valid-upload",
+      size_bytes: zip.byteLength,
+      uploaded_by: admin.id,
+    });
+    expect(findBundle(workspace.id, "valid-upload")).toMatchObject({
+      bundle_id: "valid-upload",
+      storage_key: "default/valid-upload",
+      title: "Valid Upload Fixture",
+      size_bytes: zip.byteLength,
+    });
+    expect(mockedValidateBundleZip).toHaveBeenCalledTimes(1);
+    expect(mockedValidateBundleZip).toHaveBeenCalledWith(expect.stringMatching(/upload\.zip$/));
+    expect(mockPutBundle).toHaveBeenCalledTimes(1);
+    expect(mockPutBundle).toHaveBeenCalledWith("default/valid-upload", zip);
+  });
+
+  it("rejects an empty bundleId before deriving from a valid filename", async () => {
+    await seedUploadWorkspace("admin-upload-empty-id");
+    const app = createTestApp();
+
+    const res = await app.request("/api/w/default/bundle", {
+      method: "POST",
+      body: formDataForUpload(makeValidBundleZip(), "valid-upload.zip", ""),
+    });
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: "Invalid bundleId" });
+    expect(mockedValidateBundleZip).not.toHaveBeenCalled();
+    expect(mockPutBundle).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malicious bundleId before validation or storage", async () => {
+    await seedUploadWorkspace("admin-upload-malicious-id");
+    const app = createTestApp();
+
+    const res = await app.request("/api/w/default/bundle", {
+      method: "POST",
+      body: formDataForUpload(makeValidBundleZip(), "valid-upload.zip", "../bad"),
+    });
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: "Invalid bundleId" });
+    expect(mockedValidateBundleZip).not.toHaveBeenCalled();
+    expect(mockPutBundle).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 and skips storage when ZIP validation fails", async () => {
+    const { workspace } = await seedUploadWorkspace("admin-upload-invalid-zip");
+    const app = createTestApp();
+
+    const res = await app.request("/api/w/default/bundle", {
+      method: "POST",
+      body: formDataForUpload(
+        makeZip({ "index.md": "# Missing manifest\n" }),
+        "invalid-upload.zip",
+        "invalid-upload"
+      ),
+    });
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: "manifest.json was not found" });
+    expect(mockedValidateBundleZip).toHaveBeenCalledTimes(1);
+    expect(mockPutBundle).not.toHaveBeenCalled();
+    expect(findBundle(workspace.id, "invalid-upload")).toBeUndefined();
+  });
+
+  it("returns 413 for bundles over MAX_BUNDLE_SIZE before validation or storage", async () => {
+    await seedUploadWorkspace("admin-upload-too-large");
+    const zip = makeValidBundleZip();
+    process.env.MAX_BUNDLE_SIZE = String(zip.byteLength - 1);
+    resetEnv();
+    const app = createTestApp();
+
+    const res = await app.request("/api/w/default/bundle", {
+      method: "POST",
+      body: formDataForUpload(zip, "too-large.zip", "too-large"),
+    });
+
+    expect(res.status).toBe(413);
+    await expect(res.json()).resolves.toEqual({
+      error: `File too large (max ${zip.byteLength - 1} bytes)`,
+    });
+    expect(mockedValidateBundleZip).not.toHaveBeenCalled();
+    expect(mockPutBundle).not.toHaveBeenCalled();
   });
 });
 

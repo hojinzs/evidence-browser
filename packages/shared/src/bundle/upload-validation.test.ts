@@ -60,4 +60,11 @@ describe("deriveAndValidateBundleId", () => {
       value: "pr-42-run-1",
     });
   });
+
+  it("rejects an explicitly empty bundleId instead of deriving from filename", () => {
+    expect(deriveAndValidateBundleId("", "pr-42-run-1.zip")).toMatchObject({
+      ok: false,
+      error: { kind: "bad-bundle-id", status: 400 },
+    });
+  });
 });
