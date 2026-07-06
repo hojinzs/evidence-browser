@@ -7,6 +7,7 @@ import {
   type ApiKeyScope,
 } from "../lib/api-client";
 import { addServerOptions, resolveServerOptions, type ServerOptionsInput } from "../lib/command-options";
+import { handleCommandError, printJson } from "../lib/output";
 
 const API_KEY_SCOPES: ApiKeyScope[] = ["read", "upload", "admin"];
 
@@ -16,15 +17,6 @@ interface ApiKeyCommandOptions extends ServerOptionsInput {
 
 interface ApiKeyCreateCommandOptions extends ServerOptionsInput {
   scope: ApiKeyScope;
-}
-
-function printJson(value: unknown): void {
-  console.log(JSON.stringify(value, null, 2));
-}
-
-function handleCommandError(err: unknown): never {
-  console.error(err instanceof Error ? err.message : String(err));
-  process.exit(1);
 }
 
 function parseApiKeyScope(value: string): ApiKeyScope {

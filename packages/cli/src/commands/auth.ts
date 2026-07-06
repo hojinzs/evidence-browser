@@ -3,11 +3,7 @@ import os from "os";
 import readline from "readline";
 import { type ApiKeySummary, listApiKeys } from "../lib/api-client";
 import { clearConfig, getConfigPath, readConfig, writeConfig, type Config } from "../lib/config";
-
-function handleCommandError(err: unknown): never {
-  console.error(err instanceof Error ? err.message : String(err));
-  process.exit(1);
-}
+import { handleCommandError } from "../lib/output";
 
 export function maskApiKey(key: string): string {
   if (key.length <= 11) return key;

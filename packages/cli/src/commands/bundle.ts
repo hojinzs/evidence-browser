@@ -13,6 +13,7 @@ import {
   type TreeNode,
 } from "../lib/api-client";
 import { addServerOptions, resolveServerOptions, type ServerOptionsInput } from "../lib/command-options";
+import { handleCommandError, printJson } from "../lib/output";
 
 interface BundleCommandOptions extends ServerOptionsInput {
   file?: string;
@@ -59,10 +60,6 @@ async function validateBundleZipFile(zipPath: string): Promise<{ title: string }
   throw new Error("Bundle validation module is not available");
 }
 
-function printJson(value: unknown): void {
-  console.log(JSON.stringify(value, null, 2));
-}
-
 function formatTree(nodes: TreeNode[], prefix = ""): string[] {
   return nodes.flatMap((node, index) => {
     const isLast = index === nodes.length - 1;
@@ -76,11 +73,6 @@ function formatTree(nodes: TreeNode[], prefix = ""): string[] {
 
     return lines;
   });
-}
-
-function handleCommandError(err: unknown): never {
-  console.error(err instanceof Error ? err.message : String(err));
-  process.exit(1);
 }
 
 function formatValidationError(err: unknown): string {
