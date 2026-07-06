@@ -163,5 +163,18 @@ export function createMcpServer(): McpServer {
     }
   );
 
+  server.registerResource(
+    "llm_integration_guide",
+    "evidence://llm.txt",
+    {
+      title: "LLM integration guide",
+      description: "Evidence Browser upload and MCP integration guide",
+      mimeType: "text/plain",
+    },
+    (uri) => ({
+      contents: [{ uri: uri.href, mimeType: "text/plain", text: generateLlmText() }],
+    })
+  );
+
   return server;
 }
