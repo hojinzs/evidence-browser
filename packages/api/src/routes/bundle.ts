@@ -29,7 +29,7 @@ import {
   IndexFileNotFoundError,
 } from "@/lib/bundle/types";
 import { ensureWithinRoot, validatePathSafety } from "@/lib/bundle/security";
-import { getMimeType } from "@/lib/files/detect";
+import { getMimeType } from "@evidence-browser/shared/files/detect";
 
 const CSP_HEADER = "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'";
 export const HTML_PREVIEW_CSP_HEADER = [

@@ -33,6 +33,14 @@
     "./bundle/validate-zip": {
       "types": "./dist/bundle/validate-zip.d.ts",
       "default": "./dist/bundle/validate-zip.js"
+    },
+    "./files/detect": {
+      "types": "./dist/files/detect.d.ts",
+      "default": "./dist/files/detect.js"
+    },
+    "./files/types": {
+      "types": "./dist/files/types.d.ts",
+      "default": "./dist/files/types.js"
     }
   },
   "scripts": {

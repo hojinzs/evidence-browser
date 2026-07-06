@@ -3,4 +3,6 @@ export * from "./bundle/manifest";
 export * from "./bundle/security";
 export * from "./bundle/upload-validation";
 export * from "./bundle/validate-zip";
+export * from "./files/detect";
+export * from "./files/types";
 export * from "./url";
