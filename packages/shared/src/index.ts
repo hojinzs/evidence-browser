@@ -6,3 +6,13 @@ export * from "./bundle/validate-zip";
 export * from "./files/detect";
 export * from "./files/types";
 export * from "./url";
+export type {
+  ApiKeyPublic,
+  ApiKeyWithUser,
+  AuthUser,
+  Bundle,
+  BundleMetaResponse,
+  UserPublic,
+  Workspace,
+  WorkspaceWithBundleCount,
+} from "./api/types";

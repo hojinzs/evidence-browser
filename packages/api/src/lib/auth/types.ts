@@ -1,8 +1,4 @@
-export interface AuthUser {
-  id: string;
-  username: string;
-  role: "admin" | "user";
-}
+export type { AuthUser } from "@evidence-browser/shared/api/types";
 
 export interface AuthSession {
   id: string;

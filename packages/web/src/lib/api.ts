@@ -5,11 +5,11 @@ import type {
   AuthUser,
   Bundle,
   BundleMetaResponse,
-  BundleShareTokenPublic,
   UserPublic,
   Workspace,
   WorkspaceWithBundleCount,
-} from "@/lib/types";
+} from "@evidence-browser/shared/api/types";
+import type { BundleShareTokenPublic } from "@/lib/types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {

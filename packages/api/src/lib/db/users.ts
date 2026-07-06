@@ -1,17 +1,11 @@
 import { hash, verify } from "@node-rs/argon2";
 import type Database from "better-sqlite3";
+import type { UserPublic } from "@evidence-browser/shared/api/types";
 import { getDb } from "./index";
 
-export interface User {
-  id: string;
-  username: string;
+export interface User extends UserPublic {
   password: string;
-  role: "admin" | "user";
-  created_at: string;
-  updated_at: string;
 }
-
-export type UserPublic = Omit<User, "password">;
 
 function db(): Database.Database {
   return getDb();
