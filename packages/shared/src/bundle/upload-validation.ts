@@ -76,6 +76,6 @@ export function deriveAndValidateBundleId(
   explicit: string | null | undefined,
   filename: string
 ): UploadValidationResult<string> {
-  const candidate = explicit || filename.replace(/\.zip$/, "");
+  const candidate = explicit ?? filename.replace(/\.zip$/, "");
   return validateBundleId(candidate);
 }
