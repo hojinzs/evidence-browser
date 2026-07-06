@@ -1,13 +1,12 @@
 "use client";
 
-import { detectFileType } from "@/lib/files/detect";
+import { detectFileType, getShikiLanguage } from "@evidence-browser/shared/files/detect";
 import { MarkdownViewer } from "./markdown-viewer";
 import { CodeViewer } from "./code-viewer";
 import { HtmlViewer } from "./html-viewer";
 import { ImageViewer } from "./image-viewer";
 import { TextViewer } from "./text-viewer";
 import { DownloadFallback } from "./download-fallback";
-import { getShikiLanguage } from "@/lib/files/detect";
 
 interface FileViewerProps {
   workspaceSlug: string;

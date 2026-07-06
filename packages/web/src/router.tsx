@@ -31,7 +31,7 @@ import { UserApiKeyManager } from "@/components/settings/user-api-key-manager";
 import { api, ApiError } from "@/lib/api";
 import { useAuth, AuthProvider } from "@/lib/auth";
 import { bundleLandingUrl, shareLandingUrl } from "@/lib/url";
-import { detectFileType } from "@/lib/files/detect";
+import { detectFileType } from "@evidence-browser/shared/files/detect";
 import type { TreeNode } from "@/lib/bundle/types";
 
 const queryClient = new QueryClient();
