@@ -8,11 +8,11 @@
     // Docker image can run from packages/api/dist without a separate shared copy.
     "rootDir": "..",
     "declaration": false,
-    "baseUrl": ".",
+    "baseUrl": "..",
     "paths": {
-      "@/*": ["./src/*"],
-      "@evidence-browser/shared": ["../shared/src/index.ts"],
-      "@evidence-browser/shared/*": ["../shared/src/*"]
+      "@/*": ["api/src/*"],
+      "@evidence-browser/shared": ["shared/src/index.ts"],
+      "@evidence-browser/shared/*": ["shared/src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "../shared/src/types/**/*.d.ts"],

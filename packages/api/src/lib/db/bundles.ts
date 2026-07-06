@@ -1,7 +1,8 @@
 import type Database from "better-sqlite3";
+import type { Bundle } from "@evidence-browser/shared/api/types";
 import { getDb } from "./index";
 
-export interface Bundle {
+export interface BundleRow {
   id: string;
   bundle_id: string;
   workspace_id: string;
@@ -12,9 +13,7 @@ export interface Bundle {
   created_at: string;
 }
 
-export interface BundleWithUploader extends Bundle {
-  uploader_username: string;
-}
+export type BundleWithUploader = Bundle;
 
 function db(): Database.Database {
   return getDb();
@@ -27,7 +26,7 @@ export function createBundle(data: {
   storageKey: string;
   sizeBytes: number | null;
   uploadedBy: string;
-}): Bundle {
+}): BundleRow {
   const stmt = db().prepare(
     `INSERT INTO bundles (bundle_id, workspace_id, title, storage_key, size_bytes, uploaded_by)
      VALUES (?, ?, ?, ?, ?, ?)
@@ -40,24 +39,24 @@ export function createBundle(data: {
     data.storageKey,
     data.sizeBytes,
     data.uploadedBy
-  ) as Bundle;
+  ) as BundleRow;
 }
 
 export function findBundle(
   workspaceId: string,
   bundleId: string
-): Bundle | undefined {
+): BundleRow | undefined {
   const stmt = db().prepare(
     `SELECT * FROM bundles WHERE workspace_id = ? AND bundle_id = ?`
   );
-  return stmt.get(workspaceId, bundleId) as Bundle | undefined;
+  return stmt.get(workspaceId, bundleId) as BundleRow | undefined;
 }
 
 export function findBundleByStorageKey(
   storageKey: string
-): Bundle | undefined {
+): BundleRow | undefined {
   const stmt = db().prepare(`SELECT * FROM bundles WHERE storage_key = ?`);
-  return stmt.get(storageKey) as Bundle | undefined;
+  return stmt.get(storageKey) as BundleRow | undefined;
 }
 
 export function listBundles(workspaceId: string): BundleWithUploader[] {

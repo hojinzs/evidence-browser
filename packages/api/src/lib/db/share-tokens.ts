@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 import type Database from "better-sqlite3";
-import type { Bundle } from "./bundles";
+import type { BundleRow } from "./bundles";
 import { getDb } from "./index";
 
 export interface BundleShareToken {
@@ -17,7 +17,7 @@ export interface BundleShareToken {
 export type BundleShareTokenPublic = Omit<BundleShareToken, "token_hash">;
 
 export interface ActiveBundleShareToken extends BundleShareToken {
-  bundle: Bundle;
+  bundle: BundleRow;
 }
 
 function db(): Database.Database {

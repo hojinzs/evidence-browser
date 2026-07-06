@@ -1,15 +1,6 @@
 import type Database from "better-sqlite3";
+import type { Workspace, WorkspaceWithBundleCount } from "@evidence-browser/shared/api/types";
 import { getDb } from "./index";
-
-export interface Workspace {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-}
 
 function db(): Database.Database {
   return getDb();
@@ -40,10 +31,6 @@ export function findWorkspaceById(id: string): Workspace | undefined {
 export function listWorkspaces(): Workspace[] {
   const stmt = db().prepare(`SELECT * FROM workspaces ORDER BY created_at`);
   return stmt.all() as Workspace[];
-}
-
-export interface WorkspaceWithBundleCount extends Workspace {
-  bundle_count: number;
 }
 
 export function listWorkspacesWithBundleCount(): WorkspaceWithBundleCount[] {

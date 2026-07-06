@@ -1,23 +1,10 @@
 import { createHash, randomBytes } from "crypto";
 import type Database from "better-sqlite3";
+import type { ApiKeyPublic, ApiKeyScope, ApiKeyWithUser } from "@evidence-browser/shared/api/types";
 import { getDb } from "./index";
 
-export interface ApiKey {
-  id: string;
-  name: string;
-  key_prefix: string;
+export interface ApiKey extends ApiKeyPublic {
   key_hash: string;
-  user_id: string;
-  scope: "read" | "upload" | "admin";
-  expires_at: string | null;
-  last_used_at: string | null;
-  created_at: string;
-}
-
-export type ApiKeyPublic = Omit<ApiKey, "key_hash">;
-
-export interface ApiKeyWithUser extends ApiKeyPublic {
-  username: string;
 }
 
 function db(): Database.Database {
@@ -36,7 +23,7 @@ function hashKey(key: string): string {
 export function createApiKey(
   userId: string,
   name: string,
-  scope: "read" | "upload" | "admin",
+  scope: ApiKeyScope,
   expiresAt?: string
 ): { key: string; record: ApiKeyPublic } {
   const rawBytes = randomBytes(16).toString("hex"); // 32 hex chars
