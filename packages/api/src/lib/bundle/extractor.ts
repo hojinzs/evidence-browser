@@ -80,20 +80,21 @@ export async function extractBundle(bundleId: string): Promise<CacheEntry> {
   const nodeStream = Readable.fromWeb(stream as any);
   await pipeline(nodeStream, fs.createWriteStream(tmpZip));
 
-  let fileCount = 0;
-  const zipFile = await yauzl.open(tmpZip);
+  let entryCount = 0;
+  const zipFile = await yauzl.open(tmpZip, { validateFilenames: false });
   try {
     for await (const entry of zipFile) {
+      entryCount++;
+      if (entryCount > env.MAX_FILE_COUNT) {
+        throw new FileCountLimitError(entryCount, env.MAX_FILE_COUNT);
+      }
+
       if (entry.filename.endsWith("/")) continue;
+      if (!entry.filename) continue;
       if (!validatePathSafety(entry.filename)) continue;
 
       const targetPath = path.join(cacheDir, entry.filename);
       if (!ensureWithinRoot(cacheDir, targetPath)) continue;
-
-      fileCount++;
-      if (fileCount > env.MAX_FILE_COUNT) {
-        throw new FileCountLimitError(fileCount, env.MAX_FILE_COUNT);
-      }
 
       if (entry.uncompressedSize > env.MAX_SINGLE_FILE_SIZE) continue;
 

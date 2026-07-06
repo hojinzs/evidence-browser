@@ -13,5 +13,9 @@ declare module "yauzl-promise" {
     [Symbol.asyncIterator](): AsyncIterableIterator<Entry>;
   }
 
-  function open(path: string): Promise<ZipFile>;
+  interface OpenOptions {
+    validateFilenames?: boolean;
+  }
+
+  function open(path: string, options?: OpenOptions): Promise<ZipFile>;
 }
