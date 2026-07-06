@@ -1,5 +1,9 @@
 import fs from "fs";
+import { createRequire } from "module";
 import path from "path";
+import type { ApiKeyScope, Manifest, TreeNode } from "../vendor/shared";
+
+export type { ApiKeyScope, Manifest, TreeNode } from "../vendor/shared";
 
 export interface ServerRequestOptions {
   url: string;
@@ -29,8 +33,6 @@ export interface WorkspaceSummary {
   bundle_count?: number;
 }
 
-export type ApiKeyScope = "read" | "upload" | "admin";
-
 export interface ApiKeySummary {
   id: string;
   name: string;
@@ -46,20 +48,8 @@ export interface AdminApiKeySummary extends ApiKeySummary {
   username: string;
 }
 
-export interface TreeNode {
-  name: string;
-  type: "file" | "directory";
-  path: string;
-  children?: TreeNode[];
-}
-
 export interface BundleMeta {
-  manifest: {
-    version: number;
-    title: string;
-    index: string;
-    [key: string]: unknown;
-  };
+  manifest: Manifest;
   tree: TreeNode[];
 }
 
@@ -105,8 +95,56 @@ export interface ApiKeyCreateOptions extends ServerRequestOptions {
   scope: ApiKeyScope;
 }
 
+interface SharedUrlBuilders {
+  apiBundleUrl(
+    workspace: string,
+    bundleId: string,
+    endpoint: "meta" | "tree" | "file" | "preview"
+  ): string;
+}
+
+const nodeRequire = createRequire(__filename);
+
+function loadSharedUrlBuilders(): SharedUrlBuilders {
+  const candidates = ["../vendor/shared", "@evidence-browser/shared"];
+
+  for (const candidate of candidates) {
+    try {
+      const shared = nodeRequire(candidate) as Partial<SharedUrlBuilders>;
+      if (typeof shared.apiBundleUrl === "function") {
+        return { apiBundleUrl: shared.apiBundleUrl };
+      }
+    } catch (err) {
+      const code = typeof err === "object" && err !== null && "code" in err ? err.code : undefined;
+      if (code !== "MODULE_NOT_FOUND") {
+        throw err;
+      }
+    }
+  }
+
+  throw new Error("Shared URL builder module is not available");
+}
+
+let sharedUrlBuilders: SharedUrlBuilders | null = null;
+
+function getSharedUrlBuilders(): SharedUrlBuilders {
+  sharedUrlBuilders ??= loadSharedUrlBuilders();
+  return sharedUrlBuilders;
+}
+
 function buildEndpoint(baseUrl: string, apiPath: string): string {
   return `${baseUrl.replace(/\/$/, "")}${apiPath}`;
+}
+
+function bundleApiPath(
+  opts: BundleRequestOptions,
+  endpoint: "meta" | "tree" | "file" | "preview"
+): string {
+  return getSharedUrlBuilders().apiBundleUrl(
+    encodeURIComponent(opts.workspace),
+    encodeURIComponent(opts.bundleId),
+    endpoint
+  );
 }
 
 async function parseErrorResponse(res: Response): Promise<string> {
@@ -309,17 +347,11 @@ export async function deleteApiKey(
 }
 
 export async function getBundleMeta(opts: BundleRequestOptions): Promise<BundleMeta> {
-  return requestJson(
-    `/api/w/${encodeURIComponent(opts.workspace)}/bundles/${encodeURIComponent(opts.bundleId)}/meta`,
-    opts
-  );
+  return requestJson(bundleApiPath(opts, "meta"), opts);
 }
 
 export async function getBundleTree(opts: BundleRequestOptions): Promise<{ tree: TreeNode[] }> {
-  return requestJson(
-    `/api/w/${encodeURIComponent(opts.workspace)}/bundles/${encodeURIComponent(opts.bundleId)}/tree`,
-    opts
-  );
+  return requestJson(bundleApiPath(opts, "tree"), opts);
 }
 
 export async function deleteBundle(opts: BundleRequestOptions): Promise<void> {
@@ -334,9 +366,7 @@ export async function downloadBundleFile(
   opts: BundleFileRequestOptions
 ): Promise<{ content: Buffer }> {
   const content = await requestBuffer(
-    `/api/w/${encodeURIComponent(opts.workspace)}/bundles/${encodeURIComponent(
-      opts.bundleId
-    )}/file?path=${encodeURIComponent(opts.filePath)}`,
+    `${bundleApiPath(opts, "file")}?path=${encodeURIComponent(opts.filePath)}`,
     opts
   );
   return { content };

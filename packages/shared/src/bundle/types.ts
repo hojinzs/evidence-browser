@@ -12,6 +12,8 @@ export interface TreeNode {
   children?: TreeNode[];
 }
 
+export type ApiKeyScope = "read" | "upload" | "admin";
+
 export interface CacheEntry {
   cacheDir: string;
   createdAt: number;
