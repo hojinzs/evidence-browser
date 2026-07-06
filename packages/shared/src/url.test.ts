@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { validateBundleId } from "./bundle/upload-validation";
 import {
   apiBundleUrl,
   apiShareUrl,
@@ -73,5 +74,28 @@ describe("workspace-aware URL helpers", () => {
 
   it("rejects slash-delimited bundle ids", () => {
     expect(() => storageKey("infra", "org/repo/pr-42")).toThrow("Invalid bundle identifier");
+  });
+
+  it("rejects every string fixture rejected by validateBundleId", () => {
+    const rejectedByBundleValidator = [
+      "",
+      "org/repo/pr-42",
+      "org\\repo\\pr-42",
+      "../run-1",
+      "pr..42",
+      "pr\0run",
+      "PR-42",
+      "pr 42",
+      "pr%2F42",
+      ".starts-with-dot",
+      "-starts-with-dash",
+      "_starts-with-underscore",
+      "a".repeat(129),
+    ].filter((bundleId) => !validateBundleId(bundleId).ok);
+
+    expect(rejectedByBundleValidator).not.toHaveLength(0);
+    for (const bundleId of rejectedByBundleValidator) {
+      expect(() => storageKey("infra", bundleId)).toThrow("Invalid bundle identifier");
+    }
   });
 });

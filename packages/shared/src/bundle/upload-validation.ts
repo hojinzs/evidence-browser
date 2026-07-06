@@ -41,19 +41,25 @@ export function validateBundleSize(
   return { ok: true, value: size };
 }
 
+export function isValidBundleId(
+  bundleId: string | null | undefined
+): bundleId is string {
+  return Boolean(
+    bundleId &&
+      !bundleId.includes("/") &&
+      !bundleId.includes("\\") &&
+      !bundleId.includes("..") &&
+      !bundleId.includes("\0") &&
+      bundleId === bundleId.toLowerCase() &&
+      !/%[0-9a-f]{2}/i.test(bundleId) &&
+      /^[a-z0-9][a-z0-9._-]{0,127}$/.test(bundleId)
+  );
+}
+
 export function validateBundleId(
   bundleId: string | null | undefined
 ): UploadValidationResult<string> {
-  if (
-    !bundleId ||
-    bundleId.includes("/") ||
-    bundleId.includes("\\") ||
-    bundleId.includes("..") ||
-    bundleId.includes("\0") ||
-    bundleId !== bundleId.toLowerCase() ||
-    /%[0-9a-f]{2}/i.test(bundleId) ||
-    !/^[a-z0-9][a-z0-9._-]{0,127}$/.test(bundleId)
-  ) {
+  if (!isValidBundleId(bundleId)) {
     return {
       ok: false,
       error: {
