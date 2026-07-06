@@ -10,6 +10,14 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary"],
+      thresholds: {
+        lines: 20,
+        branches: 20,
+      },
+    },
   },
   resolve: {
     alias: {

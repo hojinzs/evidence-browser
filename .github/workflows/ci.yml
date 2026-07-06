@@ -35,6 +35,20 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  coverage:
+    runs-on: ubuntu-latest
+    env:
+      AUTH_SECRET: test-secret
+      STORAGE_LOCAL_PATH: ./data/bundles
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:coverage
+
   build:
     runs-on: ubuntu-latest
     env:
