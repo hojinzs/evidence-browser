@@ -51,7 +51,8 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run src",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:coverage": "vitest run src --coverage"
   },
   "dependencies": {
     "yauzl-promise": "^4.0.0",
@@ -59,6 +60,7 @@
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@vitest/coverage-v8": "^4.1.10",
     "typescript": "^5",
     "vitest": "^4.1.9"
   }

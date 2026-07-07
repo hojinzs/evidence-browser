@@ -37,7 +37,11 @@
     "typecheck:cli": "npm -w evidence-browser-cli run typecheck",
     "build:cli": "npm -w evidence-browser-cli run build",
     "changeset:version": "changeset version",
-    "release": "changeset publish"
+    "release": "changeset publish",
+    "test:coverage": "npm run test:coverage:shared && npm run test:coverage:api && npm run test:coverage:web",
+    "test:coverage:api": "npm -w @evidence-browser/api run test:coverage",
+    "test:coverage:web": "npm -w @evidence-browser/web run test:coverage",
+    "test:coverage:shared": "npm -w @evidence-browser/shared run test:coverage"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
