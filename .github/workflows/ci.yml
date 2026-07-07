@@ -63,7 +63,7 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-  e2e-smoke:
+  e2e:
     runs-on: ubuntu-latest
     env:
       AUTH_SECRET: test-secret
@@ -77,4 +77,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run e2e:smoke
+      - run: npm run e2e
