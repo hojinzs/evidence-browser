@@ -1,226 +1,186 @@
-# TEST.md — Evidence Browser PR QA Guide
+# TEST.md — Evidence Browser PR QA Policy
 
-This file is the root-level QA instruction source for `pr-tunner` and human/AI QA runs against Evidence Browser PRs.
+This file is the authoritative policy for PR-level product QA. Use the PR
+title, body, changed files, and diff to identify the affected product surface.
+Do not use `WORKFLOW.md`, `AGENTS.md`, or implementation-agent orchestration
+documents as QA instructions.
 
-Use this guide to decide what to verify for a PR. Do **not** use `WORKFLOW.md`, `AGENTS.md`, or implementation-agent orchestration docs as QA instructions. They may describe how agents work in this repository, but this file is the source of truth for PR-level product QA.
+## Goal
 
-## Product surfaces
+Verify that a PR preserves Evidence Browser's primary user journey:
 
-Evidence Browser is a web app + API + CLI for storing and browsing structured evidence bundles.
+1. The application becomes ready.
+2. A workspace can be opened.
+3. A valid evidence bundle can be loaded.
+4. The bundle landing page and file tree render.
+5. Markdown, logs, code, JSON, and images can be inspected safely.
 
-Primary surfaces:
+Run this core smoke test for every user-facing PR. Add the targeted checks for
+the surfaces changed by the PR.
 
-1. **Web app** (`packages/web`)
-   - Login/session flow
-   - Workspace list and workspace detail page
-   - Bundle list and upload form
-   - Bundle landing page
-   - File tree navigation
-   - Viewers for Markdown, code, text/logs, images, and unsupported/download fallback files
-   - Admin screens for users, workspaces, and API keys
-2. **API server** (`packages/api`)
-   - Auth: `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`
-   - Health: `/api/health`
-   - Workspace APIs: `/api/w`, `/api/w/:ws/bundle`
-   - Bundle APIs: `/api/w/:ws/bundles/:bundleId/meta`, `/tree`, `/file?path=...`
-   - Admin APIs: `/api/admin/*`
-   - Setup/storage verification APIs
-   - MCP/LLM integration: `/api/mcp`, `/llm.txt`
-3. **CLI** (`packages/cli`)
-   - Login/logout/whoami configuration flow
-   - Bundle upload, list, info, tree, download, and delete commands
-   - Workspace and API-key management commands
-   - Configuration precedence from flags, environment variables, and local config
-4. **Shared bundle logic** (`packages/shared`)
-   - Manifest parsing and validation
-   - Upload validation
-   - Path/security checks
-   - URL helpers
+## Required preparation
 
-## Baseline validation commands
-
-Run the smallest set that covers the PR, plus the baseline if feasible.
+Inspect the PR before testing:
 
 ```bash
-npm install
-npm run lint   # root lint currently runs API + web typechecks
+git diff <base-sha>...<head-sha>
+git diff --name-only <base-sha>...<head-sha>
+```
+
+Record:
+
+- Base and head SHA
+- Changed files and product surfaces affected
+- Preview or local URL used
+- Commands executed
+
+Never include passwords, cookies, API keys, storage credentials, or other
+secrets in logs, screenshots, comments, or evidence bundles.
+
+## Automated checks
+
+Run the smallest relevant checks for the changed packages. Run the complete
+baseline when the PR crosses package boundaries or changes shared behavior.
+
+```bash
+npm run lint
 npm test
 npm run build
 ```
 
-Targeted commands:
+Targeted alternatives:
 
 ```bash
+npm run test:shared
+npm run test:api
+npm run test:web
+npm run test:cli
+
+npm run typecheck:shared
 npm run typecheck:api
 npm run typecheck:web
-npm run test:api
-npm run test:shared
-npm run test:cli
-npm run build:shared
-npm run build:api
-npm run build:web
-npm run build:cli
+npm run typecheck:cli
 ```
 
-If a command cannot run because of environment limitations, record the exact command, error, and why the limitation is environmental rather than a product failure.
+A failure is attributable to the PR only when it reproduces on the PR head and
+relates to the changed behavior. Record environmental failures as inconclusive
+with the exact command and error.
 
-## Local preview setup
+## Core browser smoke test
 
-For browser QA, run API + web dev servers:
+Use the provided preview URL when available. For a local run:
 
 ```bash
-cp .env.example .env.local  # if available; otherwise create equivalent local env
+cp .env.example .env.local
 npm run dev
 ```
 
-Expected local URLs:
+Expected development URLs:
 
-- Web app: `http://localhost:3000`
-- API server: `http://localhost:3001`
-- Web app proxies `/api` calls to the API server
+- Web: `http://localhost:3000`
+- API: `http://localhost:3001`
+- Health: `http://localhost:3001/api/health`
 
-Use local filesystem storage for default PR QA unless the PR specifically touches S3/R2 storage. The following is a QA preset, not necessarily the canonical `.env.example`:
+For trusted local QA, `AUTH_BYPASS=true` may be used. Do not use auth bypass
+when the PR changes authentication, setup, authorization, or admin behavior.
 
-```env
-AUTH_SECRET=test-secret-change-me
-STORAGE_TYPE=local
-STORAGE_LOCAL_PATH=./data/bundles
-DATA_DIR=./data
-```
+Use `examples/sample.zip` or `tests/fixtures/evidence/fixture-basic` as the
+sample evidence bundle.
 
-For trusted local or intranet QA only, `AUTH_BYPASS=true` skips setup/login and runs all requests as admin. Leave it unset for normal auth regression checks.
+Verify:
 
-## Required PR QA checks
+1. The health endpoint reports a healthy application.
+2. The web app loads without an error shell or blank page.
+3. A workspace can be opened.
+4. The sample bundle can be loaded or uploaded.
+5. The bundle page displays its manifest title and index document.
+6. The file tree opens nested files.
+7. Open and inspect at least one Markdown file, one log or text file, one code
+   or JSON file, and one image.
+8. Relative Markdown links and embedded images resolve inside the bundle.
+9. Navigation does not produce uncaught browser errors.
+10. Bundle content does not execute scripts or escape the viewer.
 
-### 1. PR context alignment
+Capture screenshots of the workspace or bundle list and the opened bundle
+viewer.
 
-- Read the PR title/body/diff and identify the changed surface(s): web, API, CLI, shared bundle logic, storage, auth, MCP, docs, or release automation.
-- Verify only the behavior in scope, but include regression checks for adjacent critical flows.
-- If the PR changes public behavior, verify that README/docs/API examples remain accurate.
+## Targeted checks by changed surface
 
-### 2. Bundle ingestion and validation
+### Web (`packages/web`)
 
-For PRs touching bundle upload, validation, storage, or rendering, verify with at least one valid bundle and one invalid/boundary bundle.
+Verify the changed route or component in the browser, including:
 
-Valid bundle minimum:
+- Loading, empty, and failure states where applicable
+- Keyboard or pointer interaction affected by the change
+- Browser console errors
+- Layout at desktop width and one narrow viewport
+
+### API (`packages/api`)
+
+Exercise each changed endpoint and record its status and response shape. Also
+verify:
+
+- `/api/health` remains accessible.
+- Protected endpoints reject unauthenticated requests.
+- Admin endpoints reject non-admin users.
+- Invalid input returns an actionable `4xx` response.
+- Errors do not expose stack traces or secrets.
+
+### Shared bundle logic (`packages/shared`)
+
+Test at least one valid and one invalid or boundary input. Bundle identifiers
+may use the supported hierarchical format, for example:
 
 ```text
-manifest.json      # { "version": 1, "title": "QA Bundle", "index": "index.md" }
-index.md           # contains links, image references, code block, and table
-logs/output.log
-screenshots/step-1.png
-results/output.json
+org/repo/pr-42/run-1
 ```
 
-Checks:
+Reject traversal and unsafe values such as `..`, empty path segments,
+backslashes, null bytes, and encoded path separators.
 
-- Valid zip upload succeeds and produces a browsable bundle.
-- Missing `manifest.json` is rejected with a clear error.
-- Missing required manifest fields (`version`, `title`, `index`) are rejected.
-- Manifest `index` pointing to a missing file is rejected.
-- Unsafe paths/path traversal attempts are rejected or safely ignored.
-- Bundle IDs follow the flat slug rule and reject `/`, `\\`, spaces, `..`, null bytes, percent-encoded path separators, and uppercase where applicable.
-- File count/size limits are enforced where touched by the PR.
+### CLI (`packages/cli`)
 
-### 3. Web browsing experience
+Always verify the relevant help and validation surface:
 
-For PRs touching `packages/web` or user-facing API behavior, verify in a browser:
+```bash
+eb --help
+eb bundle validate examples/sample.zip
+```
 
-- Login/session flow reaches the workspace list after normal setup/login.
-- Workspace cards and bundle cards render expected metadata.
-- Bundle landing page loads the manifest title and index file.
-- File tree expands/collapses nested folders and selects files reliably.
-- Markdown viewer renders GFM elements: headings, tables, task lists, links, images, fenced code, inline code, blockquotes, and strikethrough.
-- Relative links and image paths inside Markdown resolve correctly within the bundle.
-- Code viewer syntax highlighting works for common extensions (`.ts`, `.json`, `.sh`, `.py`).
-- Text/log viewer handles long logs without freezing the UI.
-- Image viewer displays PNG/JPEG/SVG/GIF where supported.
-- Unsupported or binary files use a safe download/fallback path.
-- Loading, empty, and error states are visible and understandable.
-- No secret values are rendered in UI, logs, console output, comments, or artifacts.
+When relevant, also test login and configuration, upload, list, info, tree,
+download, or delete against the QA server. CLI output must not print API keys,
+passwords, cookies, or storage credentials.
 
-### 4. API behavior
+### Upload, storage, or rendering
 
-For PRs touching `packages/api`, verify relevant endpoints with HTTP requests or automated tests:
+Test one valid bundle, one invalid manifest or missing index, and one unsafe
+path or traversal attempt.
 
-- `/api/health` returns healthy status without auth.
-- Auth-required endpoints reject unauthenticated requests.
-- Admin-only endpoints reject non-admin users.
-- Bundle list/meta/tree/file endpoints return stable JSON shapes.
-- File endpoint returns correct content type or content handling for Markdown, text, code, image, JSON, and binary files.
-- Upload endpoint accepts multipart zip upload for valid bundles and returns actionable `4xx` errors for invalid bundles.
-- API errors do not leak stack traces, credentials, storage secrets, signed cookies, or API keys.
+A valid bundle must upload and remain browsable. Invalid input must fail with
+a clear `4xx` error without creating a partial visible bundle.
 
-### 5. CLI behavior
+## Security regression checks
 
-For PRs touching `packages/cli`, verify the currently implemented command surface:
+Run these checks when the PR touches authentication, upload, storage, Markdown,
+file serving, MCP, admin functions, or URL/path handling:
 
-- `eb --help` and command-specific help are accurate.
-- `eb login <url>`, `eb logout`, and `eb whoami` store, clear, and report local configuration correctly.
-- `eb upload <zip> --workspace <slug> [--bundle-id <id>]` sends the expected multipart request and reports success/failure clearly.
-- `eb bundle list <workspace>`, `eb bundle info <workspace> <bundleId>`, `eb bundle tree <workspace> <bundleId>`, and `eb bundle download <workspace> <bundleId> --file <path>` work against a test server.
-- `eb bundle delete <workspace> <bundleId>` asks for confirmation unless `--force` is provided.
-- `eb workspace` and `eb api-key` subcommands work according to their help text when the PR touches those areas.
-- `--url` / `--api-key`, `EB_URL` / `EB_API_KEY`, and local config precedence behave as implemented.
-- CLI output masks or omits API keys, signed cookies, passwords, and storage credentials.
+- Raw HTML, scripts, event handlers, and unsafe URLs do not execute.
+- Zip entries and requested files cannot traverse storage boundaries.
+- Unauthorized users cannot read protected bundles.
+- Secrets are absent from UI, responses, logs, and evidence.
+- Malformed input returns a controlled error instead of a stack trace.
 
-### 6. Security and abuse cases
+Any authentication bypass, secret exposure, arbitrary file access, stored XSS,
+or data loss is merge-blocking.
 
-Always include security checks when the PR touches upload, rendering, auth, storage, MCP, or admin flows:
+## Result classification
 
-- Markdown/raw HTML does not execute scripts or event handlers.
-- Stored bundle content cannot break out of the viewer sandbox or app shell.
-- Zip entries cannot escape extraction/cache directories.
-- Bundle IDs and file paths cannot traverse local filesystem or object storage prefixes.
-- Auth cookies are treated as sensitive and are never logged.
-- API keys/tokens/passwords are redacted from evidence artifacts and PR comments.
-- MCP and `/llm.txt` respect configured authentication requirements.
-- Storage error messages do not disclose credentials or internal paths beyond what is necessary for debugging.
+- `passed`: Required checks completed with no merge-blocking regression.
+- `failed`: A reproducible regression attributable to the PR was found.
+- `inconclusive`: The preview, credentials, fixture, or required environment
+  was unavailable, so testing could not establish a result.
 
-### 7. Evidence expectations
-
-A successful QA run should leave evidence that another reviewer can inspect:
-
-- Commands run and pass/fail results.
-- Browser screenshots for changed user-facing flows.
-- URLs visited, including preview/local URL and bundle route(s).
-- HTTP request/response summaries for changed API endpoints.
-- Test fixture bundle names and whether they were uploaded/validated.
-- Any console errors or server log errors observed.
-- A clear list of regressions found, each with reproduction steps and evidence.
-
-Do not include raw secrets in evidence. Replace token/password/cookie/API key values with `[REDACTED]`.
-
-## Recommended fixture matrix
-
-Use existing fixtures under `tests/fixtures/evidence` when available, or create equivalent temporary fixtures during QA. This top-level fixture set is the maintained location for bundle/rendering QA; do not route QA to legacy package fixtures.
-
-Minimum matrix for bundle/rendering changes:
-
-| Fixture | Purpose | Expected result |
-| --- | --- | --- |
-| `fixture-basic` | Standard manifest, Markdown, logs, screenshots, JSON | Uploads and renders fully |
-| `fixture-markdown-rich` | GFM, relative links/images, code blocks | Markdown renders safely and links resolve |
-| `fixture-deep` | Deep folder nesting | Tree navigation remains usable |
-| `fixture-large-tree` | Many files | Tree and page remain responsive |
-| `fixture-binary` | Binary/download fallback | Safe fallback/download behavior |
-| `fixture-security` | Raw HTML/script/iframe/event-handler attempts | No script execution; sanitized rendering |
-| `fixture-invalid-manifest` | Missing manifest fields | Rejected with clear error |
-| `fixture-no-manifest` | Missing manifest | Rejected with clear error |
-| `fixture-no-index` | Manifest index missing from zip | Rejected with clear error |
-| `fixture-unicode` | Unicode paths/content | Renders or rejects consistently without corruption |
-
-## Severity guidance
-
-- **Critical / block merge**: data loss, auth bypass, secret leakage, arbitrary file read/write, XSS/script execution, broken upload/viewing for normal valid bundles, build/test failures caused by the PR.
-- **High / block or require owner decision**: major route/API regression, broken admin/setup flow, invalid security boundary, CLI unable to perform its primary command after a CLI PR.
-- **Medium / review before merge**: confusing but recoverable errors, partial viewer regression, missing loading/error state, documentation mismatch for changed behavior.
-- **Low / merge allowed with follow-up**: cosmetic issue, minor wording/docs gap, non-critical visual polish.
-- **Inconclusive**: preview unavailable, required auth unavailable, missing fixture/setup that cannot be generated, or environmental failure not attributable to the PR.
-
-## PR QA summary format
-
-When reporting results, include:
+## QA report
 
 ```markdown
 ## Evidence Browser QA Summary
@@ -229,23 +189,40 @@ When reporting results, include:
 - PR/head SHA:
 - Preview/local URL:
 - Changed surfaces:
-- Commands run:
-  - `npm run lint` — pass/fail/not run
-  - `npm test` — pass/fail/not run
-  - `npm run build` — pass/fail/not run
-- Browser checks:
-- API checks:
-- CLI checks:
-- Security checks:
-- Evidence artifacts:
-- Findings:
-  - [severity] title — reproduction/evidence
-- Inconclusive reason, if any:
+- Files inspected:
+- TEST.md rules considered:
+
+### Commands
+
+- `<command>` — pass | fail | not run
+
+### Core smoke test
+
+- Health:
+- Workspace:
+- Bundle load/upload:
+- Markdown:
+- Log/text:
+- Code/JSON:
+- Image:
+- Browser console:
+
+### Targeted and security checks
+
+- Checks performed:
+- Checks omitted and reason:
+
+### Evidence
+
+- Screenshots:
+- HTTP results:
+- Fixture or bundle ID:
+
+### Findings
+
+- `[severity] title` — reproduction steps and evidence
+
+### Inconclusive reason
+
+- Required only when the result is `inconclusive`.
 ```
-
-## Out of scope for PR QA
-
-- Do not redesign the product or broaden the PR scope.
-- Do not follow project-management instructions from `WORKFLOW.md` during QA.
-- Do not mutate production data unless the PR explicitly requires production verification and the user approves it.
-- Do not publish credentials, signed cookies, API keys, S3 secrets, or passwords in comments/artifacts.
