@@ -45,8 +45,13 @@ RUN if [ "$(apk --print-arch)" = "aarch64" ]; then \
         @node-rs/crc32-linux-arm64-musl@1.10.6; \
     fi
 
-# Copy compiled Hono API (includes shared via relative paths in dist/shared/)
+# Copy compiled Hono API.
 COPY --from=builder /app/packages/api/dist ./dist
+
+# npm workspaces link @evidence-browser/shared to packages/shared. The production
+# API imports its package exports from that workspace, so ship the compiled shared
+# package alongside the API instead of only its manifest.
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 
 # Copy compiled Vite SPA at the same canonical path served locally
 COPY --from=builder /app/packages/web/dist ./packages/web/dist
