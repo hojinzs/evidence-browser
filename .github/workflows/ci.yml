@@ -22,7 +22,20 @@ jobs:
       - run: npm run lint
 
   test:
+    name: test (${{ matrix.package }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: shared
+            workspace: "@evidence-browser/shared"
+          - package: api
+            workspace: "@evidence-browser/api"
+          - package: web
+            workspace: "@evidence-browser/web"
+          - package: cli
+            workspace: evidence-browser-cli
     env:
       AUTH_SECRET: test-secret
       STORAGE_LOCAL_PATH: ./data/bundles
@@ -33,7 +46,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm test
+      - run: npm -w ${{ matrix.workspace }} run test
 
   coverage:
     runs-on: ubuntu-latest
