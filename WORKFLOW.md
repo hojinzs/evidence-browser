@@ -210,7 +210,12 @@ Rework feedback is initiated by a human moving the issue back to `Ready` — the
 
 3. **Close the land cycle.** Once `/land` completes, verify the standalone `🔁 Status: Land → Done` comment was posted and the workpad Status Transitions line was appended (cycle N close: land). If `/land` exited before this step (e.g. due to dependency-skill failure noted in `.codex/skills/land/SKILL.md` Required Context), do not retry blindly — the skill's failure handling already recorded the cause.
 
-4. **On `/land` failure.** The skill records the failure and exits. If the same step fails 3 consecutive times for the same cause, write a `⛔ Blocker` comment, do **not** transition the issue, and exit. A human resolves the cause and either moves the issue back to `In review` (sends Step 4 home as a no-op next time) or re-enters `Land` after fixing the underlying problem.
+4. **On `/land` failure or wait.** The skill must record final pre-flight evidence and classify the result before any lifecycle write; do not retry a non-recoverable failure on later polling turns:
+   - **Required CI pending or registering** — keep the issue in `Land` and wait for the required checks to reach a terminal state. This includes checks re-queued by `/pull`; do not return to `In review` merely because fresh CI is running.
+   - **Approval or other external review wait** — no human `APPROVED` review, or another condition that can only be satisfied by a human/external reviewer after CI is terminal: transition `Land` → `In review` via `/gh-project`, then post the standalone confirmed transition comment and append the matching Land-workpad Status Transitions line. Do **not** write a `⛔ Blocker` comment.
+   - **Rework failure** — failed required CI, merge conflict, missing labeled Changeset, unresolved actionable review feedback, or another PR/code condition the worker can address: transition `Land` → `Ready` with reason `Land-return rework: <cause>`, then post the confirmed transition comment. The Ready-return guard opens the next rework cycle.
+   - **External or permission blocker** — missing required context, authentication/board failure, or an external dependency the worker cannot resolve: write a `⛔ Blocker` comment, transition `Land` → `Backlog`, then post the confirmed transition comment and state the unblock condition.
+   - **Immediately recoverable branch freshness** — run `/pull` and re-run the complete pre-flight sequence; keep `Land` only for this in-run recovery path. If `/pull` fails, classify it using the rules above.
 
 This step performs no code edits, commits, or pushes itself — only the workpad/comment bookkeeping around the skill call. Any rework code change must come through the `In review` → `Ready` → Step 2 path.
 
