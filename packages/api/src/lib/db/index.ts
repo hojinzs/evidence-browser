@@ -2,7 +2,6 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
-// Inline schema to avoid __dirname + fs.readFileSync issues in Next.js bundling
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id         TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
@@ -75,7 +74,60 @@ CREATE INDEX IF NOT EXISTS idx_bundle_share_tokens_bundle ON bundle_share_tokens
 CREATE INDEX IF NOT EXISTS idx_bundle_share_tokens_hash ON bundle_share_tokens(token_hash);
 `;
 
+type Migration = {
+  version: number;
+  up: (db: Database.Database) => void;
+};
+
+const MIGRATIONS: Migration[] = [
+  {
+    version: 0,
+    up(db) {
+      db.exec(SCHEMA);
+    },
+  },
+];
+
+const TARGET_USER_VERSION = MIGRATIONS.length;
+
 let _db: Database.Database | null = null;
+
+function getUserVersion(db: Database.Database): number {
+  const version = db.pragma("user_version", { simple: true });
+  if (typeof version !== "number") {
+    throw new Error("SQLite user_version pragma did not return a number");
+  }
+  return version;
+}
+
+export function runMigrations(db: Database.Database): void {
+  const currentVersion = getUserVersion(db);
+
+  if (currentVersion > TARGET_USER_VERSION) {
+    throw new Error(
+      `Database schema version ${currentVersion} is newer than supported version ${TARGET_USER_VERSION}`
+    );
+  }
+
+  if (currentVersion === TARGET_USER_VERSION) return;
+
+  const migrate = db.transaction(() => {
+    for (const migration of MIGRATIONS.slice(currentVersion)) {
+      migration.up(db);
+      db.pragma(`user_version = ${migration.version + 1}`);
+    }
+  });
+
+  migrate();
+}
+
+function initializeDb(db: Database.Database, options: { useWal?: boolean } = {}): void {
+  if (options.useWal) {
+    db.pragma("journal_mode = WAL");
+  }
+  db.pragma("foreign_keys = ON");
+  runMigrations(db);
+}
 
 export function getDb(): Database.Database {
   if (_db) return _db;
@@ -86,10 +138,7 @@ export function getDb(): Database.Database {
   const dbPath = path.join(dataDir, "evidence.db");
   _db = new Database(dbPath);
 
-  _db.pragma("journal_mode = WAL");
-  _db.pragma("foreign_keys = ON");
-
-  _db.exec(SCHEMA);
+  initializeDb(_db, { useWal: true });
 
   return _db;
 }
@@ -97,8 +146,7 @@ export function getDb(): Database.Database {
 /** Create an in-memory database for testing */
 export function createTestDb(): Database.Database {
   const db = new Database(":memory:");
-  db.pragma("foreign_keys = ON");
-  db.exec(SCHEMA);
+  initializeDb(db);
   return db;
 }
 
