@@ -56,7 +56,9 @@ export function createApiKey(
 export function findApiKeyByHash(rawKey: string): ApiKey | undefined {
   const key_hash = hashKey(rawKey);
   const stmt = db().prepare(
-    `SELECT * FROM api_keys WHERE key_hash = ?`
+    `SELECT * FROM api_keys
+     WHERE key_hash = ?
+       AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))`
   );
   const row = stmt.get(key_hash) as ApiKey | undefined;
   if (!row) return undefined;

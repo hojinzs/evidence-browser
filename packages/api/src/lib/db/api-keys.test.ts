@@ -72,6 +72,19 @@ describe("api keys DAO", () => {
     expect(findApiKeyByHash("eb_00000000000000000000000000000000")).toBeUndefined();
   });
 
+  it("rejects expired keys through the SQL predicate before JS expiry parsing", () => {
+    const expired = createApiKey(
+      ownerId,
+      "expired",
+      "read",
+      "2000-01-01T00:00:00.000Z"
+    );
+    const parseSpy = vi.spyOn(Date, "parse").mockReturnValue(NaN);
+
+    expect(findApiKeyByHash(expired.key)).toBeUndefined();
+    expect(parseSpy).not.toHaveBeenCalled();
+  });
+
   it("scopes deletion to owners unless the caller is an admin", () => {
     const ownerKey = createApiKey(ownerId, "owner key", "read");
     const otherKey = createApiKey(otherUserId, "other key", "read");
