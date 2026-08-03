@@ -20,14 +20,6 @@ import {
   deriveAndValidateBundleId,
 } from "@/lib/bundle/upload-validation";
 import { getEnv } from "@/config/env";
-import {
-  BundleNotFoundError,
-  BundleSizeLimitError,
-  FileCountLimitError,
-  ManifestNotFoundError,
-  ManifestValidationError,
-  IndexFileNotFoundError,
-} from "@/lib/bundle/types";
 import { ensureWithinRoot, validatePathSafety } from "@/lib/bundle/security";
 import { getMimeType } from "@evidence-browser/shared/files/detect";
 
@@ -76,36 +68,14 @@ bundle.get("/:ws/bundle", authenticate, (c) => {
   return c.json({ bundles: listBundles(workspace.id) });
 });
 
-function handleBundleError(c: Context, err: unknown, label: string) {
-  if (err instanceof BundleNotFoundError) return c.json({ error: err.message }, 404);
-  if (err instanceof BundleSizeLimitError || err instanceof FileCountLimitError) {
-    return c.json({ error: err.message }, 413);
-  }
-  if (err instanceof ManifestNotFoundError || err instanceof ManifestValidationError || err instanceof IndexFileNotFoundError) {
-    return c.json({ error: err.message }, 400);
-  }
-  console.error(`Bundle ${label} error:`, err);
-  return c.json({ error: "Internal server error" }, 500);
-}
-
 async function bundleMetaResponse(c: Context, key: string) {
-  try {
-    const entry = await extractBundle(key);
-    return c.json({ manifest: entry.manifest, tree: entry.fileTree });
-  } catch (err) {
-    return handleBundleError(c, err, "meta");
-  }
+  const entry = await extractBundle(key);
+  return c.json({ manifest: entry.manifest, tree: entry.fileTree });
 }
 
 async function bundleTreeResponse(c: Context, key: string) {
-  try {
-    const entry = await extractBundle(key);
-    return c.json({ tree: entry.fileTree });
-  } catch (err) {
-    if (err instanceof BundleNotFoundError) return c.json({ error: err.message }, 404);
-    console.error("Bundle tree error:", err);
-    return c.json({ error: "Internal server error" }, 500);
-  }
+  const entry = await extractBundle(key);
+  return c.json({ tree: entry.fileTree });
 }
 
 async function bundleFileResponse(c: Context, key: string) {
@@ -129,12 +99,10 @@ async function bundleFileResponse(c: Context, key: string) {
       },
     });
   } catch (err) {
-    if (err instanceof BundleNotFoundError) return c.json({ error: err.message }, 404);
     if (err instanceof Error && (err.message === "Invalid file path" || err.message.includes("ENOENT"))) {
       return c.json({ error: "File not found" }, 404);
     }
-    console.error("Bundle file error:", err);
-    return c.json({ error: "Internal server error" }, 500);
+    throw err;
   }
 }
 
@@ -163,12 +131,10 @@ async function bundlePreviewResponse(c: Context, key: string) {
       },
     });
   } catch (err) {
-    if (err instanceof BundleNotFoundError) return c.json({ error: err.message }, 404);
     if (err instanceof Error && (err.message === "Invalid file path" || err.message.includes("ENOENT"))) {
       return c.json({ error: "File not found" }, 404);
     }
-    console.error("Bundle preview error:", err);
-    return c.json({ error: "Internal server error" }, 500);
+    throw err;
   }
 }
 

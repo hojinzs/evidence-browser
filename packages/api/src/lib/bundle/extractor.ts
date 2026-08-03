@@ -20,6 +20,11 @@ import {
 const CACHE_BASE = path.join(os.tmpdir(), "evidence-bundles");
 const cache = new Map<string, CacheEntry>();
 
+export async function clearBundleCache(): Promise<void> {
+  cache.clear();
+  await fs.promises.rm(CACHE_BASE, { recursive: true, force: true });
+}
+
 function computeCacheKey(bundleId: string, etag?: string): string {
   return crypto
     .createHash("sha256")

@@ -3,7 +3,7 @@ import path from "path";
 import { Readable } from "stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetEnv } from "@/config/env";
-import { extractBundle, getFileContent } from "./extractor";
+import { clearBundleCache, extractBundle, getFileContent } from "./extractor";
 import { BundleSizeLimitError, FileCountLimitError } from "./types";
 import type { BundleInfo, StorageAdapter } from "@/lib/storage";
 
@@ -148,7 +148,8 @@ describe("extractBundle ZIP guard behavior", () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await clearBundleCache();
     process.env = { ...originalEnv };
     resetEnv();
   });
@@ -239,5 +240,22 @@ describe("extractBundle ZIP guard behavior", () => {
 
     expect(treePaths(entry)).toEqual(["index.md", "manifest.json"]);
     await expect(fs.promises.access(path.join(entry.cacheDir, "large.bin"))).rejects.toThrow();
+  });
+
+  it("clears extracted cache directories on lifecycle cleanup", async () => {
+    setBundleZip(
+      [
+        { name: "manifest.json", content: validManifest("Cleanup fixture") },
+        { name: "index.md", content: "# Cleanup index\n" },
+      ],
+      "cleanup"
+    );
+
+    const entry = await extractBundle("cleanup-fixture");
+    await expect(fs.promises.access(entry.cacheDir)).resolves.toBeUndefined();
+
+    await clearBundleCache();
+
+    await expect(fs.promises.access(entry.cacheDir)).rejects.toThrow();
   });
 });

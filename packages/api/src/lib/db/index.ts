@@ -102,10 +102,14 @@ export function createTestDb(): Database.Database {
   return db;
 }
 
-/** Reset the singleton (for testing) */
-export function resetDb(): void {
+export function closeDb(): void {
   if (_db) {
     _db.close();
     _db = null;
   }
+}
+
+/** Reset the singleton (for testing) */
+export function resetDb(): void {
+  closeDb();
 }
