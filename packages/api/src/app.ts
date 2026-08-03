@@ -1,8 +1,11 @@
 import { Hono } from "hono";
+import { logger } from "hono/logger";
+import { requestId } from "hono/request-id";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { readFileSync, existsSync } from "fs";
 import { isAbsolute, join, resolve } from "path";
 import { getEnv } from "@/config/env";
+import { mapAppError } from "@/lib/http-errors";
 import { authRoutes } from "@/routes/auth";
 import { bundleRoutes, shareBundleRoutes } from "@/routes/bundle";
 import { workspaceRoutes } from "@/routes/workspace";
@@ -31,6 +34,32 @@ export function resolveStaticRoot(
 
 export function createApp() {
   const app = new Hono();
+
+  app.use("*", requestId());
+  app.use("*", logger());
+
+  app.onError((err, c) => {
+    const mapped = mapAppError(err);
+    const env = getEnv();
+    const requestIdValue = c.get("requestId");
+    const errorName = err instanceof Error ? err.name : "UnknownError";
+
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "request_error",
+        requestId: requestIdValue,
+        method: c.req.method,
+        path: c.req.path,
+        status: mapped.status,
+        error: errorName,
+        message: err instanceof Error ? err.message : String(err),
+      })
+    );
+
+    const message = mapped.expose || env.NODE_ENV !== "production" ? mapped.message : "Internal server error";
+    return c.json({ error: message }, mapped.status);
+  });
 
   app.route("/api/auth", authRoutes);
   app.route("/api/w", workspaceRoutes);

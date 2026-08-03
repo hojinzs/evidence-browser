@@ -7,6 +7,8 @@ import { createApp, resolveStaticRoot } from "./app";
 
 describe("SPA static serving", () => {
   const originalStaticRoot = process.env.STATIC_ROOT;
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalAuthSecret = process.env.AUTH_SECRET;
   const tempDirs: string[] = [];
 
   afterEach(() => {
@@ -14,6 +16,16 @@ describe("SPA static serving", () => {
       delete process.env.STATIC_ROOT;
     } else {
       process.env.STATIC_ROOT = originalStaticRoot;
+    }
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+    if (originalAuthSecret === undefined) {
+      delete process.env.AUTH_SECRET;
+    } else {
+      process.env.AUTH_SECRET = originalAuthSecret;
     }
     resetEnv();
 
@@ -52,5 +64,23 @@ describe("SPA static serving", () => {
     await expect(frontendRoute.text()).resolves.toContain("Evidence Browser");
     expect(apiRoute.status).toBe(404);
     await expect(apiRoute.json()).resolves.toEqual({ error: "Not found" });
+  });
+
+  it("returns generic JSON for unhandled errors in production", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.AUTH_SECRET = "test-production-secret";
+    resetEnv();
+
+    const app = createApp();
+    app.get("/api/test/throw", () => {
+      throw new Error("secret implementation detail");
+    });
+
+    const response = await app.request("/api/test/throw");
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(response.headers.get("x-request-id")).toBeTruthy();
+    await expect(response.json()).resolves.toEqual({ error: "Internal server error" });
   });
 });
