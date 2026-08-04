@@ -195,7 +195,12 @@ bundle.post("/:ws/bundle/demo", requireUpload, async (c) => {
 
   let title: string | null = null;
   try {
-    title = (await validateBundleZip(samplePath)).title;
+    title = (await validateBundleZip(samplePath, {
+      maxEntries: env.MAX_FILE_COUNT,
+      maxTotalUncompressedBytes: env.MAX_BUNDLE_SIZE,
+      maxEntryBytes: env.MAX_SINGLE_FILE_SIZE,
+      maxManifestBytes: env.MAX_SINGLE_FILE_SIZE,
+    })).title;
   } catch (error) {
     return c.json({ error: error instanceof Error ? error.message : "Bundle validation failed" }, 400);
   }
@@ -242,8 +247,6 @@ bundle.post("/:ws/bundle", requireUpload, async (c) => {
   const file = fileResult.value;
 
   const env = getEnv();
-  const sizeResult = validateBundleSize(file.size, env.MAX_BUNDLE_SIZE);
-  if (!sizeResult.ok) return c.json({ error: sizeResult.error.message }, sizeResult.error.status);
 
   const bundleIdResult = deriveAndValidateBundleId(formData.get("bundleId") as string | null, file.name);
   if (!bundleIdResult.ok) {
@@ -252,6 +255,9 @@ bundle.post("/:ws/bundle", requireUpload, async (c) => {
   const bundleId = bundleIdResult.value;
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  const sizeResult = validateBundleSize(buffer.byteLength, env.MAX_BUNDLE_SIZE);
+  if (!sizeResult.ok) return c.json({ error: sizeResult.error.message }, sizeResult.error.status);
+
   const tmpDir = path.join(os.tmpdir(), `evidence-upload-${Date.now()}`);
   const tmpZip = path.join(tmpDir, "upload.zip");
   fs.mkdirSync(tmpDir, { recursive: true });
@@ -262,7 +268,12 @@ bundle.post("/:ws/bundle", requireUpload, async (c) => {
 
     let title: string | null = null;
     try {
-      title = (await validateBundleZip(tmpZip)).title;
+      title = (await validateBundleZip(tmpZip, {
+        maxEntries: env.MAX_FILE_COUNT,
+        maxTotalUncompressedBytes: env.MAX_BUNDLE_SIZE,
+        maxEntryBytes: env.MAX_SINGLE_FILE_SIZE,
+        maxManifestBytes: env.MAX_SINGLE_FILE_SIZE,
+      })).title;
     } catch (error) {
       return c.json({ error: error instanceof Error ? error.message : "Bundle validation failed" }, 400);
     }
@@ -278,7 +289,7 @@ bundle.post("/:ws/bundle", requireUpload, async (c) => {
       workspaceId: workspace.id,
       title,
       storageKey: key,
-      sizeBytes: file.size,
+      sizeBytes: buffer.byteLength,
       uploadedBy: user.id,
     });
 

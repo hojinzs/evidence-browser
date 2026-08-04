@@ -3,6 +3,8 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  BundleSizeLimitError,
+  FileCountLimitError,
   IndexFileNotFoundError,
   ManifestNotFoundError,
   ManifestValidationError,
@@ -145,6 +147,62 @@ describe("validateBundleZip", () => {
     ]);
 
     await expect(validateBundleZip(zipPath)).rejects.toBeInstanceOf(IndexFileNotFoundError);
+  });
+
+  it("throws FileCountLimitError when entries exceed the configured cap", async () => {
+    await writeZipFixture(zipPath, [
+      {
+        name: "manifest.json",
+        content: JSON.stringify({ version: 1, title: "Too many files", index: "index.md" }),
+      },
+      { name: "index.md", content: "# Index" },
+    ]);
+
+    await expect(validateBundleZip(zipPath, { maxEntries: 1 })).rejects.toBeInstanceOf(
+      FileCountLimitError
+    );
+  });
+
+  it("throws BundleSizeLimitError when manifest.json exceeds the configured cap", async () => {
+    await writeZipFixture(zipPath, [
+      {
+        name: "manifest.json",
+        content: JSON.stringify({ version: 1, title: "Oversized manifest", index: "index.md" }),
+      },
+      { name: "index.md", content: "# Index" },
+    ]);
+
+    await expect(validateBundleZip(zipPath, { maxManifestBytes: 16 })).rejects.toBeInstanceOf(
+      BundleSizeLimitError
+    );
+  });
+
+  it("throws BundleSizeLimitError when total uncompressed bytes exceed the configured cap", async () => {
+    await writeZipFixture(zipPath, [
+      {
+        name: "manifest.json",
+        content: JSON.stringify({ version: 1, title: "Oversized bundle", index: "index.md" }),
+      },
+      { name: "index.md", content: "# Index" },
+    ]);
+
+    await expect(
+      validateBundleZip(zipPath, { maxTotalUncompressedBytes: 32 })
+    ).rejects.toBeInstanceOf(BundleSizeLimitError);
+  });
+
+  it("throws BundleSizeLimitError when an entry exceeds the configured cap", async () => {
+    await writeZipFixture(zipPath, [
+      {
+        name: "manifest.json",
+        content: JSON.stringify({ version: 1, title: "Oversized entry", index: "index.md" }),
+      },
+      { name: "index.md", content: "# Index" },
+    ]);
+
+    await expect(validateBundleZip(zipPath, { maxEntryBytes: 8 })).rejects.toBeInstanceOf(
+      BundleSizeLimitError
+    );
   });
 
   it("returns the manifest title when manifest.json and index file are present", async () => {
