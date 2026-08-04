@@ -203,6 +203,20 @@ function formDataForUpload(file: Buffer, filename: string, bundleId?: string) {
   return formData;
 }
 
+function formDataForUploadWithDeclaredSize(
+  file: Buffer,
+  declaredSize: number,
+  filename: string,
+  bundleId?: string
+) {
+  const formData = new FormData();
+  if (bundleId !== undefined) formData.set("bundleId", bundleId);
+  const uploadFile = new File([new Uint8Array(file)], filename, { type: "application/zip" });
+  Object.defineProperty(uploadFile, "size", { value: declaredSize });
+  formData.set("file", uploadFile);
+  return formData;
+}
+
 describe("bundle preview route", () => {
   beforeEach(() => {
     testDb = createTestDb();
@@ -471,7 +485,12 @@ describe("bundle upload route", () => {
       size_bytes: zip.byteLength,
     });
     expect(mockedValidateBundleZip).toHaveBeenCalledTimes(1);
-    expect(mockedValidateBundleZip).toHaveBeenCalledWith(expect.stringMatching(/upload\.zip$/));
+    expect(mockedValidateBundleZip).toHaveBeenCalledWith(expect.stringMatching(/upload\.zip$/), {
+      maxEntries: 10_000,
+      maxTotalUncompressedBytes: 500 * 1024 * 1024,
+      maxEntryBytes: 100 * 1024 * 1024,
+      maxManifestBytes: 100 * 1024 * 1024,
+    });
     expect(mockPutBundle).toHaveBeenCalledTimes(1);
     expect(mockPutBundle).toHaveBeenCalledWith("default/valid-upload", zip);
   });
@@ -536,6 +555,26 @@ describe("bundle upload route", () => {
     const res = await app.request("/api/w/default/bundle", {
       method: "POST",
       body: formDataForUpload(zip, "too-large.zip", "too-large"),
+    });
+
+    expect(res.status).toBe(413);
+    await expect(res.json()).resolves.toEqual({
+      error: `File too large (max ${zip.byteLength - 1} bytes)`,
+    });
+    expect(mockedValidateBundleZip).not.toHaveBeenCalled();
+    expect(mockPutBundle).not.toHaveBeenCalled();
+  });
+
+  it("returns 413 when actual upload bytes exceed MAX_BUNDLE_SIZE even if declared size is smaller", async () => {
+    await seedUploadWorkspace("admin-upload-actual-too-large");
+    const zip = makeValidBundleZip();
+    process.env.MAX_BUNDLE_SIZE = String(zip.byteLength - 1);
+    resetEnv();
+    const app = createTestApp();
+
+    const res = await app.request("/api/w/default/bundle", {
+      method: "POST",
+      body: formDataForUploadWithDeclaredSize(zip, 1, "too-large.zip", "actual-too-large"),
     });
 
     expect(res.status).toBe(413);
