@@ -1,33 +1,37 @@
+import { timingSafeEqual } from "crypto";
 import { Hono } from "hono";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { getEnv } from "@/config/env";
-import { isAuthBypassEnabled, isAuthBypassUserId } from "@/lib/auth/bypass";
+import { isAuthBypassEnabled } from "@/lib/auth/bypass";
 import { createMcpServer } from "@/lib/mcp/server";
-import { findApiKeyByHash, updateApiKeyLastUsed } from "@/lib/db/api-keys";
+import { extractBearerToken, getApiKeyUser } from "@/middleware/auth";
+
+function timingSafeStringEqual(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+}
 
 // Exported for focused route auth tests without starting an MCP transport.
 export function checkAuth(request: Request): Response | null {
   if (isAuthBypassEnabled()) return null;
 
-  const auth = request.headers.get("authorization");
+  const token = extractBearerToken(request.headers.get("authorization"));
 
-  if (auth && auth.startsWith("Bearer eb_")) {
-    const rawKey = auth.slice("Bearer ".length);
-    const apiKey = findApiKeyByHash(rawKey);
-    if (!apiKey || isAuthBypassUserId(apiKey.user_id)) {
+  if (token?.startsWith("eb_")) {
+    if (!getApiKeyUser(token)) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    updateApiKeyLastUsed(apiKey.id);
     return null;
   }
 
   const env = getEnv();
   if (env.MCP_API_KEY) {
-    if (!auth || auth !== `Bearer ${env.MCP_API_KEY}`) {
+    if (!token || !timingSafeStringEqual(token, env.MCP_API_KEY)) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
