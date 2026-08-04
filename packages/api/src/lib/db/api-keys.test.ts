@@ -81,8 +81,12 @@ describe("api keys DAO", () => {
     );
     const parseSpy = vi.spyOn(Date, "parse").mockReturnValue(NaN);
 
-    expect(findApiKeyByHash(expired.key)).toBeUndefined();
-    expect(parseSpy).not.toHaveBeenCalled();
+    try {
+      expect(findApiKeyByHash(expired.key)).toBeUndefined();
+      expect(parseSpy).not.toHaveBeenCalled();
+    } finally {
+      parseSpy.mockRestore();
+    }
   });
 
   it("scopes deletion to owners unless the caller is an admin", () => {
