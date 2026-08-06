@@ -57,7 +57,7 @@ vi.mock("@/lib/storage", () => ({
 }));
 
 import { extractBundle, validateBundleZip } from "@/lib/bundle/extractor";
-import { createBundle, findBundle } from "@/lib/db/bundles";
+import { createBundle, deleteBundle, findBundle } from "@/lib/db/bundles";
 import {
   createBundleShareToken,
   revokeBundleShareToken,
@@ -229,6 +229,7 @@ describe("bundle preview route", () => {
       manifest: { version: 1, title: "Preview fixture", index: "reports/index.html" },
       fileTree: [],
     });
+    return seedBundle({});
   });
 
   afterEach(() => {
@@ -276,6 +277,82 @@ describe("bundle preview route", () => {
 
     expect(res.status).toBe(415);
     expect(mockedExtractBundle).not.toHaveBeenCalled();
+  });
+});
+
+describe("authenticated bundle read routes", () => {
+  const readRoutes = [
+    { name: "meta", path: "/api/w/infra/bundles/pr-42-run-1/meta" },
+    { name: "tree", path: "/api/w/infra/bundles/pr-42-run-1/tree" },
+    { name: "file", path: "/api/w/infra/bundles/pr-42-run-1/file?path=reports%2Findex.md" },
+    { name: "preview", path: "/api/w/infra/bundles/pr-42-run-1/preview?path=reports%2Findex.html" },
+  ];
+
+  beforeEach(() => {
+    testDb = createTestDb();
+    authState.uploadUserId = "user-1";
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "evidence-read-test-"));
+    fs.mkdirSync(path.join(tempDir, "reports"), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, "reports", "index.md"), "# Stale bundle\n");
+    fs.writeFileSync(path.join(tempDir, "reports", "index.html"), "<h1>Stale bundle</h1>");
+    mockedExtractBundle.mockResolvedValue({
+      cacheDir: tempDir,
+      createdAt: Date.now(),
+      lastAccessed: Date.now(),
+      manifest: { version: 1, title: "Read fixture", index: "reports/index.md" },
+      fileTree: [{ name: "index.md", path: "reports/index.md", type: "file" }],
+    });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it.each(readRoutes)("returns 404 for unknown workspace before reading $name storage", async ({ path: routePath }) => {
+    const app = createTestApp();
+
+    const res = await app.request(routePath.replace("/api/w/infra/", "/api/w/missing/"));
+
+    expect(res.status).toBe(404);
+    await expect(res.json()).resolves.toEqual({ error: "Workspace not found" });
+    expect(mockedExtractBundle).not.toHaveBeenCalled();
+  });
+
+  it.each(readRoutes)("returns 404 for unknown bundle before reading $name storage", async ({ path: routePath }) => {
+    await seedBundle({});
+    const app = createTestApp();
+
+    const res = await app.request(routePath.replace("pr-42-run-1", "missing-bundle"));
+
+    expect(res.status).toBe(404);
+    await expect(res.json()).resolves.toEqual({ error: "Bundle not found" });
+    expect(mockedExtractBundle).not.toHaveBeenCalled();
+  });
+
+  it.each(readRoutes)(
+    "returns 404 for a deleted DB bundle before serving stale $name storage",
+    async ({ path: routePath }) => {
+      const { bundle } = await seedBundle({});
+      deleteBundle(bundle.id);
+      const app = createTestApp();
+
+      const res = await app.request(routePath);
+
+      expect(res.status).toBe(404);
+      await expect(res.json()).resolves.toEqual({ error: "Bundle not found" });
+      expect(mockedExtractBundle).not.toHaveBeenCalled();
+    }
+  );
+
+  it("reads direct bundles using the DB storage key rather than a URL-derived key", async () => {
+    await seedBundle({ storageKey: "stored/location.zip" });
+    const app = createTestApp();
+
+    const res = await app.request("/api/w/infra/bundles/pr-42-run-1/meta");
+
+    expect(res.status).toBe(200);
+    expect(mockedExtractBundle).toHaveBeenCalledWith("stored/location.zip");
   });
 });
 

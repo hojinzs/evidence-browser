@@ -147,6 +147,21 @@ function resolveShareStorageKey(c: Context): string | Response {
   return shareToken.bundle.storage_key;
 }
 
+function resolveBundleStorageKey(c: Context): string | Response {
+  const ws = c.req.param("ws");
+  const bundleId = c.req.param("bundleId");
+  if (!ws) return c.json({ error: "Workspace not found" }, 404);
+  if (!bundleId) return c.json({ error: "Bundle not found" }, 404);
+
+  const workspace = findWorkspaceBySlug(ws);
+  if (!workspace) return c.json({ error: "Workspace not found" }, 404);
+
+  const existing = findBundle(workspace.id, bundleId);
+  if (!existing) return c.json({ error: "Bundle not found" }, 404);
+
+  return existing.storage_key;
+}
+
 async function deleteBundleRoute(c: Context<{ Variables: AppVariables }>) {
   const ws = c.req.param("ws");
   const bundleId = c.req.param("bundleId");
@@ -300,22 +315,26 @@ bundle.post("/:ws/bundle", requireUpload, async (c) => {
 });
 
 bundle.get("/:ws/bundles/:bundleId/meta", authenticate, async (c) => {
-  const key = storageKey(c.req.param("ws"), c.req.param("bundleId"));
+  const key = resolveBundleStorageKey(c);
+  if (typeof key !== "string") return key;
   return bundleMetaResponse(c, key);
 });
 
 bundle.get("/:ws/bundles/:bundleId/tree", authenticate, async (c) => {
-  const key = storageKey(c.req.param("ws"), c.req.param("bundleId"));
+  const key = resolveBundleStorageKey(c);
+  if (typeof key !== "string") return key;
   return bundleTreeResponse(c, key);
 });
 
 bundle.get("/:ws/bundles/:bundleId/file", authenticate, async (c) => {
-  const key = storageKey(c.req.param("ws"), c.req.param("bundleId"));
+  const key = resolveBundleStorageKey(c);
+  if (typeof key !== "string") return key;
   return bundleFileResponse(c, key);
 });
 
 bundle.get("/:ws/bundles/:bundleId/preview", authenticate, async (c) => {
-  const key = storageKey(c.req.param("ws"), c.req.param("bundleId"));
+  const key = resolveBundleStorageKey(c);
+  if (typeof key !== "string") return key;
   return bundlePreviewResponse(c, key);
 });
 
