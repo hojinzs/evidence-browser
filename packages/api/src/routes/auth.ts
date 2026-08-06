@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { login, logout, SESSION_COOKIE_NAME, validateSession } from "@/lib/auth";
+import { SESSION_TTL_SECONDS } from "@/lib/auth/types";
 import { getAuthBypassUser, isAuthBypassEnabled } from "@/lib/auth/bypass";
 
 const auth = new Hono();
@@ -20,7 +21,7 @@ auth.post("/login", async (c) => {
     path: "/",
     httpOnly: true,
     sameSite: "Lax",
-    maxAge: 7 * 24 * 60 * 60,
+    maxAge: SESSION_TTL_SECONDS,
     secure: process.env.NODE_ENV === "production",
   });
 

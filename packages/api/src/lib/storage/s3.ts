@@ -9,6 +9,13 @@ import {
 import { Readable } from "stream";
 import type { BundleInfo, StorageAdapter } from "./types";
 
+export class S3AdapterError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "S3AdapterError";
+  }
+}
+
 interface S3Config {
   bucket: string;
   region?: string;
@@ -95,9 +102,13 @@ export class S3Adapter implements StorageAdapter {
       throw new Error(`Empty body for bundle: ${bundleId}`);
     }
 
-    // AWS SDK returns a Readable (Node stream) in Node.js environment
-    const body = result.Body as Readable;
-    return Readable.toWeb(body) as ReadableStream<Uint8Array>;
+    if (!(result.Body instanceof Readable)) {
+      throw new S3AdapterError(
+        `Expected S3 body for bundle ${bundleId} to be a Node Readable stream`
+      );
+    }
+
+    return Readable.toWeb(result.Body) as ReadableStream<Uint8Array>;
   }
 
   async putBundle(storageKey: string, data: Buffer): Promise<void> {

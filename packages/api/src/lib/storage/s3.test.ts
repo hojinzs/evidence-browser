@@ -10,7 +10,7 @@ import {
 import { mockClient } from "aws-sdk-client-mock";
 import { Readable } from "stream";
 import { afterEach, describe, expect, it } from "vitest";
-import { S3Adapter } from "./s3";
+import { S3Adapter, S3AdapterError } from "./s3";
 
 const s3Mock = mockClient(S3Client);
 
@@ -103,6 +103,24 @@ describe("S3Adapter", () => {
     await expect(adapter.getBundleStream("workspace/empty")).rejects.toThrow(
       "Empty body for bundle: workspace/empty"
     );
+  });
+
+  it("throws a named adapter error when S3 returns a non-Readable body", async () => {
+    s3Mock.on(GetObjectCommand).resolves({
+      Body: "not-a-node-stream" as unknown as GetObjectCommandOutput["Body"],
+    });
+    const adapter = createAdapter();
+
+    const error = await adapter
+      .getBundleStream("workspace/bundle")
+      .catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(S3AdapterError);
+    expect(error).toMatchObject({
+      name: "S3AdapterError",
+      message:
+        "Expected S3 body for bundle workspace/bundle to be a Node Readable stream",
+    });
   });
 
   it("lists only zip bundle keys and strips the suffix", async () => {

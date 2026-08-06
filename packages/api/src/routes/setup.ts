@@ -3,6 +3,7 @@ import { setCookie } from "hono/cookie";
 import { countAdmins, createUser } from "@/lib/db/users";
 import { createSession } from "@/lib/db/sessions";
 import { signSessionId, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { SESSION_TTL_SECONDS } from "@/lib/auth/types";
 import { requireAdmin, type AppVariables } from "@/middleware/auth";
 import { createWorkspace, findWorkspaceBySlug, listWorkspaces } from "@/lib/db/workspaces";
 import { getStorageAdapter } from "@/lib/storage";
@@ -44,7 +45,7 @@ setup.post("/admin", async (c) => {
       path: "/",
       httpOnly: true,
       sameSite: "Lax",
-      maxAge: 7 * 24 * 60 * 60,
+      maxAge: SESSION_TTL_SECONDS,
       secure: process.env.NODE_ENV === "production",
     });
     return c.json({ user });

@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
+import { getEnv } from "@/config/env";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -132,7 +133,7 @@ function initializeDb(db: Database.Database, options: { useWal?: boolean } = {})
 export function getDb(): Database.Database {
   if (_db) return _db;
 
-  const dataDir = process.env.DATA_DIR || "./data";
+  const dataDir = getEnv().DATA_DIR;
   fs.mkdirSync(dataDir, { recursive: true });
 
   const dbPath = path.join(dataDir, "evidence.db");

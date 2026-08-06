@@ -4,6 +4,7 @@ import os from "os";
 import crypto from "crypto";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
+import type { ReadableStream as WebReadableStream } from "node:stream/web";
 import * as yauzl from "yauzl-promise";
 import { validateBundleZip } from "@evidence-browser/shared/bundle/validate-zip";
 import { getStorageAdapter } from "@/lib/storage";
@@ -81,8 +82,7 @@ export async function extractBundle(bundleId: string): Promise<CacheEntry> {
 
   const stream = await storage.getBundleStream(bundleId);
   const tmpZip = path.join(cacheDir, "__bundle.zip");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const nodeStream = Readable.fromWeb(stream as any);
+  const nodeStream = Readable.fromWeb(stream as WebReadableStream<Uint8Array>);
   await pipeline(nodeStream, fs.createWriteStream(tmpZip));
 
   let entryCount = 0;
