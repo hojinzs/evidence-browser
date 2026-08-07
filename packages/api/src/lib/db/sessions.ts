@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import { getDb } from "./index";
+import { SESSION_TTL_SECONDS } from "@/lib/auth/types";
 
 export interface Session {
   id: string;
@@ -8,7 +9,7 @@ export interface Session {
   created_at: string;
 }
 
-const SESSION_TTL_HOURS = 24 * 7; // 7 days
+const SESSION_TTL_HOURS = SESSION_TTL_SECONDS / 60 / 60;
 
 function db(): Database.Database {
   return getDb();

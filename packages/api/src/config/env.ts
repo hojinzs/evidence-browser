@@ -16,6 +16,10 @@ const numberFromString = (defaultVal: number) =>
 
 const envSchema = z
   .object({
+    // Server
+    PORT: numberFromString(3000),
+    HOSTNAME: z.string().optional().default("0.0.0.0"),
+
     // Data directory (SQLite DB location)
     DATA_DIR: z.string().optional().default("./data"),
 

@@ -10,7 +10,7 @@ import {
   findSession as dbFindSession,
   deleteSession as dbDeleteSession,
 } from "@/lib/db/sessions";
-import type { AuthUser } from "./types";
+import { SESSION_TTL_SECONDS, type AuthUser } from "./types";
 
 export const SESSION_COOKIE_NAME = "evidence_session";
 
@@ -110,11 +110,10 @@ export function setSessionCookie(
   headers: Headers,
   signedSessionId: string
 ): void {
-  const maxAge = 7 * 24 * 60 * 60; // 7 days
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   headers.append(
     "Set-Cookie",
-    `${SESSION_COOKIE_NAME}=${encodeURIComponent(signedSessionId)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(signedSessionId)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}${secure}`
   );
 }
 

@@ -6,13 +6,10 @@ import { closeDb } from "@/lib/db";
 import { clearBundleCache } from "@/lib/bundle/extractor";
 
 const app = createApp();
-const { PORT = 3000, HOSTNAME = "0.0.0.0" } = process.env as { PORT?: string; HOSTNAME?: string };
 const env = getEnv();
 if (env.AUTH_BYPASS) {
   console.warn(`\n${AUTH_BYPASS_WARNING}\n`);
 }
-
-const port = Number(PORT);
 
 async function main() {
   await clearBundleCache();
@@ -20,16 +17,16 @@ async function main() {
   const server = serve(
     {
       fetch: app.fetch,
-      port,
-      hostname: HOSTNAME,
+      port: env.PORT,
+      hostname: env.HOSTNAME,
     },
     () => {
       console.log(
         JSON.stringify({
           level: "info",
           event: "server_start",
-          host: HOSTNAME,
-          port,
+          host: env.HOSTNAME,
+          port: env.PORT,
           env: env.NODE_ENV,
         })
       );
