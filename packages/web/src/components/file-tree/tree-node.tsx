@@ -3,15 +3,14 @@ import { useNavigate } from "@tanstack/react-router";
 import { ChevronRight, ChevronDown, Folder, FolderOpen, FileText, FileCode, Image } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTree } from "./tree-context";
+import { detectFileType } from "@/lib/files/detect";
 import { viewerBundleFileUrl } from "@/lib/url";
 import type { TreeNode } from "@/lib/bundle/types";
 
 function getFileIcon(name: string) {
-  const ext = name.includes(".") ? name.slice(name.lastIndexOf(".")).toLowerCase() : "";
-  const imageExts = new Set([".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".ico"]);
-  const codeExts = new Set([".ts", ".tsx", ".js", ".jsx", ".py", ".rb", ".go", ".rs", ".java", ".kt", ".swift", ".css", ".scss", ".html", ".xml", ".yaml", ".yml", ".toml", ".sh", ".bash", ".sql", ".graphql", ".json", ".jsonl", ".dockerfile"]);
-  if (imageExts.has(ext)) return Image;
-  if (codeExts.has(ext)) return FileCode;
+  const fileType = detectFileType(name);
+  if (fileType === "image") return Image;
+  if (fileType === "code" || fileType === "html" || fileType === "markdown") return FileCode;
   return FileText;
 }
 

@@ -5,17 +5,17 @@ import type { TreeNode } from "@/lib/bundle/types";
 
 interface FileTreeProps {
   tree: TreeNode[];
-  bundleId?: string;
+  title?: string;
 }
 
-export function FileTree({ tree, bundleId: bundleLabel }: FileTreeProps) {
+export function FileTree({ tree, title }: FileTreeProps) {
   const { bundleId } = useTree();
 
   return (
     <ScrollArea className="h-full">
       <div className="border-b border-border px-4 py-3">
         <p className="eyebrow-label">Files</p>
-        <p className="mt-2 truncate text-sm font-medium text-foreground">{bundleLabel ?? bundleId}</p>
+        <p className="mt-2 truncate text-sm font-medium text-foreground">{title ?? bundleId}</p>
       </div>
       <nav className="py-2" aria-label="File tree">
         <ul role="tree" className="text-sm">

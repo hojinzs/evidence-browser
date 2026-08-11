@@ -609,7 +609,7 @@ export function BundleView({
 
   const sidebar = metaQuery.data ? (
     <TreeProvider bundleId={bundleId} workspaceSlug={ws} shareToken={shareToken} currentFilePath={currentFilePath} initialExpandedPaths={getFirstLevelDirs(metaQuery.data.tree)}>
-      <FileTree tree={metaQuery.data.tree} bundleId={metaQuery.data.manifest.title} />
+      <FileTree tree={metaQuery.data.tree} title={metaQuery.data.manifest.title} />
     </TreeProvider>
   ) : null;
 
