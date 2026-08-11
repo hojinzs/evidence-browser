@@ -3,9 +3,17 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError } from "@/lib/api";
-import { BundleFileErrorState, BundleMetaQueryState, BundleView } from "./router";
+import {
+  BundleFileErrorState,
+  BundleMetaQueryState,
+  BundleView,
+  DefaultNotFoundComponent,
+  DefaultRouterErrorComponent,
+  WorkspacePageContent,
+} from "./router";
 
 let mockAuthUser = { id: "user-1", username: "Ada", role: "admin" as "admin" | "user" };
+const mockNavigate = vi.hoisted(() => vi.fn(async () => undefined));
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
@@ -25,7 +33,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
       </a>
     ),
     useLocation: () => ({ hash: "", pathname: "/w/infra/b/missing-bundle", searchStr: "" }),
-    useNavigate: () => vi.fn(async () => undefined),
+    useNavigate: () => mockNavigate,
   };
 });
 
@@ -55,7 +63,66 @@ function renderWithQueryClient(ui: React.ReactElement) {
 describe("bundle query states", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    mockNavigate.mockClear();
     mockAuthUser = { id: "user-1", username: "Ada", role: "admin" };
+  });
+
+  it("renders the app-level error fallback with recovery actions", async () => {
+    const user = userEvent.setup();
+    const reset = vi.fn();
+
+    renderWithQueryClient(<DefaultRouterErrorComponent error={new Error("Render exploded")} reset={reset} />);
+
+    expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    expect(screen.getByText("Render exploded")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to workspaces" })).toHaveAttribute("href", "/");
+
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(reset).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the default not found fallback with a workspace link", () => {
+    renderWithQueryClient(<DefaultNotFoundComponent />);
+
+    expect(screen.getByText("Page not found")).toBeInTheDocument();
+    expect(screen.getByText("This route does not exist in Evidence Browser.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to workspaces" })).toHaveAttribute("href", "/");
+  });
+
+  it("surfaces workspace query failures without redirecting away", async () => {
+    mockAuthUser = { id: "user-2", username: "Grace", role: "user" };
+    vi.spyOn(api, "getWorkspaces").mockRejectedValueOnce(new ApiError(503, "Workspace service unavailable"));
+    vi.spyOn(api, "getBundles").mockResolvedValueOnce({ bundles: [] });
+
+    renderWithQueryClient(<WorkspacePageContent ws="infra" />);
+
+    expect(await screen.findByText("Failed to load workspace")).toBeInTheDocument();
+    expect(screen.getByText("Workspace service unavailable")).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it("surfaces bundle query failures instead of the empty bundle state", async () => {
+    mockAuthUser = { id: "user-2", username: "Grace", role: "user" };
+    vi.spyOn(api, "getWorkspaces").mockResolvedValueOnce({
+      workspaces: [{
+        id: "workspace-1",
+        slug: "infra",
+        name: "Infrastructure",
+        description: "Ops",
+        created_by: "user-1",
+        created_at: "2026-06-24T00:00:00.000Z",
+        updated_at: "2026-06-24T00:00:00.000Z",
+        bundle_count: 0,
+      }],
+    });
+    vi.spyOn(api, "getBundles").mockRejectedValueOnce(new ApiError(500, "Bundle index unavailable"));
+
+    renderWithQueryClient(<WorkspacePageContent ws="infra" />);
+
+    expect(await screen.findByText("Failed to load bundles")).toBeInTheDocument();
+    expect(screen.getByText("Bundle index unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("No bundles yet")).not.toBeInTheDocument();
   });
 
   it("shows a not found state with a workspace back link for a missing bundle", () => {
