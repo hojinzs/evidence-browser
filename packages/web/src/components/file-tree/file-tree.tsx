@@ -1,5 +1,3 @@
-"use client";
-
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TreeNodeComponent } from "./tree-node";
 import { useTree } from "./tree-context";

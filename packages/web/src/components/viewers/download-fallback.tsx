@@ -1,5 +1,3 @@
-"use client";
-
 import { FileQuestion, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { viewerApiBundleUrl } from "@/lib/url";

@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { viewerApiBundleUrl } from "@/lib/url";
 import { CodeViewer } from "./code-viewer";

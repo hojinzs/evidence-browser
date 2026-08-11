@@ -1,5 +1,3 @@
-"use client";
-
 import { detectFileType, getShikiLanguage } from "@evidence-browser/shared/files/detect";
 import { MarkdownViewer } from "./markdown-viewer";
 import { CodeViewer } from "./code-viewer";

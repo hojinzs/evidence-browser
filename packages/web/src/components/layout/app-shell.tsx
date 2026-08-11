@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, type ReactNode } from "react";
 import { PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";

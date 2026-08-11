@@ -1,5 +1,3 @@
-"use client";
-
 import { viewerApiBundleUrl } from "@/lib/url";
 
 interface ImageViewerProps {
