@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { Upload, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { api, ApiError } from "@/lib/api";
 
 interface UploadFormProps {
   workspaceSlug: string;
@@ -32,42 +33,14 @@ export function UploadForm({ workspaceSlug, onUploaded }: UploadFormProps) {
     formData.append("file", file);
 
     try {
-      const xhr = new XMLHttpRequest();
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
-      });
-
-      const result = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
-        xhr.addEventListener("load", () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve({ ok: true });
-          } else {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              resolve({ ok: false, error: data.error });
-            } catch {
-              resolve({ ok: false, error: `Upload failed (${xhr.status})` });
-            }
-          }
-        });
-        xhr.addEventListener("error", () => resolve({ ok: false, error: "Network error" }));
-        xhr.open("POST", `/api/w/${workspaceSlug}/bundle`);
-        xhr.withCredentials = true;
-        xhr.send(formData);
-      });
-
-      if (result.ok) {
-        setState("success");
-        setTimeout(() => {
-          setState("idle");
-          onUploaded?.();
-        }, 1500);
-      } else {
-        setError(result.error || "Upload failed");
-        setState("error");
-      }
-    } catch {
-      setError("Network error");
+      await api.uploadBundleWithProgress(workspaceSlug, formData, setProgress);
+      setState("success");
+      setTimeout(() => {
+        setState("idle");
+        onUploaded?.();
+      }, 1500);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Network error");
       setState("error");
     }
   }, [onUploaded, workspaceSlug]);

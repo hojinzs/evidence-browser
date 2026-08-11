@@ -79,6 +79,8 @@ gh pr edit <pr-number> --title "<title>" --body-file <file>
 gh pr view --json number,title,body,url
 ```
 
+Do not pass a temp-file path as the body text, such as `--body @/tmp/pr-body.md` or `-f body=@/tmp/pr-body.md`; GitHub will publish that literal path. Use `--body-file <file>` for `gh pr create` / `gh pr edit`.
+
 ## Related Skills
 
 - `/pull` — sync branch with latest base before PR handoff when needed

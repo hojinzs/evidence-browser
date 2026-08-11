@@ -23,6 +23,19 @@ async function parseError(res: Response): Promise<ApiError> {
   return new ApiError(res.status, body.error ?? res.statusText);
 }
 
+function parseErrorMessage(responseText: string, fallback: string): string {
+  if (!responseText) return fallback;
+
+  try {
+    const body = JSON.parse(responseText) as { error?: unknown };
+    return typeof body.error === "string" ? body.error : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+type UploadProgressCallback = (progress: number) => void;
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   if (!(init?.body instanceof FormData) && !headers.has("Content-Type")) {
@@ -46,6 +59,39 @@ export async function apiText(path: string): Promise<string> {
   return res.text();
 }
 
+export function uploadBundleWithProgress(
+  ws: string,
+  formData: FormData,
+  onProgress?: UploadProgressCallback
+): Promise<{ bundle: Bundle }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable) return;
+      onProgress?.(Math.round((event.loaded / event.total) * 100));
+    });
+
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as { bundle: Bundle });
+        } catch {
+          reject(new ApiError(xhr.status, "Upload response was not valid JSON"));
+        }
+        return;
+      }
+
+      reject(new ApiError(xhr.status, parseErrorMessage(xhr.responseText, `Upload failed (${xhr.status})`)));
+    });
+
+    xhr.addEventListener("error", () => reject(new ApiError(0, "Network error")));
+    xhr.open("POST", `/api/w/${ws}/bundle`);
+    xhr.withCredentials = true;
+    xhr.send(formData);
+  });
+}
+
 export const api = {
   me: () => apiFetch<{ user: AuthUser }>("/api/auth/me"),
   login: (username: string, password: string) =>
@@ -56,11 +102,11 @@ export const api = {
   logout: () => apiFetch<{ ok: true }>("/api/auth/logout", { method: "POST" }),
   getWorkspaces: () => apiFetch<{ workspaces: WorkspaceWithBundleCount[] }>("/api/w"),
   getBundles: (ws: string) => apiFetch<{ bundles: Bundle[] }>(`/api/w/${ws}/bundle`),
-  uploadBundle: (ws: string, formData: FormData) =>
-    fetch(`/api/w/${ws}/bundle`, { method: "POST", body: formData, credentials: "include" }).then(async (res) => {
-      if (!res.ok) throw await parseError(res);
-      return res.json() as Promise<{ bundle: Bundle }>;
-    }),
+  uploadBundle: (ws: string, formData: FormData) => apiFetch<{ bundle: Bundle }>(`/api/w/${ws}/bundle`, {
+    method: "POST",
+    body: formData,
+  }),
+  uploadBundleWithProgress,
   loadDemoBundle: (ws: string) =>
     apiFetch<{ bundle: Bundle }>(`/api/w/${ws}/bundle/demo`, {
       method: "POST",

@@ -56,14 +56,19 @@ gh project item-edit \
 ### Create Workpad Comment
 
 ```bash
-gh issue comment <issue-number> --repo <owner>/<repo> --body "## Workpad\n\n### Plan\n- [ ] Task 1"
+tmp=$(mktemp)
+$EDITOR "$tmp" # write the full Markdown body with real newlines
+gh issue comment <issue-number> --repo <owner>/<repo> --body-file "$tmp"
 ```
 
 ### Update Existing Comment
 
 ```bash
-gh api -X PATCH /repos/<owner>/<repo>/issues/comments/<comment-id> \
-  -f body="## Workpad\n\n### Plan\n- [x] Task 1 (done)"
+body_tmp=$(mktemp)
+json_tmp=$(mktemp)
+$EDITOR "$body_tmp" # write the full Markdown body with real newlines
+jq -n --rawfile body "$body_tmp" '{body:$body}' > "$json_tmp"
+gh api -X PATCH /repos/<owner>/<repo>/issues/comments/<comment-id> --input "$json_tmp"
 ```
 
 ### Create Follow-up Issue
@@ -84,6 +89,7 @@ gh issue edit <issue-number> --repo <owner>/<repo> --add-label "<label>"
 ## Rules
 
 - Always follow the WORKFLOW.md status map flow for state transitions
+- For multi-line issue/workpad comments, pass file contents with `--body-file` or a JSON payload. Do not pass a file path as the body, such as `--body @/tmp/comment.md` or `-f body=@/tmp/comment.md`; GitHub will publish that literal path.
 - Before transitioning to a terminal state, verify the Completion Bar is satisfied:
   - All acceptance criteria checked
   - All tests passing
