@@ -1,5 +1,3 @@
-"use client";
-
 import { memo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronRight, ChevronDown, Folder, FolderOpen, FileText, FileCode, Image } from "lucide-react";

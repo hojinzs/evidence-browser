@@ -73,8 +73,6 @@ export const api = {
     }),
   getBundleMeta: (ws: string, bundleId: string) =>
     apiFetch<BundleMetaResponse>(`/api/w/${ws}/bundles/${bundleId}/meta`),
-  getBundleTree: (ws: string, bundleId: string) =>
-    apiFetch<{ tree: import("@/lib/bundle/types").TreeNode[] }>(`/api/w/${ws}/bundles/${bundleId}/tree`),
   getBundleFileText: (ws: string, bundleId: string, filePath: string) =>
     apiText(`/api/w/${ws}/bundles/${bundleId}/file?path=${encodeURIComponent(filePath)}`),
   getSharedBundleMeta: (token: string) =>
