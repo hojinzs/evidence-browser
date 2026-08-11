@@ -108,6 +108,67 @@ function RootLayout() {
   );
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+export function DefaultRouterErrorComponent({
+  error,
+  reset,
+}: {
+  error: unknown;
+  reset?: () => void;
+}) {
+  return (
+    <div className="min-h-screen bg-background">
+      <Header title="Application error" nav={<Link to="/" className="rounded-md px-3 py-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground">← Workspaces</Link>} />
+      <main className="app-fade-up page-frame py-12">
+        <Card className="p-10 text-center">
+          <div className="flex justify-center">
+            <BrandMark />
+          </div>
+          <p className="mt-8 text-sm font-medium text-foreground">Something went wrong</p>
+          <p className="mt-2 text-sm text-muted-foreground">The workspace view could not be rendered.</p>
+          <p className="mt-2 text-sm text-destructive">{getErrorMessage(error, "Unexpected application error")}</p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            {reset && (
+              <Button type="button" variant="outline" onClick={reset}>
+                Try again
+              </Button>
+            )}
+            <Link
+              to="/"
+              className="inline-flex h-9 items-center rounded-md px-3 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground"
+            >
+              Back to workspaces
+            </Link>
+          </div>
+        </Card>
+      </main>
+    </div>
+  );
+}
+
+export function DefaultNotFoundComponent() {
+  return (
+    <div className="min-h-screen bg-background">
+      <Header title="Not found" nav={<Link to="/" className="rounded-md px-3 py-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground">← Workspaces</Link>} />
+      <main className="app-fade-up page-frame py-12">
+        <Card className="p-10 text-center">
+          <p className="text-sm font-medium text-foreground">Page not found</p>
+          <p className="mt-2 text-sm text-muted-foreground">This route does not exist in Evidence Browser.</p>
+          <Link
+            to="/"
+            className="mt-5 inline-flex rounded-md px-3 py-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground"
+          >
+            Back to workspaces
+          </Link>
+        </Card>
+      </main>
+    </div>
+  );
+}
+
 function LoginPage() {
   const navigate = useNavigate();
   const auth = useAuth();
@@ -212,9 +273,13 @@ function WorkspacesPage() {
   );
 }
 
-function WorkspacePage() {
-  const auth = useAuth();
+export function WorkspacePage() {
   const { ws } = workspaceRoute.useParams();
+  return <WorkspacePageContent ws={ws} />;
+}
+
+export function WorkspacePageContent({ ws }: { ws: string }) {
+  const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const workspacesQuery = useQuery({ queryKey: ["workspaces"], queryFn: api.getWorkspaces, enabled: auth.isAuthenticated });
@@ -225,10 +290,10 @@ function WorkspacePage() {
   const workspace = workspacesQuery.data?.workspaces.find((item) => item.slug === ws);
 
   React.useEffect(() => {
-    if (!workspacesQuery.isLoading && !workspace) {
+    if (!workspacesQuery.isLoading && !workspacesQuery.isError && !workspace) {
       void navigate({ to: "/" });
     }
-  }, [navigate, workspace, workspacesQuery.isLoading]);
+  }, [navigate, workspace, workspacesQuery.isError, workspacesQuery.isLoading]);
 
   async function refreshWorkspaceBundles() {
     await queryClient.invalidateQueries({ queryKey: ["bundles", ws] });
@@ -278,46 +343,62 @@ function WorkspacePage() {
             <Badge variant="neutral">{bundlesQuery.data?.bundles.length ?? 0} bundles</Badge>
           </div>
           <div className="space-y-8">
-            {auth.user?.role === "admin" && <UploadForm workspaceSlug={ws} onUploaded={() => void queryClient.invalidateQueries({ queryKey: ["bundles", ws] })} />}
-            <section>
-              <h3 className="mb-3 text-lg font-semibold">Recent Bundles</h3>
-              {bundleError && <p className="mb-3 text-sm text-destructive">{bundleError}</p>}
-              {bundlesQuery.isLoading ? (
-                <Card className="p-10 text-center text-muted-foreground">Loading bundles...</Card>
-              ) : bundlesQuery.data?.bundles.length ? (
-                <Card className="overflow-hidden p-0">
-                  {bundlesQuery.data.bundles.map((bundle) => (
-                    <BundleCard
-                      key={bundle.id}
-                      title={bundle.title || bundle.bundle_id}
-                      bundleId={bundle.bundle_id}
-                      href={bundleLandingUrl(ws, bundle.bundle_id)}
-                      uploadedBy={bundle.uploader_username}
-                      createdAt={bundle.created_at}
-                      sizeBytes={bundle.size_bytes}
-                      canDelete={auth.user?.role === "admin"}
-                      isDeleting={deletingBundleId === bundle.bundle_id}
-                      onDelete={handleDeleteBundle}
-                    />
-                  ))}
-                </Card>
-              ) : (
-                <Card className="flex flex-col items-center gap-4 p-10 text-center">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">No bundles yet</p>
-                    <p className="mt-1 text-sm text-muted-foreground">Load the sample bundle to preview rendering right away.</p>
-                  </div>
-                  <Button
-                    onClick={() => void handleLoadDemoBundle()}
-                    disabled={loadingDemoBundle || auth.user?.role !== "admin"}
-                    title={auth.user?.role !== "admin" ? "Only admins can use this" : undefined}
-                  >
-                    <PackageOpen data-icon="inline-start" />
-                    {loadingDemoBundle ? "Loading demo..." : "Load demo bundle"}
-                  </Button>
-                </Card>
-              )}
-            </section>
+            {workspacesQuery.isError ? (
+              <Card className="p-10 text-center">
+                <p className="text-sm font-medium text-foreground">Failed to load workspace</p>
+                <p className="mt-2 text-sm text-muted-foreground">Workspace <span className="font-mono text-foreground">{ws}</span> could not be verified.</p>
+                <p className="mt-2 text-sm text-destructive">{getErrorMessage(workspacesQuery.error, "The workspace list request failed.")}</p>
+              </Card>
+            ) : (
+              <>
+                {auth.user?.role === "admin" && <UploadForm workspaceSlug={ws} onUploaded={() => void queryClient.invalidateQueries({ queryKey: ["bundles", ws] })} />}
+                <section>
+                  <h3 className="mb-3 text-lg font-semibold">Recent Bundles</h3>
+                  {bundleError && <p className="mb-3 text-sm text-destructive">{bundleError}</p>}
+                  {bundlesQuery.isLoading ? (
+                    <Card className="p-10 text-center text-muted-foreground">Loading bundles...</Card>
+                  ) : bundlesQuery.isError ? (
+                    <Card className="p-10 text-center">
+                      <p className="text-sm font-medium text-foreground">Failed to load bundles</p>
+                      <p className="mt-2 text-sm text-muted-foreground">Bundles for workspace <span className="font-mono text-foreground">{ws}</span> could not be loaded.</p>
+                      <p className="mt-2 text-sm text-destructive">{getErrorMessage(bundlesQuery.error, "The bundle list request failed.")}</p>
+                    </Card>
+                  ) : bundlesQuery.data?.bundles.length ? (
+                    <Card className="overflow-hidden p-0">
+                      {bundlesQuery.data.bundles.map((bundle) => (
+                        <BundleCard
+                          key={bundle.id}
+                          title={bundle.title || bundle.bundle_id}
+                          bundleId={bundle.bundle_id}
+                          href={bundleLandingUrl(ws, bundle.bundle_id)}
+                          uploadedBy={bundle.uploader_username}
+                          createdAt={bundle.created_at}
+                          sizeBytes={bundle.size_bytes}
+                          canDelete={auth.user?.role === "admin"}
+                          isDeleting={deletingBundleId === bundle.bundle_id}
+                          onDelete={handleDeleteBundle}
+                        />
+                      ))}
+                    </Card>
+                  ) : (
+                    <Card className="flex flex-col items-center gap-4 p-10 text-center">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">No bundles yet</p>
+                        <p className="mt-1 text-sm text-muted-foreground">Load the sample bundle to preview rendering right away.</p>
+                      </div>
+                      <Button
+                        onClick={() => void handleLoadDemoBundle()}
+                        disabled={loadingDemoBundle || auth.user?.role !== "admin"}
+                        title={auth.user?.role !== "admin" ? "Only admins can use this" : undefined}
+                      >
+                        <PackageOpen data-icon="inline-start" />
+                        {loadingDemoBundle ? "Loading demo..." : "Load demo bundle"}
+                      </Button>
+                    </Card>
+                  )}
+                </section>
+              </>
+            )}
           </div>
         </main>
       </div>
@@ -1171,7 +1252,12 @@ const routeTree = rootRoute.addChildren([
   settingsRoute,
   setupRoute,
 ]);
-const router = createRouter({ routeTree, defaultPreload: "intent" });
+const router = createRouter({
+  routeTree,
+  defaultPreload: "intent",
+  defaultErrorComponent: DefaultRouterErrorComponent,
+  defaultNotFoundComponent: DefaultNotFoundComponent,
+});
 
 declare module "@tanstack/react-router" {
   interface Register {
