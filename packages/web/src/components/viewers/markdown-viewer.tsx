@@ -21,15 +21,12 @@ function slugify(text: string): string {
   return text.toLowerCase().replace(/\s+/g, "-").replace(/[^\p{L}\p{N}-]/gu, "");
 }
 
-const protocolsWithoutSrc = { ...(defaultSchema.protocols ?? {}) };
-delete protocolsWithoutSrc.src;
 const sanitizeSchema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
     code: [...(defaultSchema.attributes?.code ?? []), "className"],
   },
-  protocols: protocolsWithoutSrc,
 };
 
 interface MarkdownViewerProps {
