@@ -38,7 +38,7 @@ Filed as **8 epic issues** on `hojinzs/evidence-browser` + Moncher Stack Project
 | E7 Web SPA hygiene (pre-rebuild) | [#64](https://github.com/hojinzs/evidence-browser/issues/64) |
 | E8 CLI & shared packaging robustness | [#65](https://github.com/hojinzs/evidence-browser/issues/65) |
 
-E7.1 was not filed (duplicate of #49 / PR #57); Korean-string items route to #47.
+E7.1 was not filed (duplicate of #49 / PR #57); Korean-string items route to #47. E7.2-E7.10 were later split into #137-#141 and completed by 2026-08-12.
 
 ## Conflict check vs currently-open issues / PRs
 
@@ -558,70 +558,94 @@ _7 item(s)._
 
 ---
 
-## E7 · Web SPA hygiene (pre-rebuild, mostly deferrable)
+## E7 · Web SPA hygiene (pre-rebuild, completed 2026-08-12)
 
-Error/loading-state gaps and dead code in the current Vite SPA. The SPA is slated for a separate rebuild, so most items are tagged `blocked-by-web-rebuild`; a few correctness gaps (infinite-loading on error) are worth fixing now.
+Error/loading-state gaps and dead code in the current Vite SPA. This epic was originally deferred behind a planned SPA rebuild, but the rebuild had not landed by 2026-08-11, so the verified open work was split into five ordered sub-issues and fixed directly.
 
-_10 item(s)._
+_10 original findings: E7.1 was closed separately as #49 / PR #57; the 9 remaining actionable items were completed through #137-#141._
+
+Completed split:
+
+| Finding(s) | Closing issue | Scope |
+|---|---|---|
+| E7.6, E7.7, E7.9 | [#137](https://github.com/hojinzs/evidence-browser/issues/137) | Dead-code sweep: stale `"use client"` directives, dead `api.getBundleTree`, unused barrels |
+| E7.2, E7.3 | [#138](https://github.com/hojinzs/evidence-browser/issues/138) | App-level router error/not-found handling and WorkspacePage query errors |
+| E7.4, E7.10 | [#139](https://github.com/hojinzs/evidence-browser/issues/139) | File-tree classification cleanup and `bundleId` display-prop rename |
+| E7.5 | [#140](https://github.com/hojinzs/evidence-browser/issues/140) | Upload flow consolidated through `packages/web/src/lib/api.ts` |
+| E7.8 | [#141](https://github.com/hojinzs/evidence-browser/issues/141) | Markdown sanitizer `src` protocol allowlist restored |
 
 ### E7.1 BundleView shows infinite "Loading bundle..." on meta/file fetch error (issue #49 still present)
-> ⚠️ **DUPLICATE of #49 — in progress in PR #57. Do not register.**
+> ✅ **Duplicate closed by #49 / PR #57. Do not register.**
 - **Priority:** **P1·high** · **Effort:** S · **Category:** error-handling · **Pkg:** web · **Tags:** blocked-by-web-rebuild, quick-win
 - **Problem:** A deleted, renamed, or access-denied bundle (or a bad ?path= file) renders a perpetual 'Loading bundle...' card with no error, no 404, and no recovery path. This is the exact symptom tracked in issue #49 and it is still unfixed. Admin pages and Settings handle query errors but the bundle viewer -- the core feature -- does not.
 - **Fix:** In BundleView read metaQuery.isError/error and render an error/not-found Card (distinguish 404 via ApiError.status) instead of the loading fallback; likewise surface fileQuery.error in the content branch. Reuse the existing AdminQueryState pattern.
 - **Evidence:** `packages/web/src/router.tsx:323-350`, `packages/web/src/router.tsx:331`, `packages/web/src/router.tsx:483-491`
 
 ### E7.2 No app-level error boundary or router errorComponent/notFoundComponent — any thrown error white-screens the SPA
-> ⚠️ **Likely in scope of PR #57 (#49). Verify against that diff before filing.**
+> ✅ **Closed by #138.**
 - **Priority:** P2·med · **Effort:** S · **Category:** error-handling · **Pkg:** web · **Tags:** blocked-by-web-rebuild
 - **Problem:** Any render-time exception or unhandled query throw (e.g. malformed manifest from a corrupt bundle, a viewer crash) unmounts the whole app to a blank page with no message and no way back. There is no global safety net.
 - **Fix:** Add a defaultErrorComponent and defaultNotFoundComponent to createRouter, and/or wrap AppRouter in a React error boundary that renders a recoverable fallback.
 - **Evidence:** `packages/web/src/router.tsx:973`, `packages/web/src/main.tsx:7-11`
 
 ### E7.3 WorkspacePage and its bundle list never surface query errors (silent failure / possible redirect churn)
-> ⚠️ **Possibly in scope of PR #57 (#49). Verify against that diff before filing.**
+> ✅ **Closed by #138.**
 - **Priority:** P2·med · **Effort:** S · **Category:** error-handling · **Pkg:** web · **Tags:** blocked-by-web-rebuild
 - **Problem:** Backend/network errors are indistinguishable from empty results: a failed bundle fetch masquerades as 'no bundles', and a failed workspace fetch silently redirects away from a valid URL. This erodes trust and makes incidents hard to diagnose from the UI.
 - **Fix:** Read bundlesQuery.error and render a distinct error Card; gate the line-227 redirect on `!workspacesQuery.isError` (only redirect when the list loaded successfully and the slug truly isn't present).
 - **Evidence:** `packages/web/src/router.tsx:226-230`, `packages/web/src/router.tsx:270-291`
 
 ### E7.4 File-extension classification duplicated across detect.ts and tree-node.tsx (and diverged from legacy)
+> ✅ **Closed by #139.**
+
 - **Priority:** P2·med · **Effort:** S · **Category:** duplication · **Pkg:** web · **Tags:** blocked-by-web-rebuild
 - **Problem:** Three independent copies of the same extension->type knowledge. Adding/changing a supported file type requires editing detect.ts AND tree-node.tsx (and they can silently disagree, e.g. the file tree showing the wrong icon for a type detect.ts handles). The legacy divergence on .html is concrete evidence this drifts.
 - **Fix:** Have tree-node.tsx's getFileIcon derive its icon from detectFileType(name) from @/lib/files/detect instead of maintaining its own Sets; collapse to one source of truth.
 - **Evidence:** `packages/web/src/lib/files/detect.ts:3-46`, `packages/web/src/components/file-tree/tree-node.tsx:11-18`, `packages/legacy/src/lib/files/detect.ts:30`
 
 ### E7.5 Upload flow re-implements api.uploadBundle with raw XHR, hardcoding the endpoint
+> ✅ **Closed by #140.**
+
 - **Priority:** P3·low · **Effort:** M · **Category:** duplication · **Pkg:** web · **Tags:** blocked-by-web-rebuild
 - **Problem:** Two divergent code paths for the same upload endpoint: the form duplicates the URL, credential handling, and error parsing that the typed api layer centralizes. The endpoint path is now hardcoded in two places, so a route change must be made twice, and the form's ad-hoc error parsing won't match ApiError semantics used elsewhere.
 - **Fix:** Either route the upload through api.uploadBundle (acceptable if progress isn't required), or extract a single api.uploadBundleWithProgress(ws, formData, onProgress) helper in lib/api.ts and have the form call it so the endpoint and error handling live in one place.
 - **Evidence:** `packages/web/src/components/bundle/upload-form.tsx:36-59`, `packages/web/src/lib/api.ts:58-62`
 
 ### E7.6 Dead API method api.getBundleTree is never called
+> ✅ **Closed by #137.**
+
 - **Priority:** P3·low · **Effort:** S · **Category:** dead-code · **Pkg:** web · **Tags:** blocked-by-web-rebuild, quick-win
 - **Problem:** Unused public API surface that suggests a second data path for the file tree which doesn't exist, misleading future maintainers and keeping the corresponding backend route 'load-bearing' by appearance only.
 - **Fix:** Remove getBundleTree from the api object (or wire the tree to use it if that was the intent), eliminating the dead inline import() type as well.
 - **Evidence:** `packages/web/src/lib/api.ts:67-68`
 
 ### E7.7 Unused barrel re-exports in component index files
+> ✅ **Closed by #137.**
+
 - **Priority:** P3·low · **Effort:** S · **Category:** dead-code · **Pkg:** web · **Tags:** blocked-by-web-rebuild, quick-win
 - **Problem:** Barrel files imply a public module boundary that callers don't actually use, adding maintenance surface and a small risk of pulling extra modules into a chunk. The layout barrel is entirely unused.
 - **Fix:** Delete packages/web/src/components/layout/index.ts (unused) and trim viewers/index.ts to the symbols actually imported through it, or standardize on the barrel and import through it consistently.
 - **Evidence:** `packages/web/src/components/layout/index.ts:1-3`, `packages/web/src/components/viewers/index.ts:1-7`
 
 ### E7.8 Markdown sanitizer drops the src protocol allowlist, weakening defense-in-depth
+> ✅ **Closed by #141.**
+
 - **Priority:** P3·low · **Effort:** S · **Category:** security-hygiene · **Pkg:** web · **Tags:** blocked-by-web-rebuild, quick-win
 - **Problem:** Removing the src protocol allowlist broadens what the sanitizer accepts on any src-bearing element rendered outside the custom img renderer (defense-in-depth regression). href protocols remain restricted so this is not a confirmed XSS, but it loosens the sanitizer for no functional gain since the img renderer handles relative paths itself.
 - **Fix:** Keep the default src allowlist intact (don't strip it) — the custom img component already resolves relative bundle paths, so relax nothing at the schema level. If a relative img must survive sanitization pre-render, add 'data'/relative handling narrowly rather than removing the allowlist.
 - **Evidence:** `packages/web/src/components/viewers/markdown-viewer.tsx:26-33`, `packages/web/src/components/viewers/markdown-viewer.tsx:54-61`
 
 ### E7.9 Stale Next.js "use client" directives copied into Vite SPA (18 files)
+> ✅ **Closed by #137.**
+
 - **Priority:** P3·low · **Effort:** S · **Category:** dead-code · **Pkg:** web · **Tags:** blocked-by-web-rebuild, quick-win, blocked-by-legacy-removal
 - **Problem:** These directives are meaningless in a Vite SPA and signal the components were copied wholesale from the Next.js legacy app without cleanup. They mislead readers into thinking RSC/client-boundary semantics apply and are a marker of unfinished migration hygiene.
 - **Fix:** Remove all 'use client' directives from packages/web/src (single mechanical sweep); optionally add an ESLint rule to forbid them in this package.
 - **Evidence:** `packages/web/src/components/viewers/markdown-viewer.tsx:1`, `packages/web/src/components/file-tree/tree-context.tsx:1`
 
 ### E7.10 FileTree's `bundleId` prop is actually a display title, not an id — misleading typing
+> ✅ **Closed by #139.**
+
 - **Priority:** P3·low · **Effort:** S · **Category:** type-safety · **Pkg:** web · **Tags:** blocked-by-web-rebuild, quick-win
 - **Problem:** A prop named bundleId that carries the manifest title invites bugs the moment someone trusts the name (e.g. building a URL from it). It's a small but real correctness trap in shared viewer plumbing.
 - **Fix:** Rename the prop to `title` (or `label`) in FileTreeProps and update the single caller in router.tsx; the actual id already comes from context.
