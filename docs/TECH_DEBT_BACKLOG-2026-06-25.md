@@ -506,55 +506,28 @@ _17 item(s)._
 
 ---
 
-## E8 · CLI & shared-library packaging robustness
+## E8 · CLI & shared-library packaging robustness (completed 2026-08-13)
 
-The published `eb` CLI has no build-before-publish guarantee, brittle string-matched error handling, scattered exit codes, and is blocked from depending on `shared` because `shared` is private + changeset-ignored.
+The published `eb` CLI packaging and shared-library robustness work is complete for [#65](https://github.com/hojinzs/evidence-browser/issues/65). The original seven findings were re-validated on 2026-08-12, with three already resolved or delegated and the remaining implementation split into WP1-WP3. Those work packages were closed by PRs #151, #152, and #159.
 
-_7 item(s)._
+_7 original findings: E8.1/E8.3 were resolved by the CLI `prepack` vendoring/build path, E8.6 was closed through #47, and E8.2/E8.4/E8.5/E8.7 were completed through the split work below. #55 remains the separate packed-install smoke-test track._
 
-### E8.1 Natural fix (CLI depending on shared) is blocked: @evidence-browser/shared is private and changeset-ignored
-> ⚠️ **CONFLICT with #55/PR #56:** "depend on shared" is the rejected approach — #55 asserts the published CLI must NOT depend on the private package. Reframe as: vendor shared code into the tarball at prepack. The real remaining debt is making that vendoring guaranteed/tested (see #55), not adding the dependency.
-- **Priority:** P2·med · **Effort:** M · **Category:** dependency · **Pkg:** cli
-- **Problem:** Today the CLI dodges this by duplicating types and depending only on commander. But the natural fix for the duplication above (depend on @evidence-browser/shared) is currently unshippable: shared is private:true and changeset-ignored, so a published evidence-browser-cli that imported it would fail at install with an unresolvable dependency. This is latent coupling debt: the SSOT package is structurally unable to back the one artifact that is actually published.
-- **Fix:** Decide the boundary explicitly: either (a) make shared publishable (drop private, remove from changeset ignore, add version + publishConfig) so the CLI can depend on it, or (b) bundle shared into the CLI at build time (tsup/rollup noExternal) so the published CLI carries the code without a runtime npm dependency. Document the choice in release docs.
-- **Evidence:** `packages/shared/package.json:4`, `.changeset/config.json:13`, `.github/workflows/release.yml:39-43`, `packages/cli/package.json:25`
+Completed split:
 
-### E8.2 validateApiKey detects auth failures by regex-matching the error message string
-- **Priority:** P2·med · **Effort:** M · **Category:** error-handling · **Pkg:** cli
-- **Problem:** The only way the CLI distinguishes 'bad key' (401) from 'server unreachable' is by string-matching the generated error message, and a second call site then string-compares the rethrown message ('Invalid API key'). Any change to the message format in api-client.request() (localizing it, changing parenthesization) silently breaks login/whoami status detection with no type error. Brittle control-flow-by-message-text.
-- **Fix:** Throw a typed error from api-client.request() carrying the numeric status (e.g. class ApiError extends Error { constructor(public status: number, message: string) }), and have validateApiKey/whoami branch on err.status === 401. Update CLI tests that assert message text to assert on status.
-- **Evidence:** `packages/cli/src/commands/auth.ts:104-108`, `packages/cli/src/lib/api-client.ts:143-146`, `packages/cli/src/commands/auth.ts:192`
+| Finding(s) | Closing PR | Scope |
+|---|---|---|
+| E8.2, E8.4 | [#151](https://github.com/hojinzs/evidence-browser/pull/151) | CLI typed `ApiError` status handling, auth/whoami 401 branching, centralized command error exits, and representative CLI exit-code tests |
+| E8.5 | [#152](https://github.com/hojinzs/evidence-browser/pull/152) | Slug-aware `PATCH /api/w/:id`, single-call CLI `updateWorkspace`, and API/CLI regression tests |
+| E8.7 | [#159](https://github.com/hojinzs/evidence-browser/pull/159) | Documented root-barrel vs granular-subpath convention and added a shared build sync check for `exports` vs the root barrel |
 
-### E8.3 CLI publishes with no build guarantee — `npm publish` can ship a stale or empty dist
-- **Priority:** P2·med · **Effort:** S · **Category:** dependency · **Pkg:** cli · **Tags:** quick-win, release-integrity
-- **Problem:** The published artifact's integrity depends on an out-of-band CI step rather than the package's own lifecycle scripts. A fresh clone + manual publish would ship a tarball whose bin/eb and main point at non-existent files, breaking the installed CLI. Packaging/release-correctness gap separate from changeset-visibility items already filed.
-- **Fix:** Add a prepublishOnly (or prepare) script to packages/cli/package.json that runs `npm run build`, so dist is always rebuilt as part of `npm publish` and the artifact is self-contained regardless of caller.
-- **Evidence:** `packages/cli/package.json:11-18`, `packages/cli/package.json:19-26`, `.github/workflows/release.yml:42-49`
+Resolution evidence:
 
-### E8.4 Inconsistent exit-code / error handling: process.exit scattered through async actions, no shared convention
-- **Priority:** P3·low · **Effort:** M · **Category:** error-handling · **Pkg:** cli
-- **Problem:** There are three patterns for turning a failure into an exit code (bin.ts top-level catch, per-command handleCommandError, and ad-hoc console.error+process.exit in upload/whoami). For a scriptable CLI exit-code consistency is a contract (this repo's evidence-upload skill branches on success/failure). Mixed conventions make it easy to introduce a command that exits 0 on a soft failure or prints errors to stdout. NOTE: the survey's framing that whoami's exit 'inside the try cannot be caught' is misleading — those exits are intentional and run after the inner catch; the real issue is convention drift, not an uncatchable-exit bug.
-- **Fix:** Standardize on one wrapper (e.g. runAction in lib/output.ts) that runs the action, prints errors to stderr, and sets a single non-zero exit code; have every command use it. Move whoami's status-based exits into the same path. Add a CLI test asserting exit codes for representative failure paths.
-- **Evidence:** `packages/cli/src/commands/auth.ts:201,203`, `packages/cli/src/commands/upload.ts:22-29,42-45`, `packages/cli/src/commands/bundle.ts:37-40`, `packages/cli/src/bin.ts:4-9`
-
-### E8.5 updateWorkspace makes a redundant GET to resolve slug->id before every PATCH
-- **Priority:** P3·low · **Effort:** S · **Category:** complexity · **Pkg:** cli
-- **Problem:** Every `eb workspace update` issues two HTTP round-trips: a GET to translate slug->id then the PATCH. This doubles latency and the failure surface (the GET can 404/timeout independently) and encodes an undocumented assumption that PATCH only accepts an id, not a slug — which the list/delete endpoints don't share (they accept slug directly).
-- **Fix:** If the API can PATCH by slug, do so and drop the lookup. If it requires an id, expose a slug-PATCH endpoint, or at minimum reuse the already-fetched workspace object. Add a test covering the two-call path so a future single-call API doesn't silently keep the extra round-trip.
-- **Evidence:** `packages/cli/src/lib/api-client.ts:251-274`
-
-### E8.6 Mixed-language (Korean) error messages baked into shared validation/manifest errors
-> ⚠️ **Already covered by #47 (i18n)** — #47 explicitly lists these shared validator strings. Don't re-file; this is the "centralize + English" half of #47.
-- **Priority:** P3·low · **Effort:** S · **Category:** complexity · **Pkg:** shared · **Tags:** quick-win
-- **Problem:** Within the same SSOT package, some error messages are Korean (manifest/types/validate-zip) and others English (upload-validation, url). These strings are thrown raw and surface in the CLI (which prints err.message to stderr) and in API responses. The identical Korean literals ('유효한 JSON이 아닙니다', '필수 필드 누락') are hard-duplicated across validate-zip.ts and manifest.ts, so edits must be made in two places. Structural debt (hard-coded, duplicated, language-inconsistent error copy) distinct from the separately-tracked i18n usability issues.
-- **Fix:** Centralize these messages (constants or a small message map) so the duplicated literal exists once, and pick one language for thrown errors in shared (English is the lingua franca for the published CLI/API); if localized user-facing copy is needed, do it at the presentation layer, not in thrown Error messages.
-- **Evidence:** `packages/shared/src/bundle/types.ts:48,55,62`, `packages/shared/src/bundle/validate-zip.ts:40,46`, `packages/shared/src/bundle/manifest.ts:35,44`, `packages/shared/src/bundle/upload-validation.ts:19`
-
-### E8.7 shared barrel re-exports every module while package.json exposes granular subpaths — two import styles, barrel unused
-- **Priority:** P3·low · **Effort:** S · **Category:** config · **Pkg:** shared
-- **Problem:** shared exposes two parallel public surfaces: a root barrel (src/index.ts -> '.') and a hand-maintained subpath exports map. Every real consumer (api, web) imports only via subpaths; the root barrel is exercised by nobody (verified: zero non-subpath imports). Latent inconsistency: the barrel can drift from the exports map with no consumer catching it, muddying what the SSOT's public API is.
-- **Fix:** Pick one convention. Recommended: keep the granular subpath exports (tree-shakeable, already how everyone imports) and either drop the root barrel or add a CI check that every module in the exports map stays in sync with the barrel. Document the intended import style for future consumers (incl. the CLI once it depends on shared).
-- **Evidence:** `packages/shared/src/index.ts:1-6`, `packages/shared/package.json:7-36`, `packages/api/src/lib/bundle/security.ts:1`, `packages/web/src/lib/url.ts:8`
+- E8.1 / E8.3: `packages/cli/package.json` runs the CLI build, shared build, and shared vendoring from `prepack`, which npm invokes for both `npm pack` and `npm publish`.
+- E8.2: `packages/cli/src/lib/api-client.ts` exports `ApiError` with a numeric `status`, and `packages/cli/src/commands/auth.ts` branches on `err.status === 401`.
+- E8.4: `packages/cli/src/lib/output.ts` owns `handleCommandError`, and auth/upload/bundle/top-level CLI failure paths route through it.
+- E8.5: `packages/api/src/routes/workspace.ts` resolves PATCH targets by id or slug, and `packages/cli/src/lib/api-client.ts` sends a single PATCH request to `/api/w/:slug`.
+- E8.6: shared validation errors were English-defaulted through #47.
+- E8.7: `packages/shared/README.md` documents the import convention, and `packages/shared/scripts/check-export-surface.mjs` runs during the shared build to detect drift.
 
 ---
 
