@@ -2,9 +2,9 @@ import { timingSafeEqual } from "crypto";
 import { Hono } from "hono";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { getEnv } from "@/config/env";
-import { isAuthBypassEnabled } from "@/lib/auth/bypass";
-import { createMcpServer } from "@/lib/mcp/server";
-import { extractBearerToken, getApiKeyUser } from "@/middleware/auth";
+import { getAuthBypassUser, isAuthBypassEnabled } from "@/lib/auth/bypass";
+import { createMcpServer, type McpAuthContext } from "@/lib/mcp/server";
+import { authenticateApiKey, extractBearerToken } from "@/middleware/auth";
 
 function timingSafeStringEqual(left: string, right: string): boolean {
   const leftBuffer = Buffer.from(left);
@@ -12,21 +12,19 @@ function timingSafeStringEqual(left: string, right: string): boolean {
   return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
 }
 
-// Exported for focused route auth tests without starting an MCP transport.
-export function checkAuth(request: Request): Response | null {
-  if (isAuthBypassEnabled()) return null;
-
+function resolveMcpAuthContextSync(request: Request): McpAuthContext | Response {
   const token = extractBearerToken(request.headers.get("authorization"));
 
   if (token?.startsWith("eb_")) {
-    if (!getApiKeyUser(token)) {
+    const apiKeyAuth = authenticateApiKey(token);
+    if (!apiKeyAuth) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    return null;
+    return { kind: "api-key", user: apiKeyAuth.user, scope: apiKeyAuth.scope };
   }
 
   const env = getEnv();
@@ -39,19 +37,35 @@ export function checkAuth(request: Request): Response | null {
     }
   }
 
+  return { kind: "instance-key" };
+}
+
+export async function resolveMcpAuthContext(request: Request): Promise<McpAuthContext | Response> {
+  if (isAuthBypassEnabled()) {
+    return { kind: "bypass", user: await getAuthBypassUser() };
+  }
+
+  return resolveMcpAuthContextSync(request);
+}
+
+// Exported for focused route auth tests without starting an MCP transport.
+export function checkAuth(request: Request): Response | null {
+  if (isAuthBypassEnabled()) return null;
+  const authContext = resolveMcpAuthContextSync(request);
+  if (authContext instanceof Response) return authContext;
   return null;
 }
 
 async function handleMcpRequest(request: Request): Promise<Response> {
-  const authError = checkAuth(request);
-  if (authError) return authError;
+  const authContext = await resolveMcpAuthContext(request);
+  if (authContext instanceof Response) return authContext;
 
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
   });
 
-  const server = createMcpServer();
+  const server = createMcpServer(authContext);
   await server.connect(transport);
 
   return transport.handleRequest(request);
