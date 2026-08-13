@@ -33,6 +33,7 @@ import {
   deleteBundle,
   deleteBundleByKey,
   findBundle,
+  findBundleWithUploader,
   listBundles,
 } from "./bundles";
 
@@ -115,5 +116,25 @@ describe("bundles DAO", () => {
 
     expect(bundles.map((bundle) => bundle.bundle_id)).toEqual(["new"]);
     expect(bundles[0]?.uploader_username).toBe("qa-agent");
+  });
+
+  it("finds one bundle with uploader metadata", () => {
+    testDb.prepare("UPDATE users SET username = ? WHERE id = ?").run("qa-agent", userId);
+    createBundle({
+      bundleId: "sample-bundle",
+      workspaceId,
+      title: "Sample Bundle",
+      storageKey: "demo/sample-bundle",
+      sizeBytes: 128,
+      uploadedBy: userId,
+    });
+
+    const bundle = findBundleWithUploader(workspaceId, "sample-bundle");
+
+    expect(bundle).toMatchObject({
+      bundle_id: "sample-bundle",
+      uploader_username: "qa-agent",
+      workspace_id: workspaceId,
+    });
   });
 });

@@ -6,7 +6,7 @@ import { getEnv } from "@/config/env";
 import { listWorkspaces } from "@/lib/db/workspaces";
 import { listBundles as dbListBundles } from "@/lib/db/bundles";
 import { findWorkspaceBySlug } from "@/lib/db/workspaces";
-import { findBundle } from "@/lib/db/bundles";
+import { findBundleWithUploader } from "@/lib/db/bundles";
 import { extractBundle, getFileContent } from "@/lib/bundle/extractor";
 import { ensureWithinRoot, validatePathSafety } from "@/lib/bundle/security";
 import { detectFileType, getMimeType } from "@evidence-browser/shared/files/detect";
@@ -48,6 +48,7 @@ type McpBundleResolution =
 const MCP_INLINE_FILE_LIMIT_BYTES = 256 * 1024;
 const MCP_LIST_BUNDLES_DEFAULT_LIMIT = 50;
 const MCP_LIST_BUNDLES_MAX_LIMIT = 200;
+const ISO_OFFSET_DATE_TIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 const BUNDLE_SCHEMA_TEXT = `## manifest.json
 
@@ -103,8 +104,11 @@ Binary: all others (shown as download link)`;
 function hasToolAccess(authContext: McpAuthContext, required: McpToolAccess): boolean {
   if (required === "authenticated") return true;
   if (authContext.kind === "bypass") return true;
-  if (required === "read") return true;
-  return authContext.kind === "api-key" && ["upload", "admin"].includes(authContext.scope);
+  if (authContext.kind === "instance-key") {
+    return required === "read" && Boolean(getEnv().MCP_API_KEY);
+  }
+  if (required === "read") return ["read", "upload", "admin"].includes(authContext.scope);
+  return ["upload", "admin"].includes(authContext.scope);
 }
 
 function requireToolAccess(authContext: McpAuthContext, required: McpToolAccess): McpTextResult | null {
@@ -130,9 +134,9 @@ function clampListLimit(limit: number | undefined): number {
 
 function validateIsoDateFilter(name: string, value: string | undefined): McpTextResult | null {
   if (value === undefined) return null;
-  if (Number.isNaN(Date.parse(value))) {
+  if (!ISO_OFFSET_DATE_TIME_RE.test(value) || Number.isNaN(Date.parse(value))) {
     return {
-      content: [{ type: "text" as const, text: `${name} must be an ISO-8601 date/time.` }],
+      content: [{ type: "text" as const, text: `${name} must be an ISO-8601 date/time with an explicit timezone offset.` }],
       isError: true,
     };
   }
@@ -141,15 +145,6 @@ function validateIsoDateFilter(name: string, value: string | undefined): McpText
 
 function createBundleFileUrl(workspace: string, bundleId: string, filePath: string): string {
   return `/w/${encodeURIComponent(workspace)}/b/${encodeURIComponent(bundleId)}/f?path=${encodeURIComponent(filePath)}`;
-}
-
-function toMcpBundle(workspaceId: string, bundle: ReturnType<typeof findBundle>): Bundle {
-  if (!bundle) throw new Error("Bundle not found");
-  return {
-    ...bundle,
-    uploader_username: "",
-    workspace_id: workspaceId,
-  };
 }
 
 async function resolveMcpBundle(workspace: string, bundleId: string): Promise<McpBundleResolution> {
@@ -163,7 +158,7 @@ async function resolveMcpBundle(workspace: string, bundleId: string): Promise<Mc
     };
   }
 
-  const bundle = findBundle(ws.id, bundleId);
+  const bundle = findBundleWithUploader(ws.id, bundleId);
   if (!bundle) {
     return {
       error: {
@@ -173,10 +168,9 @@ async function resolveMcpBundle(workspace: string, bundleId: string): Promise<Mc
     };
   }
 
-  const bundleWithUploader = dbListBundles(ws.id).find((candidate) => candidate.bundle_id === bundleId);
   return {
     workspace: ws,
-    bundle: bundleWithUploader ?? toMcpBundle(ws.id, bundle),
+    bundle,
   };
 }
 
@@ -331,9 +325,9 @@ export function createMcpServer(
     {
       workspace: z.string().describe("Workspace slug (required)"),
       uploadedBy: z.string().optional().describe("Uploader username filter"),
-      since: z.string().optional().describe("Only bundles uploaded at or after this ISO-8601 date/time"),
-      until: z.string().optional().describe("Only bundles uploaded at or before this ISO-8601 date/time"),
-      limit: z.number().int().positive().max(MCP_LIST_BUNDLES_MAX_LIMIT).optional().describe("Max bundles to return (default 50, max 200)"),
+      since: z.string().optional().describe("Only bundles uploaded at or after this ISO-8601 date/time with timezone offset"),
+      until: z.string().optional().describe("Only bundles uploaded at or before this ISO-8601 date/time with timezone offset"),
+      limit: z.number().int().positive().optional().describe("Max bundles to return (default 50, capped at 200)"),
     },
     async ({ workspace, uploadedBy, since, until, limit }) => {
       const authError = requireToolAccess(authContext, "read");
@@ -467,7 +461,7 @@ export function createMcpServer(
       const resolved = await resolveMcpBundle(workspace, bundleId);
       if ("error" in resolved) return resolved.error;
 
-      let indexPath = "manifest.index";
+      let indexPath: string | undefined;
       try {
         const entry = await extractBundle(resolved.bundle.storage_key);
         indexPath = entry.manifest.index;
@@ -495,12 +489,12 @@ export function createMcpServer(
         }
         if (err instanceof Error && err.message === "Not a file") {
           return {
-            content: [{ type: "text" as const, text: `Path "${indexPath}" is not a file.` }],
+            content: [{ type: "text" as const, text: `Path "${indexPath ?? "manifest index"}" is not a file.` }],
             isError: true,
           };
         }
         if (err && typeof err === "object" && "code" in err && (err as { code?: unknown }).code === "ENOENT") {
-          return fileNotFoundError(indexPath);
+          return fileNotFoundError(indexPath ?? "manifest index");
         }
         throw err;
       }

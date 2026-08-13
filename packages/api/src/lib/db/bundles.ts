@@ -59,6 +59,19 @@ export function findBundle(
   return stmt.get(workspaceId, bundleId) as BundleRow | undefined;
 }
 
+export function findBundleWithUploader(
+  workspaceId: string,
+  bundleId: string
+): BundleWithUploader | undefined {
+  const stmt = db().prepare(`
+    SELECT b.*, u.username as uploader_username
+    FROM bundles b
+    JOIN users u ON b.uploaded_by = u.id
+    WHERE b.workspace_id = ? AND b.bundle_id = ?
+  `);
+  return stmt.get(workspaceId, bundleId) as BundleWithUploader | undefined;
+}
+
 export function findBundleByStorageKey(
   storageKey: string
 ): BundleRow | undefined {

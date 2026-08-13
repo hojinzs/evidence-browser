@@ -262,6 +262,38 @@ describe("createMcpServer", () => {
     }
   });
 
+  it("denies instance-key callers for read tools when MCP_API_KEY is not configured", async () => {
+    const user = await createUser("member", "password123", "user");
+    createWorkspace("infra", "Infrastructure", "Ops workspace", user.id);
+
+    await withMcpClient({ kind: "instance-key" }, async (client) => {
+      const result = await client.callTool({
+        name: "list_workspaces",
+        arguments: {},
+      });
+
+      expect(result.isError).toBe(true);
+      expect(firstText(result)).toContain("requires read scope");
+    });
+  });
+
+  it("allows MCP_API_KEY instance callers to call read tools", async () => {
+    const user = await createUser("member", "password123", "user");
+    createWorkspace("infra", "Infrastructure", "Ops workspace", user.id);
+    process.env.MCP_API_KEY = "mcp-secret";
+    resetEnv();
+
+    await withMcpClient({ kind: "instance-key" }, async (client) => {
+      const result = await client.callTool({
+        name: "list_workspaces",
+        arguments: {},
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(firstText(result)).toContain('"slug": "infra"');
+    });
+  });
+
   it.each([
     ["instance key", { kind: "instance-key" } satisfies McpAuthContext, false],
     [
@@ -656,6 +688,50 @@ describe("createMcpServer", () => {
         },
       ]);
       expect(payload.filters.limit).toBe(5);
+    });
+  });
+
+  it("requires explicit timezone offsets and caps large list_bundles limits", async () => {
+    const user = await createUser("member", "password123", "user");
+    const workspace = createWorkspace("qa", "QA", "QA workspace", user.id);
+    createBundle({
+      bundleId: "first",
+      workspaceId: workspace.id,
+      title: "First",
+      storageKey: "qa/first",
+      sizeBytes: 128,
+      uploadedBy: user.id,
+    });
+    createBundle({
+      bundleId: "second",
+      workspaceId: workspace.id,
+      title: "Second",
+      storageKey: "qa/second",
+      sizeBytes: 256,
+      uploadedBy: user.id,
+    });
+
+    await withMcpClient({ kind: "api-key", user: TEST_USER, scope: "read" }, async (client) => {
+      const invalidDate = await client.callTool({
+        name: "list_bundles",
+        arguments: {
+          workspace: "qa",
+          since: "2026-08-05 00:00:00",
+        },
+      });
+      const cappedLimit = await client.callTool({
+        name: "list_bundles",
+        arguments: {
+          workspace: "qa",
+          limit: 500,
+        },
+      });
+
+      expect(invalidDate.isError).toBe(true);
+      expect(firstText(invalidDate)).toContain("explicit timezone offset");
+      expect(cappedLimit.isError).not.toBe(true);
+      const payload = JSON.parse(firstText(cappedLimit)) as { filters: { limit: number } };
+      expect(payload.filters.limit).toBe(200);
     });
   });
 });
