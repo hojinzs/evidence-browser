@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import os from "os";
 import readline from "readline";
-import { type ApiKeySummary, listApiKeys } from "../lib/api-client";
+import { ApiError, type ApiKeySummary, listApiKeys } from "../lib/api-client";
 import { clearConfig, getConfigPath, readConfig, writeConfig, type Config } from "../lib/config";
 import { handleCommandError } from "../lib/output";
 
@@ -98,8 +98,8 @@ export async function validateApiKey(
     return result.keys;
   } catch (err) {
     if (err instanceof Error) {
-      if (/Request failed \(401\)/.test(err.message)) {
-        throw new Error("Invalid API key");
+      if (err instanceof ApiError && err.status === 401) {
+        throw new ApiError(401, "Invalid API key");
       }
       throw new Error(`Cannot reach server: ${err.message}`);
     }
@@ -178,28 +178,13 @@ export function registerAuth(program: Command): void {
         console.log(`  Key:     ${maskApiKey(config.apiKey)}`);
         console.log(`  Config:  ${displayPath}`);
 
-        let keys: ApiKeySummary[] | null = null;
-        let authStatus: "ok" | "invalid" | "unreachable" = "ok";
-
-        try {
-          keys = await validateApiKey(config.url, config.apiKey);
-        } catch (err) {
-          if (err instanceof Error) {
-            authStatus = err.message === "Invalid API key" ? "invalid" : "unreachable";
-          }
-        }
-
-        if (authStatus === "ok" && keys !== null) {
-          const n = keys.length;
-          console.log(`  Status:  ✓ authenticated (${n} key${n !== 1 ? "s" : ""} on account)`);
-        } else if (authStatus === "invalid") {
-          console.log("  Status:  ✗ Key invalid or expired");
-          process.exit(1);
-        } else {
-          console.log("  Status:  ✗ Cannot reach server");
-          process.exit(1);
-        }
+        const keys: ApiKeySummary[] = await validateApiKey(config.url, config.apiKey);
+        const n = keys.length;
+        console.log(`  Status:  ✓ authenticated (${n} key${n !== 1 ? "s" : ""} on account)`);
       } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          handleCommandError(err);
+        }
         handleCommandError(err);
       }
     });

@@ -48,7 +48,7 @@ vi.mock("module", async (importOriginal) => {
 import { createCli } from "../src";
 import { maskApiKey, validateApiKey } from "../src/commands/auth";
 import { confirmBundleDeletion } from "../src/commands/bundle";
-import { createApiKey, createWorkspace, deleteApiKey, deleteBundle, deleteWorkspace, downloadBundleFile, listAdminApiKeys, listApiKeys, listBundles, listWorkspaces, updateWorkspace, uploadBundle } from "../src/lib/api-client";
+import { ApiError, createApiKey, createWorkspace, deleteApiKey, deleteBundle, deleteWorkspace, downloadBundleFile, listAdminApiKeys, listApiKeys, listBundles, listWorkspaces, updateWorkspace, uploadBundle } from "../src/lib/api-client";
 import { resolveServerOptions } from "../src/lib/command-options";
 import { clearConfig, getConfigPath, readConfig, writeConfig } from "../src/lib/config";
 
@@ -191,10 +191,44 @@ test("listBundles preserves plain text error bodies", async () => {
         apiKey: "eb_read",
         workspace: "demo",
       }),
-      /Request failed \(404\): workspace missing/
+      (err) =>
+        err instanceof ApiError &&
+        err.status === 404 &&
+        err.message === "Request failed (404): workspace missing"
     );
   } finally {
     global.fetch = previousFetch;
+  }
+});
+
+test("uploadBundle throws ApiError with parsed server status", async () => {
+  const previousFetch = global.fetch;
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "eb-cli-test-"));
+  const zipPath = path.join(tmpDir, "bundle-1.zip");
+  fs.writeFileSync(zipPath, "zip bytes");
+
+  global.fetch = async () =>
+    new Response(JSON.stringify({ error: "workspace missing" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+
+  try {
+    await assert.rejects(
+      uploadBundle({
+        url: "https://eb.example.com",
+        apiKey: "eb_upload",
+        workspace: "demo",
+        filePath: zipPath,
+      }),
+      (err) =>
+        err instanceof ApiError &&
+        err.status === 404 &&
+        err.message === "Upload failed (404): workspace missing"
+    );
+  } finally {
+    global.fetch = previousFetch;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
 
@@ -265,6 +299,50 @@ test("upload command prints the canonical bundle landing URL", async () => {
     global.fetch = previousFetch;
     console.log = previousLog;
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("upload command exits 1 for missing files", async () => {
+  const previousFetch = global.fetch;
+  const previousError = console.error;
+  const previousExit = process.exit;
+  const missingPath = path.join(os.tmpdir(), "eb-cli-missing-" + Date.now(), "missing.zip");
+  const errors: string[] = [];
+  let exitCode: string | number | null | undefined;
+
+  global.fetch = async () => {
+    throw new Error("fetch should not run");
+  };
+  console.error = (value?: unknown) => {
+    errors.push(String(value));
+  };
+  process.exit = ((code?: string | number | null | undefined) => {
+    exitCode = code;
+    throw new Error(`process.exit:${code}`);
+  }) as typeof process.exit;
+
+  try {
+    await assert.rejects(
+      createCli().parseAsync([
+        "node",
+        "eb",
+        "upload",
+        missingPath,
+        "--workspace",
+        "demo",
+        "--url",
+        "https://eb.example.com",
+        "--api-key",
+        "eb_upload",
+      ]),
+      /process\.exit:1/
+    );
+    assert.equal(exitCode, 1);
+    assert.deepEqual(errors, [`Error: File not found: ${path.resolve(missingPath)}`]);
+  } finally {
+    global.fetch = previousFetch;
+    console.error = previousError;
+    process.exit = previousExit;
   }
 });
 
@@ -1364,7 +1442,13 @@ test("validateApiKey throws 'Invalid API key' on 401", async () => {
       headers: { "Content-Type": "application/json" },
     });
   try {
-    await assert.rejects(validateApiKey("https://example.com", "eb_bad"), /Invalid API key/);
+    await assert.rejects(
+      validateApiKey("https://example.com", "eb_bad"),
+      (err) =>
+        err instanceof ApiError &&
+        err.status === 401 &&
+        err.message === "Invalid API key"
+    );
   } finally {
     global.fetch = previousFetch;
   }
@@ -1513,11 +1597,14 @@ test("eb whoami exits with code 1 on invalid key", async () => {
   const previousXdg = process.env.XDG_CONFIG_HOME;
   const previousFetch = global.fetch;
   const previousLog = console.log;
+  const previousError = console.error;
   const previousExit = process.exit;
   const lines: string[] = [];
+  const errors: string[] = [];
   let exitCode;
   process.env.XDG_CONFIG_HOME = tmpDir;
   console.log = (value) => lines.push(value);
+  console.error = (value) => errors.push(String(value));
   global.fetch = async () =>
     new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -1534,11 +1621,52 @@ test("eb whoami exits with code 1 on invalid key", async () => {
       /process\.exit:1/
     );
     assert.equal(exitCode, 1);
-    assert.ok(lines.some((l) => l.includes("✗ Key invalid or expired")));
+    assert.ok(lines.some((l) => l.includes("Server:")));
+    assert.deepEqual(errors, ["Invalid API key"]);
   } finally {
     restoreEnv("XDG_CONFIG_HOME", previousXdg);
     global.fetch = previousFetch;
     console.log = previousLog;
+    console.error = previousError;
+    process.exit = previousExit;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("eb whoami exits with code 1 when the server is unreachable", async () => {
+  const tmpDir = path.join(os.tmpdir(), "eb-test-whoami-network-" + Date.now());
+  const previousXdg = process.env.XDG_CONFIG_HOME;
+  const previousFetch = global.fetch;
+  const previousLog = console.log;
+  const previousError = console.error;
+  const previousExit = process.exit;
+  const lines: string[] = [];
+  const errors: string[] = [];
+  let exitCode;
+  process.env.XDG_CONFIG_HOME = tmpDir;
+  console.log = (value) => lines.push(value);
+  console.error = (value) => errors.push(String(value));
+  global.fetch = async () => {
+    throw new Error("ECONNREFUSED");
+  };
+  process.exit = (code) => {
+    exitCode = code;
+    throw new Error(`process.exit:${code}`);
+  };
+  try {
+    writeConfig({ url: "https://example.com", apiKey: "eb_bad" });
+    await assert.rejects(
+      createCli().parseAsync(["node", "eb", "whoami"]),
+      /process\.exit:1/
+    );
+    assert.equal(exitCode, 1);
+    assert.ok(lines.some((l) => l.includes("Server:")));
+    assert.deepEqual(errors, ["Cannot reach server: ECONNREFUSED"]);
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", previousXdg);
+    global.fetch = previousFetch;
+    console.log = previousLog;
+    console.error = previousError;
     process.exit = previousExit;
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

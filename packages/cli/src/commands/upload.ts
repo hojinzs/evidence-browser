@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { uploadBundle } from "../lib/api-client";
 import { addServerOptions, resolveServerOptions, type ServerOptionsInput } from "../lib/command-options";
+import { handleCommandError } from "../lib/output";
 
 interface UploadCommandOptions extends ServerOptionsInput {
   workspace: string;
@@ -17,31 +18,28 @@ export function registerUpload(program: Command): void {
       .requiredOption("--workspace <slug>", "Workspace slug")
       .option("--bundle-id <id>", "Override bundle ID (default: derived from filename)")
   ).action(async (file: string, opts: UploadCommandOptions) => {
+    try {
       const absPath = path.resolve(file);
 
       if (!fs.existsSync(absPath)) {
-        console.error(`Error: File not found: ${absPath}`);
-        process.exit(1);
+        throw new Error(`Error: File not found: ${absPath}`);
       }
       if (!absPath.endsWith(".zip")) {
-        console.error("Error: File must be a .zip");
-        process.exit(1);
+        throw new Error("Error: File must be a .zip");
       }
 
-      try {
-        const server = resolveServerOptions(opts);
-        const result = await uploadBundle({
-          filePath: absPath,
-          url: server.url,
-          workspace: opts.workspace,
-          apiKey: server.apiKey,
-          bundleId: opts.bundleId,
-        });
-        console.log(`Uploaded: ${result.bundleId}`);
-        console.log(`  View: ${server.url.replace(/\/$/, "")}/w/${opts.workspace}/b/${result.bundleId}`);
-      } catch (err) {
-        console.error(err instanceof Error ? err.message : String(err));
-        process.exit(1);
-      }
+      const server = resolveServerOptions(opts);
+      const result = await uploadBundle({
+        filePath: absPath,
+        url: server.url,
+        workspace: opts.workspace,
+        apiKey: server.apiKey,
+        bundleId: opts.bundleId,
+      });
+      console.log(`Uploaded: ${result.bundleId}`);
+      console.log(`  View: ${server.url.replace(/\/$/, "")}/w/${opts.workspace}/b/${result.bundleId}`);
+    } catch (err) {
+      handleCommandError(err);
+    }
     });
 }

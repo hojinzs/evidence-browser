@@ -78,25 +78,14 @@ function formatTree(nodes: TreeNode[], prefix = ""): string[] {
 function formatValidationError(err: unknown): string {
   if (!(err instanceof Error)) return String(err);
 
-  const requiredFields = err.message.match(/(?:필수 필드 누락|Missing required fields?):\s*(.+)$/i);
-  if (requiredFields?.[1]) {
-    return `manifest.json validation failed: missing required fields: ${requiredFields[1]}`;
-  }
-
   if (err.name === "ManifestNotFoundError") {
     return "manifest.json was not found";
   }
   if (err.name === "ManifestValidationError") {
-    if (err.message.includes("JSON")) {
-      return "manifest.json is not valid JSON";
-    }
-    const missing = err.message.split(":").slice(1).join(":").trim();
-    return missing ? `manifest.json validation failed: ${missing}` : "manifest.json validation failed";
+    return err.message;
   }
   if (err.name === "IndexFileNotFoundError") {
-    const match = err.message.match(/^(.+?)(?:를 찾을 수 없습니다| was not found)$/);
-    const indexPath = match?.[1] ?? err.message;
-    return `Index file was not found: ${indexPath}`;
+    return err.message;
   }
 
   return err.message;
@@ -260,8 +249,7 @@ export function registerBundle(program: Command): void {
         const result = await validateBundleZipFile(absPath);
         console.log(`Bundle is valid: ${result.title}`);
       } catch (err) {
-        console.error(`Bundle validation failed: ${formatValidationError(err)}`);
-        process.exit(1);
+        handleCommandError(`Bundle validation failed: ${formatValidationError(err)}`);
       }
     });
 
@@ -276,8 +264,7 @@ export function registerBundle(program: Command): void {
         const outputPath = await createBundleZip(dir, opts);
         console.log(`Created bundle: ${outputPath}`);
       } catch (err) {
-        console.error(`Bundle creation failed: ${formatValidationError(err)}`);
-        process.exit(1);
+        handleCommandError(`Bundle creation failed: ${formatValidationError(err)}`);
       }
     });
 
