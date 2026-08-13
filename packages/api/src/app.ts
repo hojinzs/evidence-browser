@@ -14,6 +14,7 @@ import { apiKeyRoutes } from "@/routes/api-keys";
 import { healthRoutes } from "@/routes/health";
 import { setupRoutes } from "@/routes/setup";
 import { mcpRoutes } from "@/routes/mcp";
+import { uploadRoutes } from "@/routes/upload";
 
 export function resolveStaticRoot(
   configuredRoot = getEnv().STATIC_ROOT,
@@ -32,11 +33,15 @@ export function resolveStaticRoot(
   return candidates.find((dir) => pathExists(dir)) ?? candidates[0];
 }
 
+export function redactRequestLog(message: string): string {
+  return message.replace(/\/api\/upload\/[^?\s]+/g, "/api/upload/:token");
+}
+
 export function createApp() {
   const app = new Hono();
 
   app.use("*", requestId());
-  app.use("*", logger());
+  app.use("*", logger((message) => console.log(redactRequestLog(message))));
 
   app.onError((err, c) => {
     const mapped = mapAppError(err);
@@ -70,6 +75,7 @@ export function createApp() {
   app.route("/api/health", healthRoutes);
   app.route("/api/setup", setupRoutes);
   app.route("/api/mcp", mcpRoutes);
+  app.route("/api/upload", uploadRoutes);
 
   const staticRoot = resolveStaticRoot();
   if (existsSync(staticRoot)) {

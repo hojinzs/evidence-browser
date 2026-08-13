@@ -65,7 +65,7 @@ async function handleMcpRequest(request: Request): Promise<Response> {
     enableJsonResponse: true,
   });
 
-  const server = createMcpServer(authContext);
+  const server = createMcpServer(authContext, { origin: new URL(request.url).origin });
   await server.connect(transport);
 
   return transport.handleRequest(request);

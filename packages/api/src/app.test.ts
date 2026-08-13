@@ -3,7 +3,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import { resetEnv } from "@/config/env";
-import { createApp, resolveStaticRoot } from "./app";
+import { createApp, redactRequestLog, resolveStaticRoot } from "./app";
 
 describe("SPA static serving", () => {
   const originalStaticRoot = process.env.STATIC_ROOT;
@@ -46,6 +46,15 @@ describe("SPA static serving", () => {
     expect(
       resolveStaticRoot(undefined, "/repo/packages/api", (path) => path === "/repo/packages/web/dist")
     ).toBe("/repo/packages/web/dist");
+  });
+
+  it("redacts signed upload capability tokens from request logs", () => {
+    expect(redactRequestLog("<-- POST /api/upload/ebu1.payload.signature")).toBe(
+      "<-- POST /api/upload/:token"
+    );
+    expect(redactRequestLog("--> POST /api/upload/ebu1.payload.signature 201 4ms")).toBe(
+      "--> POST /api/upload/:token 201 4ms"
+    );
   });
 
   it("serves SPA fallback from STATIC_ROOT without copying to root web", async () => {

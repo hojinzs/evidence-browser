@@ -3,6 +3,9 @@ import os from "os";
 import path from "path";
 import type Database from "better-sqlite3";
 import { Hono } from "hono";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetEnv } from "@/config/env";
 import { createTestDb } from "@/lib/db/index";
@@ -64,12 +67,44 @@ import {
 } from "@/lib/db/share-tokens";
 import { createWorkspace } from "@/lib/db/workspaces";
 import { createUser } from "@/lib/db/users";
+import { createUploadToken } from "@/lib/upload-token";
+import { createMcpServer } from "@/lib/mcp/server";
 import { HTML_PREVIEW_CSP_HEADER, bundleRoutes, shareBundleRoutes } from "./bundle";
+import { uploadRoutes } from "./upload";
 
 const mockedExtractBundle = vi.mocked(extractBundle);
 const mockedValidateBundleZip = vi.mocked(validateBundleZip);
 let tempDir: string;
 const originalMaxBundleSize = process.env.MAX_BUNDLE_SIZE;
+
+class MemoryTransport implements Transport {
+  peer: MemoryTransport | null = null;
+  onclose?: () => void;
+  onerror?: (error: Error) => void;
+  onmessage?: (message: JSONRPCMessage) => void;
+
+  async start(): Promise<void> {
+    // No connection setup is required for in-memory test transport.
+  }
+
+  async send(message: JSONRPCMessage): Promise<void> {
+    queueMicrotask(() => {
+      this.peer?.onmessage?.(message);
+    });
+  }
+
+  async close(): Promise<void> {
+    this.onclose?.();
+  }
+}
+
+function createTransportPair() {
+  const serverTransport = new MemoryTransport();
+  const clientTransport = new MemoryTransport();
+  serverTransport.peer = clientTransport;
+  clientTransport.peer = serverTransport;
+  return { serverTransport, clientTransport };
+}
 
 function restoreMaxBundleSize() {
   if (originalMaxBundleSize === undefined) {
@@ -83,6 +118,7 @@ function createTestApp() {
   const app = new Hono();
   app.route("/api/w", bundleRoutes);
   app.route("/api/s", shareBundleRoutes);
+  app.route("/api/upload", uploadRoutes);
   return app;
 }
 
@@ -660,6 +696,155 @@ describe("bundle upload route", () => {
     });
     expect(mockedValidateBundleZip).not.toHaveBeenCalled();
     expect(mockPutBundle).not.toHaveBeenCalled();
+  });
+
+  it("accepts a signed upload token and records the token issuer as uploader", async () => {
+    const { workspace } = await seedUploadWorkspace("admin-upload-signed");
+    const issuer = await createUser("mcp-upload-issuer", "password123", "user");
+    const zip = makeValidBundleZip("Signed Upload Fixture");
+    const token = createUploadToken({
+      workspace: "default",
+      issuerUserId: issuer.id,
+    }).token;
+    const app = createTestApp();
+
+    const res = await app.request(`/api/upload/${token}`, {
+      method: "POST",
+      body: formDataForUpload(zip, "signed-upload.zip", "signed-upload"),
+    });
+
+    expect(res.status).toBe(201);
+    const payload = await res.json() as {
+      bundle: {
+        bundle_id: string;
+        storage_key: string;
+        uploaded_by: string;
+      };
+    };
+    expect(payload.bundle).toMatchObject({
+      bundle_id: "signed-upload",
+      storage_key: "default/signed-upload",
+      uploaded_by: issuer.id,
+    });
+    expect(findBundle(workspace.id, "signed-upload")).toMatchObject({
+      bundle_id: "signed-upload",
+      uploaded_by: issuer.id,
+    });
+    expect(mockPutBundle).toHaveBeenCalledWith("default/signed-upload", zip);
+  });
+
+  it("rejects invalid and expired signed upload tokens with 401", async () => {
+    await seedUploadWorkspace("admin-upload-token-reject");
+    const expired = createUploadToken({
+      workspace: "default",
+      issuerUserId: "user-1",
+      ttlSeconds: 1,
+      now: new Date("2026-08-13T10:00:00.000Z"),
+    }).token;
+    const app = createTestApp();
+
+    const invalidRes = await app.request("/api/upload/not-a-token", {
+      method: "POST",
+      body: formDataForUpload(makeValidBundleZip(), "invalid.zip", "invalid"),
+    });
+    const expiredRes = await app.request(`/api/upload/${expired}`, {
+      method: "POST",
+      body: formDataForUpload(makeValidBundleZip(), "expired.zip", "expired"),
+    });
+
+    expect(invalidRes.status).toBe(401);
+    expect(expiredRes.status).toBe(401);
+    await expect(invalidRes.json()).resolves.toEqual({ error: "Invalid or expired upload token" });
+    await expect(expiredRes.json()).resolves.toEqual({ error: "Invalid or expired upload token" });
+    expect(mockPutBundle).not.toHaveBeenCalled();
+  });
+
+  it("uses the token workspace and rejects mismatched pinned bundle IDs", async () => {
+    const { workspace } = await seedUploadWorkspace("admin-upload-pinned");
+    const issuer = await createUser("mcp-pinned-issuer", "password123", "user");
+    const token = createUploadToken({
+      workspace: "default",
+      bundleId: "pinned-upload",
+      issuerUserId: issuer.id,
+    }).token;
+    const app = createTestApp();
+
+    const mismatch = await app.request(`/api/upload/${token}`, {
+      method: "POST",
+      body: formDataForUpload(makeValidBundleZip(), "pinned.zip", "other-upload"),
+    });
+    const pinned = await app.request(`/api/upload/${token}`, {
+      method: "POST",
+      body: formDataForUpload(makeValidBundleZip(), "ignored.zip", "pinned-upload"),
+    });
+
+    expect(mismatch.status).toBe(400);
+    await expect(mismatch.json()).resolves.toEqual({
+      error: "bundleId does not match signed upload URL",
+    });
+    expect(pinned.status).toBe(201);
+    expect(findBundle(workspace.id, "pinned-upload")).toMatchObject({
+      bundle_id: "pinned-upload",
+      storage_key: "default/pinned-upload",
+      uploaded_by: issuer.id,
+    });
+  });
+
+  it("dogfoods MCP URL minting through upload and metadata rendering paths", async () => {
+    const { workspace } = await seedUploadWorkspace("admin-upload-mcp-dogfood");
+    const issuer = await createUser("mcp-dogfood-issuer", "password123", "user");
+    const { serverTransport, clientTransport } = createTransportPair();
+    const server = createMcpServer(
+      {
+        kind: "api-key",
+        user: { id: issuer.id, username: "[api-key:eb_upload]", role: "user" },
+        scope: "upload",
+      },
+      { origin: "http://localhost" }
+    );
+    const client = new Client({ name: "evidence-browser-dogfood", version: "0.0.0" });
+
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+
+    try {
+      const toolResult = await client.callTool({
+        name: "create_upload_url",
+        arguments: { workspace: "default", bundleId: "mcp-dogfood" },
+      });
+      expect(toolResult.isError).not.toBe(true);
+      const [{ text }] = toolResult.content as Array<{ type: "text"; text: string }>;
+      const { uploadUrl } = JSON.parse(text) as { uploadUrl: string };
+
+      const app = createTestApp();
+      const zip = makeValidBundleZip("MCP Dogfood Upload");
+      const uploadRes = await app.request(new URL(uploadUrl).pathname, {
+        method: "POST",
+        body: formDataForUpload(zip, "ignored.zip", "mcp-dogfood"),
+      });
+
+      expect(uploadRes.status).toBe(201);
+      expect(findBundle(workspace.id, "mcp-dogfood")).toMatchObject({
+        bundle_id: "mcp-dogfood",
+        uploaded_by: issuer.id,
+      });
+
+      mockedExtractBundle.mockResolvedValue({
+        cacheDir: tempDir,
+        createdAt: Date.now(),
+        lastAccessed: Date.now(),
+        manifest: { version: 1, title: "MCP Dogfood Upload", index: "index.md" },
+        fileTree: [],
+      });
+      const metaRes = await app.request("/api/w/default/bundles/mcp-dogfood/meta");
+      expect(metaRes.status).toBe(200);
+      await expect(metaRes.json()).resolves.toMatchObject({
+        manifest: { title: "MCP Dogfood Upload", index: "index.md" },
+      });
+    } finally {
+      await client.close();
+      await server.close();
+    }
   });
 });
 

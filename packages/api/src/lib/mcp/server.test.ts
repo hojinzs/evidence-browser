@@ -86,6 +86,7 @@ describe("createMcpServer", () => {
           { name: "get_upload_instructions" },
           { name: "list_workspaces" },
           { name: "list_bundles" },
+          { name: "create_upload_url" },
         ],
       });
 
@@ -204,6 +205,93 @@ describe("createMcpServer", () => {
           }),
         ]);
       }
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("creates an upload URL for upload-scoped API keys", async () => {
+    const user = await createUser("upload-member", "password123", "user");
+    createWorkspace("infra", "Infrastructure", "Ops workspace", user.id);
+
+    const { serverTransport, clientTransport } = createTransportPair();
+    const server = createMcpServer(
+      {
+        kind: "api-key",
+        user: { id: user.id, username: "[api-key:eb_upload]", role: "user" },
+        scope: "upload",
+      },
+      { origin: "https://evidence.example" }
+    );
+    const client = new Client({ name: "evidence-browser-test", version: "0.0.0" });
+
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+
+    try {
+      const result = await client.callTool({
+        name: "create_upload_url",
+        arguments: { workspace: "infra", bundleId: "run-42", ttlSeconds: 7200 },
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([expect.objectContaining({ type: "text" })]);
+      const [{ text }] = result.content as Array<{ type: "text"; text: string }>;
+      const payload = JSON.parse(text) as {
+        uploadUrl: string;
+        method: string;
+        expiresAt: string;
+        instructions: string;
+      };
+      expect(payload).toMatchObject({
+        method: "POST",
+      });
+      expect(payload.uploadUrl).toMatch(/^https:\/\/evidence\.example\/api\/upload\/ebu1\./);
+      expect(payload.instructions).toContain("curl -X POST");
+      expect(payload.instructions).toContain("-F 'file=@bundle.zip'");
+      expect(payload.instructions).toContain("pinned to 'run-42'");
+      expect(new Date(payload.expiresAt).toString()).not.toBe("Invalid Date");
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it.each([
+    ["instance key", { kind: "instance-key" } satisfies McpAuthContext],
+    [
+      "read-scoped API key",
+      {
+        kind: "api-key",
+        user: TEST_USER,
+        scope: "read",
+      } satisfies McpAuthContext,
+    ],
+  ])("denies create_upload_url for %s", async (_label, authContext) => {
+    const user = await createUser("read-member", "password123", "user");
+    createWorkspace("infra", "Infrastructure", "Ops workspace", user.id);
+
+    const { serverTransport, clientTransport } = createTransportPair();
+    const server = createMcpServer(authContext);
+    const client = new Client({ name: "evidence-browser-test", version: "0.0.0" });
+
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+
+    try {
+      const result = await client.callTool({
+        name: "create_upload_url",
+        arguments: { workspace: "infra" },
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([
+        expect.objectContaining({
+          type: "text",
+          text: expect.stringContaining("requires upload or admin scope"),
+        }),
+      ]);
     } finally {
       await client.close();
       await server.close();

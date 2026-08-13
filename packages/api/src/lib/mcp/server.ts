@@ -6,6 +6,8 @@ import { listBundles as dbListBundles } from "@/lib/db/bundles";
 import { findWorkspaceBySlug } from "@/lib/db/workspaces";
 import type { AuthUser } from "@/lib/auth/types";
 import type { ScopedApiKeyScope } from "@/middleware/auth";
+import { validateBundleId } from "@/lib/bundle/upload-validation";
+import { createUploadToken } from "@/lib/upload-token";
 import { generateLlmText } from "./llm-text";
 
 export type McpAuthContext =
@@ -17,6 +19,7 @@ type McpToolAccess = "authenticated" | "read" | "write";
 
 type McpServerOptions = {
   includeTestWriteTool?: boolean;
+  origin?: string;
 };
 
 const BUNDLE_SCHEMA_TEXT = `## manifest.json
@@ -98,7 +101,7 @@ export function createMcpServer(
   options: McpServerOptions = {}
 ): McpServer {
   const server = new McpServer(
-    { name: "evidence-browser", version: "0.2.0" },
+    { name: "evidence-browser", version: "0.3.0" },
     { capabilities: { tools: {} } }
   );
 
@@ -206,6 +209,78 @@ export function createMcpServer(
                   sizeBytes: b.size_bytes,
                 })),
                 count: bundles.length,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "create_upload_url",
+    "Mints a short-lived signed multipart upload URL for a workspace bundle",
+    {
+      workspace: z.string().describe("Workspace slug (required)"),
+      bundleId: z.string().optional().describe("Optional bundle ID to pin in the signed URL"),
+      ttlSeconds: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Optional TTL in seconds; defaults to 600 and caps at 3600"),
+    },
+    async ({ workspace, bundleId, ttlSeconds }) => {
+      const authError = requireToolAccess(authContext, "write");
+      if (authError) return authError;
+      if (authContext.kind !== "api-key" && authContext.kind !== "bypass") {
+        return {
+          content: [{ type: "text" as const, text: "Forbidden: this MCP tool requires an issuing user." }],
+          isError: true,
+        };
+      }
+
+      const ws = findWorkspaceBySlug(workspace);
+      if (!ws) {
+        return {
+          content: [{ type: "text" as const, text: `Workspace "${workspace}" not found.` }],
+          isError: true,
+        };
+      }
+
+      if (bundleId !== undefined) {
+        const bundleIdResult = validateBundleId(bundleId);
+        if (!bundleIdResult.ok) {
+          return {
+            content: [{ type: "text" as const, text: bundleIdResult.error.message }],
+            isError: true,
+          };
+        }
+      }
+
+      const { token, expiresAt } = createUploadToken({
+        workspace: ws.slug,
+        bundleId,
+        issuerUserId: authContext.user.id,
+        ttlSeconds,
+      });
+      const uploadUrl = new URL(`/api/upload/${token}`, options.origin ?? "http://localhost:3000").toString();
+      const instructions = bundleId
+        ? `curl -X POST '${uploadUrl}' -F 'file=@bundle.zip' # bundleId is pinned to '${bundleId}'; omit the bundleId form field or set it to the same value.`
+        : `curl -X POST '${uploadUrl}' -F 'file=@bundle.zip' -F 'bundleId=pr-42-run-1' # bundleId is optional; omit it to use the filename without .zip.`;
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                uploadUrl,
+                method: "POST",
+                expiresAt: expiresAt.toISOString(),
+                instructions,
               },
               null,
               2
