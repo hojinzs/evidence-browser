@@ -48,7 +48,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/check-export-surface.mjs",
     "test": "vitest run src",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
