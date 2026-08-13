@@ -1,4 +1,147 @@
 import { getEnv } from "@/config/env";
+import type { Bundle } from "@evidence-browser/shared/api/types";
+import type { Manifest, TreeNode } from "@evidence-browser/shared/bundle/types";
+
+export type BundleFileRead =
+  | {
+      inline: true;
+      path: string;
+      sizeBytes: number;
+      detectedType: string;
+      mimeType: string;
+      content: string;
+    }
+  | {
+      inline: false;
+      path: string;
+      sizeBytes: number | null;
+      detectedType: string;
+      mimeType: string;
+      reason: "binary" | "oversized";
+      url: string;
+    };
+
+function fencedJson(value: unknown): string {
+  return `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``;
+}
+
+function formatTree(nodes: TreeNode[], depth = 0): string {
+  return nodes
+    .map((node) => {
+      const prefix = "  ".repeat(depth);
+      const marker = node.type === "directory" ? "/" : "";
+      const current = `${prefix}- ${node.path}${marker}`;
+      if (!node.children?.length) return current;
+      return `${current}\n${formatTree(node.children, depth + 1)}`;
+    })
+    .join("\n");
+}
+
+function bundleMetadata(bundle: Bundle) {
+  return {
+    bundleId: bundle.bundle_id,
+    title: bundle.title,
+    uploadedBy: bundle.uploader_username,
+    createdAt: bundle.created_at,
+    sizeBytes: bundle.size_bytes,
+  };
+}
+
+export function serializeBundleOverview(input: {
+  workspace: string;
+  bundle: Bundle;
+  manifest: Manifest;
+  tree: TreeNode[];
+  indexFile: BundleFileRead;
+}): string {
+  const indexSection = input.indexFile.inline
+    ? `## Index File: ${input.indexFile.path}
+
+Size: ${input.indexFile.sizeBytes} bytes
+Detected type: ${input.indexFile.detectedType}
+MIME type: ${input.indexFile.mimeType}
+
+\`\`\`
+${input.indexFile.content}
+\`\`\``
+    : `## Index File: ${input.indexFile.path}
+
+Inline content unavailable.
+Reason: ${input.indexFile.reason}
+Size: ${input.indexFile.sizeBytes ?? "unknown"} bytes
+Detected type: ${input.indexFile.detectedType}
+MIME type: ${input.indexFile.mimeType}
+Web URL: ${input.indexFile.url}`;
+
+  return `# Bundle Overview
+
+Workspace: ${input.workspace}
+
+## Metadata
+
+${fencedJson(bundleMetadata(input.bundle))}
+
+## Manifest
+
+${fencedJson(input.manifest)}
+
+## File Tree
+
+${formatTree(input.tree)}
+
+${indexSection}
+`;
+}
+
+export function serializeBundleTree(input: {
+  workspace: string;
+  bundleId: string;
+  tree: TreeNode[];
+}): string {
+  return `# Bundle File Tree
+
+Workspace: ${input.workspace}
+Bundle: ${input.bundleId}
+
+${formatTree(input.tree)}
+`;
+}
+
+export function serializeBundleFileRead(input: {
+  workspace: string;
+  bundleId: string;
+  file: BundleFileRead;
+}): string {
+  if (!input.file.inline) {
+    return `# Bundle File
+
+Workspace: ${input.workspace}
+Bundle: ${input.bundleId}
+Path: ${input.file.path}
+
+Inline content unavailable.
+Reason: ${input.file.reason}
+Size: ${input.file.sizeBytes ?? "unknown"} bytes
+Detected type: ${input.file.detectedType}
+MIME type: ${input.file.mimeType}
+Web URL: ${input.file.url}
+`;
+  }
+
+  return `# Bundle File
+
+Workspace: ${input.workspace}
+Bundle: ${input.bundleId}
+Path: ${input.file.path}
+Size: ${input.file.sizeBytes} bytes
+Detected type: ${input.file.detectedType}
+MIME type: ${input.file.mimeType}
+
+\`\`\`
+${input.file.content}
+\`\`\`
+`;
+}
 
 export function generateLlmText(): string {
   const env = getEnv();
@@ -128,7 +271,14 @@ ${env.MCP_API_KEY ? "  Auth: Bearer token (Authorization: Bearer <MCP_API_KEY>)"
     get_storage_info         — Storage config (no secrets)
     get_upload_instructions  — This guide
     list_workspaces          — All workspaces
-    list_bundles             — Bundles in a workspace (requires workspace param)
+    list_bundles             — Bundles in a workspace; optional uploadedBy/since/until/limit filters
     create_upload_url        — Short-lived signed multipart upload URL (upload/admin scope)
+    get_bundle_overview      — Manifest, upload metadata, file tree, and inline index file content
+    get_bundle_tree          — File tree for one bundle
+    read_bundle_file         — Inline text file read up to 256 KB; binary/oversized files return metadata + URL
+
+  Tool access:
+    Read tools require read access: read, upload, or admin scoped eb_ API keys;
+    MCP_API_KEY and auth bypass are also accepted where configured.
 `;
 }

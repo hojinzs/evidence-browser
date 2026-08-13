@@ -136,8 +136,15 @@ The response sets an evidence_session cookie.
     get_storage_info         — Storage config (no secrets)
     get_upload_instructions  — This guide
     list_workspaces          — All workspaces
-    list_bundles             — Bundles in a workspace (requires workspace param)
+    list_bundles             — Bundles in a workspace; optional uploadedBy/since/until/limit filters
     create_upload_url        — Short-lived signed multipart upload URL (upload/admin scope)
+    get_bundle_overview      — Manifest, upload metadata, file tree, and inline index file content
+    get_bundle_tree          — File tree for one bundle
+    read_bundle_file         — Inline text file read up to 256 KB; binary/oversized files return metadata + URL
+
+  Tool access:
+    Read tools require read access: read, upload, or admin scoped eb_ API keys;
+    MCP_API_KEY and auth bypass are also accepted where configured.
 `);
   });
 

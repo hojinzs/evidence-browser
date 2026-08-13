@@ -15,6 +15,13 @@ export interface BundleRow {
 
 export type BundleWithUploader = Bundle;
 
+export type ListBundlesOptions = {
+  uploadedBy?: string;
+  since?: string;
+  until?: string;
+  limit?: number;
+};
+
 function db(): Database.Database {
   return getDb();
 }
@@ -59,15 +66,42 @@ export function findBundleByStorageKey(
   return stmt.get(storageKey) as BundleRow | undefined;
 }
 
-export function listBundles(workspaceId: string): BundleWithUploader[] {
+export function listBundles(
+  workspaceId: string,
+  options: ListBundlesOptions = {}
+): BundleWithUploader[] {
+  const where = ["b.workspace_id = ?"];
+  const params: Array<string | number> = [workspaceId];
+
+  if (options.uploadedBy) {
+    where.push("u.username = ?");
+    params.push(options.uploadedBy);
+  }
+
+  if (options.since) {
+    where.push("b.created_at >= datetime(?)");
+    params.push(options.since);
+  }
+
+  if (options.until) {
+    where.push("b.created_at <= datetime(?)");
+    params.push(options.until);
+  }
+
+  const limitClause = options.limit === undefined ? "" : "LIMIT ?";
+  if (options.limit !== undefined) {
+    params.push(options.limit);
+  }
+
   const stmt = db().prepare(`
     SELECT b.*, u.username as uploader_username
     FROM bundles b
     JOIN users u ON b.uploaded_by = u.id
-    WHERE b.workspace_id = ?
+    WHERE ${where.join(" AND ")}
     ORDER BY b.created_at DESC
+    ${limitClause}
   `);
-  return stmt.all(workspaceId) as BundleWithUploader[];
+  return stmt.all(...params) as BundleWithUploader[];
 }
 
 export function countBundles(workspaceId: string): number {
