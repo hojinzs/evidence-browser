@@ -95,6 +95,13 @@ export interface ApiKeyCreateOptions extends ServerRequestOptions {
   scope: ApiKeyScope;
 }
 
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 interface SharedUrlBuilders {
   apiBundleUrl(
     workspace: string,
@@ -180,7 +187,7 @@ async function request(
 
   if (!res.ok) {
     const message = await parseErrorResponse(res);
-    throw new Error(`Request failed (${res.status}): ${message}`);
+    throw new ApiError(res.status, `Request failed (${res.status}): ${message}`);
   }
 
   return res;
@@ -229,8 +236,8 @@ export async function uploadBundle(opts: UploadOptions): Promise<UploadResult> {
   });
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(`Upload failed (${res.status}): ${body.error ?? res.statusText}`);
+    const message = await parseErrorResponse(res);
+    throw new ApiError(res.status, `Upload failed (${res.status}): ${message}`);
   }
 
   const data = await res.json() as {
