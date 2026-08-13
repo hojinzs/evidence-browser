@@ -36,10 +36,6 @@ export function authenticateApiKey(rawKey: string): AuthenticatedApiKey | null {
   };
 }
 
-export function getApiKeyUser(rawKey: string): AuthenticatedApiKey | null {
-  return authenticateApiKey(rawKey);
-}
-
 export function extractBearerToken(authorization: string | null | undefined): string | null {
   if (!authorization?.startsWith("Bearer ")) return null;
   return authorization.slice(7).trim() || null;

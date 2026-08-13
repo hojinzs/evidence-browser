@@ -94,7 +94,7 @@ function requireToolAccess(authContext: McpAuthContext, required: McpToolAccess)
 }
 
 export function createMcpServer(
-  authContext: McpAuthContext = { kind: "instance-key" },
+  authContext: McpAuthContext,
   options: McpServerOptions = {}
 ): McpServer {
   const server = new McpServer(

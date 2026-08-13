@@ -7,7 +7,7 @@ import { resetEnv } from "@/config/env";
 import { createTestDb } from "@/lib/db/index";
 import { createUser } from "@/lib/db/users";
 import { createWorkspace } from "@/lib/db/workspaces";
-import { createMcpServer } from "./server";
+import { createMcpServer, type McpAuthContext } from "./server";
 
 let testDb: Database.Database;
 
@@ -48,6 +48,8 @@ function createTransportPair() {
   return { serverTransport, clientTransport };
 }
 
+const TEST_USER = { id: "user-1", username: "member", role: "user" as const };
+
 const ORIGINAL_ENV = { ...process.env };
 
 function restoreEnv() {
@@ -70,7 +72,7 @@ describe("createMcpServer", () => {
     resetEnv();
 
     const { serverTransport, clientTransport } = createTransportPair();
-    const server = createMcpServer();
+    const server = createMcpServer({ kind: "instance-key" });
     const client = new Client({ name: "evidence-browser-test", version: "0.0.0" });
 
     await server.connect(serverTransport);
@@ -149,12 +151,27 @@ describe("createMcpServer", () => {
     }
   });
 
-  it("returns an in-protocol error when read-only callers invoke write tools", async () => {
+  it.each([
+    ["instance key", { kind: "instance-key" } satisfies McpAuthContext, false],
+    [
+      "read-scoped API key",
+      { kind: "api-key", user: TEST_USER, scope: "read" } satisfies McpAuthContext,
+      false,
+    ],
+    [
+      "upload-scoped API key",
+      { kind: "api-key", user: TEST_USER, scope: "upload" } satisfies McpAuthContext,
+      true,
+    ],
+    [
+      "admin-scoped API key",
+      { kind: "api-key", user: TEST_USER, scope: "admin" } satisfies McpAuthContext,
+      true,
+    ],
+    ["auth bypass", { kind: "bypass", user: TEST_USER } satisfies McpAuthContext, true],
+  ])("enforces write-tool access for %s", async (_label, authContext, shouldAllowWrite) => {
     const { serverTransport, clientTransport } = createTransportPair();
-    const server = createMcpServer(
-      { kind: "instance-key" },
-      { includeTestWriteTool: true }
-    );
+    const server = createMcpServer(authContext, { includeTestWriteTool: true });
     const client = new Client({ name: "evidence-browser-test", version: "0.0.0" });
 
     await server.connect(serverTransport);
@@ -171,13 +188,22 @@ describe("createMcpServer", () => {
       });
 
       expect(readResult.isError).not.toBe(true);
-      expect(writeResult.isError).toBe(true);
-      expect(writeResult.content).toEqual([
-        expect.objectContaining({
-          type: "text",
-          text: expect.stringContaining("requires upload or admin scope"),
-        }),
-      ]);
+      expect(writeResult.isError).toBe(shouldAllowWrite ? undefined : true);
+      if (shouldAllowWrite) {
+        expect(writeResult.content).toEqual([
+          expect.objectContaining({
+            type: "text",
+            text: "write access granted",
+          }),
+        ]);
+      } else {
+        expect(writeResult.content).toEqual([
+          expect.objectContaining({
+            type: "text",
+            text: expect.stringContaining("requires upload or admin scope"),
+          }),
+        ]);
+      }
     } finally {
       await client.close();
       await server.close();
