@@ -1,9 +1,23 @@
+import type Database from "better-sqlite3";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetEnv } from "@/config/env";
+import { createTestDb } from "@/lib/db/index";
+import { createUser } from "@/lib/db/users";
+import { createWorkspace } from "@/lib/db/workspaces";
 import { createMcpServer } from "./server";
+
+let testDb: Database.Database;
+
+vi.mock("@/lib/db/index", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/db/index")>();
+  return {
+    ...original,
+    getDb: () => testDb,
+  };
+});
 
 class MemoryTransport implements Transport {
   peer: MemoryTransport | null = null;
@@ -42,6 +56,10 @@ function restoreEnv() {
 }
 
 describe("createMcpServer", () => {
+  beforeEach(() => {
+    testDb = createTestDb();
+  });
+
   afterEach(() => {
     restoreEnv();
   });
@@ -89,6 +107,75 @@ describe("createMcpServer", () => {
         expect.objectContaining({
           type: "text",
           text: expect.stringContaining("Binary: all others (shown as download link)"),
+        }),
+      ]);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("allows read-scoped API keys to call read tools", async () => {
+    const user = await createUser("member", "password123", "user");
+    createWorkspace("infra", "Infrastructure", "Ops workspace", user.id);
+
+    const { serverTransport, clientTransport } = createTransportPair();
+    const server = createMcpServer({
+      kind: "api-key",
+      user: { id: user.id, username: "[api-key:eb_read]", role: "user" },
+      scope: "read",
+    });
+    const client = new Client({ name: "evidence-browser-test", version: "0.0.0" });
+
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+
+    try {
+      const result = await client.callTool({
+        name: "list_workspaces",
+        arguments: {},
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([
+        expect.objectContaining({
+          type: "text",
+          text: expect.stringContaining('"slug": "infra"'),
+        }),
+      ]);
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("returns an in-protocol error when read-only callers invoke write tools", async () => {
+    const { serverTransport, clientTransport } = createTransportPair();
+    const server = createMcpServer(
+      { kind: "instance-key" },
+      { includeTestWriteTool: true }
+    );
+    const client = new Client({ name: "evidence-browser-test", version: "0.0.0" });
+
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+
+    try {
+      const readResult = await client.callTool({
+        name: "get_bundle_schema",
+        arguments: {},
+      });
+      const writeResult = await client.callTool({
+        name: "__test_write_scope",
+        arguments: {},
+      });
+
+      expect(readResult.isError).not.toBe(true);
+      expect(writeResult.isError).toBe(true);
+      expect(writeResult.content).toEqual([
+        expect.objectContaining({
+          type: "text",
+          text: expect.stringContaining("requires upload or admin scope"),
         }),
       ]);
     } finally {

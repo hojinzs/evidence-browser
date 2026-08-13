@@ -4,7 +4,20 @@ import { getEnv } from "@/config/env";
 import { listWorkspaces } from "@/lib/db/workspaces";
 import { listBundles as dbListBundles } from "@/lib/db/bundles";
 import { findWorkspaceBySlug } from "@/lib/db/workspaces";
+import type { AuthUser } from "@/lib/auth/types";
+import type { ScopedApiKeyScope } from "@/middleware/auth";
 import { generateLlmText } from "./llm-text";
+
+export type McpAuthContext =
+  | { kind: "api-key"; user: AuthUser; scope: ScopedApiKeyScope }
+  | { kind: "instance-key" }
+  | { kind: "bypass"; user: AuthUser };
+
+type McpToolAccess = "authenticated" | "read" | "write";
+
+type McpServerOptions = {
+  includeTestWriteTool?: boolean;
+};
 
 const BUNDLE_SCHEMA_TEXT = `## manifest.json
 
@@ -57,7 +70,33 @@ Images: .png .jpg .jpeg .gif .svg .webp .ico
 Text: .txt .log .csv .env
 Binary: all others (shown as download link)`;
 
-export function createMcpServer(): McpServer {
+function hasToolAccess(authContext: McpAuthContext, required: McpToolAccess): boolean {
+  if (required === "authenticated") return true;
+  if (authContext.kind === "bypass") return true;
+  if (required === "read") return true;
+  return authContext.kind === "api-key" && ["upload", "admin"].includes(authContext.scope);
+}
+
+function requireToolAccess(authContext: McpAuthContext, required: McpToolAccess) {
+  if (hasToolAccess(authContext, required)) return null;
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text:
+          required === "write"
+            ? "Forbidden: this MCP tool requires upload or admin scope."
+            : "Forbidden: this MCP tool requires read scope.",
+      },
+    ],
+    isError: true,
+  };
+}
+
+export function createMcpServer(
+  authContext: McpAuthContext = { kind: "instance-key" },
+  options: McpServerOptions = {}
+): McpServer {
   const server = new McpServer(
     { name: "evidence-browser", version: "0.2.0" },
     { capabilities: { tools: {} } }
@@ -66,15 +105,21 @@ export function createMcpServer(): McpServer {
   server.tool(
     "get_bundle_schema",
     "Returns the manifest.json schema, expected bundle zip structure, and upload instructions",
-    async () => ({
-      content: [{ type: "text" as const, text: BUNDLE_SCHEMA_TEXT }],
-    })
+    async () => {
+      const authError = requireToolAccess(authContext, "authenticated");
+      if (authError) return authError;
+      return {
+        content: [{ type: "text" as const, text: BUNDLE_SCHEMA_TEXT }],
+      };
+    }
   );
 
   server.tool(
     "get_storage_info",
     "Returns the configured storage type, bucket, endpoint, and region (no secrets)",
     async () => {
+      const authError = requireToolAccess(authContext, "authenticated");
+      if (authError) return authError;
       const env = getEnv();
       const info =
         env.STORAGE_TYPE === "s3"
@@ -98,15 +143,21 @@ export function createMcpServer(): McpServer {
   server.tool(
     "get_upload_instructions",
     "Returns step-by-step instructions for uploading a bundle to Evidence Browser",
-    async () => ({
-      content: [{ type: "text" as const, text: generateLlmText() }],
-    })
+    async () => {
+      const authError = requireToolAccess(authContext, "authenticated");
+      if (authError) return authError;
+      return {
+        content: [{ type: "text" as const, text: generateLlmText() }],
+      };
+    }
   );
 
   server.tool(
     "list_workspaces",
     "Lists all workspaces in Evidence Browser",
     async () => {
+      const authError = requireToolAccess(authContext, "read");
+      if (authError) return authError;
       const workspaces = listWorkspaces();
       return {
         content: [
@@ -130,6 +181,8 @@ export function createMcpServer(): McpServer {
       workspace: z.string().describe("Workspace slug (required)"),
     },
     async ({ workspace }) => {
+      const authError = requireToolAccess(authContext, "read");
+      if (authError) return authError;
       const ws = findWorkspaceBySlug(workspace);
       if (!ws) {
         return {
@@ -162,6 +215,20 @@ export function createMcpServer(): McpServer {
       };
     }
   );
+
+  if (options.includeTestWriteTool) {
+    server.tool(
+      "__test_write_scope",
+      "Test-only write-capability probe",
+      async () => {
+        const authError = requireToolAccess(authContext, "write");
+        if (authError) return authError;
+        return {
+          content: [{ type: "text" as const, text: "write access granted" }],
+        };
+      }
+    );
+  }
 
   server.registerResource(
     "llm_integration_guide",
