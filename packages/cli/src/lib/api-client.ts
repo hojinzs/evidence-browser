@@ -304,12 +304,7 @@ export async function updateWorkspace(
     body.description = opts.description;
   }
 
-  const { workspace } = await requestJson<{ workspace: WorkspaceSummary }>(
-    `/api/w/${encodeURIComponent(opts.slug)}`,
-    opts
-  );
-
-  return requestJson(`/api/w/${encodeURIComponent(workspace.id)}`, opts, {
+  return requestJson(`/api/w/${encodeURIComponent(opts.slug)}`, opts, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",

@@ -459,30 +459,14 @@ test("deleteWorkspace sends a direct delete request for the workspace slug", asy
   }
 });
 
-test("updateWorkspace sends JSON to the workspace patch endpoint", async () => {
+test("updateWorkspace sends one JSON request to the workspace patch endpoint", async () => {
   const previousFetch = global.fetch;
   const requests: unknown[] = [];
 
   global.fetch = async (url, init) => {
     requests.push(url);
 
-    if (url === "https://eb.example.com/api/w/demo") {
-      assert.ok(requestHeaders(init) instanceof Headers);
-      assert.equal(requestHeaders(init).get("Authorization"), "Bearer eb_admin");
-      return new Response(
-        JSON.stringify({
-          workspace: {
-            id: "ws_1",
-            slug: "demo",
-            name: "Demo Workspace",
-            description: "Old description",
-          },
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    assert.equal(url, "https://eb.example.com/api/w/ws_1");
+    assert.equal(url, "https://eb.example.com/api/w/demo");
     assert.equal(requestInit(init).method, "PATCH");
     assert.ok(requestHeaders(init) instanceof Headers);
     assert.equal(requestHeaders(init).get("Authorization"), "Bearer eb_admin");
@@ -522,10 +506,7 @@ test("updateWorkspace sends JSON to the workspace patch endpoint", async () => {
         description: "Updated description",
       },
     });
-    assert.deepEqual(requests, [
-      "https://eb.example.com/api/w/demo",
-      "https://eb.example.com/api/w/ws_1",
-    ]);
+    assert.deepEqual(requests, ["https://eb.example.com/api/w/demo"]);
   } finally {
     global.fetch = previousFetch;
   }
@@ -1056,20 +1037,6 @@ test("workspace update command uses environment-backed server options and prints
       body: init?.body,
     });
 
-    if (_url === "https://eb.example.com/api/w/demo") {
-      return new Response(
-        JSON.stringify({
-          workspace: {
-            id: "ws_1",
-            slug: "demo",
-            name: "Demo Workspace",
-            description: "Old description",
-          },
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
     return new Response(
       JSON.stringify({
         workspace: {
@@ -1110,11 +1077,6 @@ test("workspace update command uses environment-backed server options and prints
     assert.deepEqual(requests, [
       {
         url: "https://eb.example.com/api/w/demo",
-        method: "GET",
-        body: undefined,
-      },
-      {
-        url: "https://eb.example.com/api/w/ws_1",
         method: "PATCH",
         body: JSON.stringify({
           name: "Updated Workspace",
