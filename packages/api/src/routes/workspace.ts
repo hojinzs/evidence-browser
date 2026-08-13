@@ -3,6 +3,7 @@ import { authenticate, requireAdmin, type AppVariables } from "@/middleware/auth
 import {
   listWorkspacesWithBundleCount,
   createWorkspace,
+  findWorkspaceById,
   findWorkspaceBySlug,
   deleteWorkspace,
   updateWorkspace,
@@ -84,7 +85,13 @@ workspace.patch("/:id", requireAdmin, async (c) => {
     updates.description = description;
   }
 
-  const result = updateWorkspace(c.req.param("id"), updates);
+  const idOrSlug = c.req.param("id");
+  const targetWorkspace = findWorkspaceById(idOrSlug) ?? findWorkspaceBySlug(idOrSlug);
+  if (!targetWorkspace) {
+    return c.json({ error: "Workspace not found" }, 404);
+  }
+
+  const result = updateWorkspace(targetWorkspace.id, updates);
   if (result.status === "not_found") {
     return c.json({ error: "Workspace not found" }, 404);
   }

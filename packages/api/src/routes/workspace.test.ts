@@ -114,7 +114,7 @@ describe("workspace routes", () => {
     expect(res.status).toBe(404);
   });
 
-  it("updates workspace name and description", async () => {
+  it("updates workspace by id", async () => {
     const { workspace, adminKey } = await setup();
     const app = createTestApp();
 
@@ -135,6 +135,30 @@ describe("workspace routes", () => {
     expect(stored).toBeDefined();
     expect(stored!.name).toBe("Updated Infrastructure");
     expect(stored!.description).toBe("Updated description");
+  });
+
+  it("updates workspace by slug", async () => {
+    const { workspace, adminKey } = await setup();
+    const app = createTestApp();
+
+    const res = await patchWorkspace(
+      app,
+      workspace.slug,
+      { name: "Slug Updated" },
+      `Bearer ${adminKey}`
+    );
+
+    expect(res.status).toBe(200);
+    const payload = (await res.json()) as { workspace: { id: string; slug: string; name: string } };
+    expect(payload.workspace).toMatchObject({
+      id: workspace.id,
+      slug: workspace.slug,
+      name: "Slug Updated",
+    });
+
+    const stored = findWorkspaceById(workspace.id);
+    expect(stored).toBeDefined();
+    expect(stored!.name).toBe("Slug Updated");
   });
 
   it("supports partial updates", async () => {
