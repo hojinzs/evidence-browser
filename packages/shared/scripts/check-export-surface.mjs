@@ -1,5 +1,6 @@
+/* global console */
+
 import { createRequire } from "node:module";
-import { error } from "node:console";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { exit } from "node:process";
@@ -31,7 +32,7 @@ function toPackageSpecifier(subpath) {
 }
 
 function toDtsModuleSpecifier(typesTarget) {
-  return typesTarget.replace(/^\.\//, "./").replace(/^\.\/dist\//, "./").replace(/\.d\.ts$/, "");
+  return typesTarget.replace(/^\.\/dist\//, "./").replace(/\.d\.ts$/, "");
 }
 
 for (const [subpath, entry] of Object.entries(packageJson.exports ?? {})) {
@@ -56,9 +57,9 @@ for (const [subpath, entry] of Object.entries(packageJson.exports ?? {})) {
 }
 
 if (failures.length > 0) {
-  error("Shared package export surface is out of sync:");
+  console.error("Shared package export surface is out of sync:");
   for (const failure of failures) {
-    error(`- ${failure}`);
+    console.error(`- ${failure}`);
   }
   exit(1);
 }
