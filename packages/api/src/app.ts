@@ -55,7 +55,7 @@ export function createApp() {
         event: "request_error",
         requestId: requestIdValue,
         method: c.req.method,
-        path: c.req.path,
+        path: redactRequestLog(c.req.path),
         status: mapped.status,
         error: errorName,
         message: err instanceof Error ? err.message : String(err),

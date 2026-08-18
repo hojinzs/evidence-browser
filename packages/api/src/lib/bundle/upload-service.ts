@@ -58,9 +58,8 @@ export async function uploadBundleFromMultipart(
     return { ok: false, status: sizeResult.error.status, error: sizeResult.error.message };
   }
 
-  const tmpDir = path.join(os.tmpdir(), `evidence-upload-${Date.now()}`);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "evidence-upload-"));
   const tmpZip = path.join(tmpDir, "upload.zip");
-  fs.mkdirSync(tmpDir, { recursive: true });
 
   try {
     fs.writeFileSync(tmpZip, buffer);
