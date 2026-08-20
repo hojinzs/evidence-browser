@@ -213,7 +213,10 @@ export async function buildAuthorizationUrl(): Promise<{
 export async function handleCallback(currentUrl: URL, tx: OidcTx): Promise<OidcClaims> {
   const env = getEnv();
   const config = await getOidcConfig();
-  const tokens = await client.authorizationCodeGrant(config, currentUrl, {
+  const callbackUrl = new URL(env.OIDC_REDIRECT_URI ?? "");
+  callbackUrl.search = currentUrl.search;
+
+  const tokens = await client.authorizationCodeGrant(config, callbackUrl, {
     expectedState: tx.state,
     expectedNonce: tx.nonce,
     pkceCodeVerifier: tx.codeVerifier,

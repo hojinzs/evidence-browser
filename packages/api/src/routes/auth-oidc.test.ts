@@ -27,6 +27,7 @@ const issuer = "https://issuer.example.test";
 const authorizationEndpoint = `${issuer}/authorize`;
 const tokenEndpoint = `${issuer}/token`;
 const jwksUri = `${issuer}/jwks`;
+let tokenRequestBodies: string[] = [];
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", {
   modulusLength: 2048,
@@ -129,8 +130,27 @@ function cookieValue(setCookie: string): string {
   return decodeURIComponent(setCookie.split(";")[0].split("=").slice(1).join("="));
 }
 
+function requestBodyText(input: string | URL | Request, init?: RequestInit): Promise<string> {
+  if (input instanceof Request) {
+    return input.clone().text();
+  }
+  const body = init?.body;
+  if (!body) return Promise.resolve("");
+  if (typeof body === "string") return Promise.resolve(body);
+  if (body instanceof URLSearchParams) return Promise.resolve(body.toString());
+  if (body instanceof FormData) {
+    const params = new URLSearchParams();
+    for (const [key, value] of body.entries()) {
+      if (typeof value === "string") params.append(key, value);
+    }
+    return Promise.resolve(params.toString());
+  }
+  return Promise.resolve("");
+}
+
 function mockIssuerFetch(options: { nonce?: string; omitNonce?: boolean } = {}) {
-  const fetchMock = vi.fn(async (input: string | URL | Request) => {
+  tokenRequestBodies = [];
+  const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url =
       input instanceof Request ? input.url : input instanceof URL ? input.href : input;
 
@@ -152,6 +172,7 @@ function mockIssuerFetch(options: { nonce?: string; omitNonce?: boolean } = {}) 
     }
 
     if (url === tokenEndpoint) {
+      tokenRequestBodies.push(await requestBodyText(input, init));
       return Response.json({
         access_token: "access-token",
         token_type: "Bearer",
@@ -211,6 +232,29 @@ describe("OIDC auth routes", () => {
     );
     expect(findSetCookie(callback.headers, "eb_oidc_tx")).toContain("Max-Age=0");
     expect(findUserByUsername("oidc-member")?.password).toBeNull();
+  });
+
+  it("uses the configured redirect URI for token exchange behind a proxy", async () => {
+    setOidcEnv({
+      OIDC_REDIRECT_URI: "https://public.example.com/api/auth/oidc/callback",
+    });
+    const app = createTestApp();
+    mockIssuerFetch();
+
+    const start = await app.request("/api/auth/oidc/start?callbackUrl=/");
+    const tx = verifyOidcTx(cookieValue(findSetCookie(start.headers, "eb_oidc_tx")));
+    mockIssuerFetch({ nonce: tx?.nonce });
+
+    const callback = await app.request(
+      `http://internal.service.local/api/auth/oidc/callback?code=auth-code&state=${tx?.state}`,
+      { headers: { cookie: `eb_oidc_tx=${encodeURIComponent(signOidcTx(tx!))}` } }
+    );
+
+    expect(callback.status).toBe(302);
+    const tokenBody = new URLSearchParams(tokenRequestBodies.at(-1));
+    expect(tokenBody.get("redirect_uri")).toBe(
+      "https://public.example.com/api/auth/oidc/callback"
+    );
   });
 
   it("rejects a tampered state", async () => {
