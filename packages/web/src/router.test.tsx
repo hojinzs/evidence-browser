@@ -7,32 +7,59 @@ import {
   BundleFileErrorState,
   BundleMetaQueryState,
   BundleView,
+  CheckSetup,
   DefaultNotFoundComponent,
   DefaultRouterErrorComponent,
+  SetupPage,
   WorkspacePageContent,
 } from "./router";
 
 let mockAuthUser = { id: "user-1", username: "Ada", role: "admin" as "admin" | "user" };
+let mockAuthState = {
+  user: mockAuthUser as typeof mockAuthUser | null,
+  isLoading: false,
+  isAuthenticated: true,
+  refresh: vi.fn(async () => undefined),
+};
+let mockLocation = { hash: "", pathname: "/w/infra/b/missing-bundle", searchStr: "" };
 const mockNavigate = vi.hoisted(() => vi.fn(async () => undefined));
+
+function setMockAuthUser(user: typeof mockAuthUser) {
+  mockAuthUser = user;
+  mockAuthState = {
+    user,
+    isLoading: false,
+    isAuthenticated: true,
+    refresh: vi.fn(async () => undefined),
+  };
+}
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
-  const resolveHref = (to: string, params?: Record<string, string>) =>
-    Object.entries(params ?? {}).reduce((href, [key, value]) => href.replace(`$${key}`, value), to);
+  const resolveHref = (to: string, params?: Record<string, string>, search?: Record<string, string | undefined>) => {
+    const href = Object.entries(params ?? {}).reduce((nextHref, [key, value]) => nextHref.replace(`$${key}`, value), to);
+    const searchParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(search ?? {})) {
+      if (value !== undefined) searchParams.set(key, value);
+    }
+    const query = searchParams.toString();
+    return query ? `${href}?${query}` : href;
+  };
 
   return {
     ...actual,
     Link: ({
       to,
       params,
+      search,
       children,
       ...props
-    }: React.ComponentProps<"a"> & { to: string; params?: Record<string, string> }) => (
-      <a href={resolveHref(to, params)} {...props}>
+    }: React.ComponentProps<"a"> & { to: string; params?: Record<string, string>; search?: Record<string, string | undefined> }) => (
+      <a href={resolveHref(to, params, search)} {...props}>
         {children}
       </a>
     ),
-    useLocation: () => ({ hash: "", pathname: "/w/infra/b/missing-bundle", searchStr: "" }),
+    useLocation: () => mockLocation,
     useNavigate: () => mockNavigate,
   };
 });
@@ -41,12 +68,7 @@ vi.mock("@/lib/auth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/auth")>();
   return {
     ...actual,
-    useAuth: () => ({
-      user: mockAuthUser,
-      isLoading: false,
-      isAuthenticated: true,
-      refresh: vi.fn(async () => undefined),
-    }),
+    useAuth: () => mockAuthState,
   };
 });
 
@@ -64,7 +86,8 @@ describe("bundle query states", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     mockNavigate.mockClear();
-    mockAuthUser = { id: "user-1", username: "Ada", role: "admin" };
+    setMockAuthUser({ id: "user-1", username: "Ada", role: "admin" });
+    mockLocation = { hash: "", pathname: "/w/infra/b/missing-bundle", searchStr: "" };
   });
 
   it("renders the app-level error fallback with recovery actions", async () => {
@@ -90,8 +113,68 @@ describe("bundle query states", () => {
     expect(screen.getByRole("link", { name: "Back to workspaces" })).toHaveAttribute("href", "/");
   });
 
+  it("keeps the login route available while setup is incomplete", async () => {
+    mockLocation = { hash: "", pathname: "/login", searchStr: "?callbackUrl=%2Fsetup" };
+    vi.spyOn(api, "setupStatus").mockResolvedValueOnce({
+      needsSetup: true,
+      hasAdmin: true,
+      hasWorkspace: false,
+    });
+
+    renderWithQueryClient(
+      <CheckSetup>
+        <div>Login form</div>
+      </CheckSetup>
+    );
+
+    expect(await screen.findByText("Login form")).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalledWith({ to: "/setup" });
+  });
+
+  it("shows setup loading state instead of an empty screen", () => {
+    vi.spyOn(api, "setupStatus").mockReturnValue(new Promise(() => undefined));
+
+    renderWithQueryClient(<SetupPage />);
+
+    expect(screen.getByText("Checking setup status")).toBeInTheDocument();
+    expect(screen.getByText("Loading the current setup and sign-in state...")).toBeInTheDocument();
+  });
+
+  it("redirects half-finished setup to login with setup callback and visible recovery copy", async () => {
+    mockAuthState = {
+      user: null,
+      isLoading: false,
+      isAuthenticated: false,
+      refresh: vi.fn(async () => undefined),
+    };
+    vi.spyOn(api, "setupStatus").mockResolvedValueOnce({
+      needsSetup: true,
+      hasAdmin: true,
+      hasWorkspace: false,
+    });
+
+    renderWithQueryClient(<SetupPage />);
+
+    expect(await screen.findByText("Sign in required to continue setup")).toBeInTheDocument();
+    expect(mockNavigate).toHaveBeenCalledWith({ to: "/login", search: { callbackUrl: "/setup" } });
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login?callbackUrl=%2Fsetup");
+  });
+
+  it("resumes setup at storage for an authenticated admin after admin creation", async () => {
+    vi.spyOn(api, "setupStatus").mockResolvedValueOnce({
+      needsSetup: true,
+      hasAdmin: true,
+      hasWorkspace: false,
+    });
+
+    renderWithQueryClient(<SetupPage />);
+
+    expect(await screen.findByText("Verify storage connection")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check connection" })).toBeInTheDocument();
+  });
+
   it("surfaces workspace query failures without redirecting away", async () => {
-    mockAuthUser = { id: "user-2", username: "Grace", role: "user" };
+    setMockAuthUser({ id: "user-2", username: "Grace", role: "user" });
     vi.spyOn(api, "getWorkspaces").mockRejectedValueOnce(new ApiError(503, "Workspace service unavailable"));
     vi.spyOn(api, "getBundles").mockResolvedValueOnce({ bundles: [] });
 
@@ -103,7 +186,7 @@ describe("bundle query states", () => {
   });
 
   it("surfaces bundle query failures instead of the empty bundle state", async () => {
-    mockAuthUser = { id: "user-2", username: "Grace", role: "user" };
+    setMockAuthUser({ id: "user-2", username: "Grace", role: "user" });
     vi.spyOn(api, "getWorkspaces").mockResolvedValueOnce({
       workspaces: [{
         id: "workspace-1",
@@ -283,7 +366,7 @@ describe("bundle query states", () => {
   });
 
   it("hides the share link action from non-admin users", async () => {
-    mockAuthUser = { id: "user-2", username: "Grace", role: "user" };
+    setMockAuthUser({ id: "user-2", username: "Grace", role: "user" });
     vi.spyOn(api, "getBundleMeta").mockResolvedValueOnce({
       manifest: {
         version: 1,
