@@ -4,7 +4,7 @@ import type { UserPublic } from "@evidence-browser/shared/api/types";
 import { getDb } from "./index";
 
 export interface User extends UserPublic {
-  password: string;
+  password: string | null;
 }
 
 function db(): Database.Database {

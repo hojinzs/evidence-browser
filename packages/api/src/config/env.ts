@@ -6,6 +6,13 @@ const booleanFromString = z
   .default("false")
   .transform((v) => v === "true");
 
+const booleanFromStringWithDefault = (defaultVal: boolean) =>
+  z
+    .string()
+    .optional()
+    .default(String(defaultVal))
+    .transform((v) => v === "true");
+
 const numberFromString = (defaultVal: number) =>
   z
     .string()
@@ -45,6 +52,21 @@ const envSchema = z
     // Auth
     AUTH_SECRET: z.string().optional().default("evidence-browser-default-secret-change-me"),
     AUTH_BYPASS: booleanFromString,
+    AUTH_LOCAL_ENABLED: booleanFromStringWithDefault(true),
+
+    // OIDC
+    OIDC_ENABLED: booleanFromString,
+    OIDC_ISSUER: z.string().optional(),
+    OIDC_CLIENT_ID: z.string().optional(),
+    OIDC_CLIENT_SECRET: z.string().optional(),
+    OIDC_REDIRECT_URI: z.string().optional(),
+    OIDC_SCOPES: z.string().optional().default("openid profile email"),
+    OIDC_GROUPS_CLAIM: z.string().optional().default("groups"),
+    OIDC_ADMIN_GROUP: z.string().optional(),
+    OIDC_ALLOWED_GROUPS: z.string().optional(),
+    OIDC_AUTO_PROVISION: booleanFromStringWithDefault(true),
+    OIDC_LINK_BY_VERIFIED_EMAIL: booleanFromString,
+    OIDC_BUTTON_LABEL: z.string().optional().default("Sign in with SSO"),
 
     NODE_ENV: z.enum(["development", "test", "production"]).optional().default("development"),
 
@@ -104,6 +126,36 @@ const envSchema = z
     {
       message: "AUTH_SECRET must be explicitly set in production (do not use the default value)",
       path: ["AUTH_SECRET"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.OIDC_ENABLED) {
+        return (
+          !!data.OIDC_ISSUER &&
+          !!data.OIDC_CLIENT_ID &&
+          !!data.OIDC_CLIENT_SECRET &&
+          !!data.OIDC_REDIRECT_URI
+        );
+      }
+      return true;
+    },
+    {
+      message:
+        "OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, and OIDC_REDIRECT_URI are required when OIDC_ENABLED=true",
+      path: ["OIDC_ISSUER"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (!data.AUTH_LOCAL_ENABLED) {
+        return data.OIDC_ENABLED;
+      }
+      return true;
+    },
+    {
+      message: "OIDC_ENABLED=true is required when AUTH_LOCAL_ENABLED=false",
+      path: ["AUTH_LOCAL_ENABLED"],
     }
   );
 

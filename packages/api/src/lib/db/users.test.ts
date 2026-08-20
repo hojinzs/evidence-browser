@@ -44,11 +44,12 @@ describe("users DAO", () => {
     await createUser("test", "correct-password", "user");
     const user = findUserByUsername("test");
     expect(user).toBeDefined();
+    expect(user!.password).not.toBeNull();
 
-    const valid = await verifyPassword("correct-password", user!.password);
+    const valid = await verifyPassword("correct-password", user!.password!);
     expect(valid).toBe(true);
 
-    const invalid = await verifyPassword("wrong-password", user!.password);
+    const invalid = await verifyPassword("wrong-password", user!.password!);
     expect(invalid).toBe(false);
   });
 
