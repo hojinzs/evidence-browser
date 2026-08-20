@@ -15,6 +15,13 @@ export interface BundleRow {
 
 export type BundleWithUploader = Bundle;
 
+export type ListBundlesOptions = {
+  uploadedBy?: string;
+  since?: string;
+  until?: string;
+  limit?: number;
+};
+
 function db(): Database.Database {
   return getDb();
 }
@@ -52,6 +59,19 @@ export function findBundle(
   return stmt.get(workspaceId, bundleId) as BundleRow | undefined;
 }
 
+export function findBundleWithUploader(
+  workspaceId: string,
+  bundleId: string
+): BundleWithUploader | undefined {
+  const stmt = db().prepare(`
+    SELECT b.*, u.username as uploader_username
+    FROM bundles b
+    JOIN users u ON b.uploaded_by = u.id
+    WHERE b.workspace_id = ? AND b.bundle_id = ?
+  `);
+  return stmt.get(workspaceId, bundleId) as BundleWithUploader | undefined;
+}
+
 export function findBundleByStorageKey(
   storageKey: string
 ): BundleRow | undefined {
@@ -59,22 +79,61 @@ export function findBundleByStorageKey(
   return stmt.get(storageKey) as BundleRow | undefined;
 }
 
-export function listBundles(workspaceId: string): BundleWithUploader[] {
+function bundleListWhere(workspaceId: string, options: Omit<ListBundlesOptions, "limit"> = {}) {
+  const where = ["b.workspace_id = ?"];
+  const params: Array<string | number> = [workspaceId];
+
+  if (options.uploadedBy) {
+    where.push("u.username = ?");
+    params.push(options.uploadedBy);
+  }
+
+  if (options.since) {
+    where.push("b.created_at >= datetime(?)");
+    params.push(options.since);
+  }
+
+  if (options.until) {
+    where.push("b.created_at <= datetime(?)");
+    params.push(options.until);
+  }
+
+  return { where, params };
+}
+
+export function listBundles(
+  workspaceId: string,
+  options: ListBundlesOptions = {}
+): BundleWithUploader[] {
+  const { where, params } = bundleListWhere(workspaceId, options);
+  const limitClause = options.limit === undefined ? "" : "LIMIT ?";
+  if (options.limit !== undefined) {
+    params.push(options.limit);
+  }
+
   const stmt = db().prepare(`
     SELECT b.*, u.username as uploader_username
     FROM bundles b
     JOIN users u ON b.uploaded_by = u.id
-    WHERE b.workspace_id = ?
+    WHERE ${where.join(" AND ")}
     ORDER BY b.created_at DESC
+    ${limitClause}
   `);
-  return stmt.all(workspaceId) as BundleWithUploader[];
+  return stmt.all(...params) as BundleWithUploader[];
 }
 
-export function countBundles(workspaceId: string): number {
-  const stmt = db().prepare(
-    `SELECT COUNT(*) as count FROM bundles WHERE workspace_id = ?`
-  );
-  const row = stmt.get(workspaceId) as { count: number };
+export function countBundles(
+  workspaceId: string,
+  options: Omit<ListBundlesOptions, "limit"> = {}
+): number {
+  const { where, params } = bundleListWhere(workspaceId, options);
+  const stmt = db().prepare(`
+    SELECT COUNT(*) as count
+    FROM bundles b
+    JOIN users u ON b.uploaded_by = u.id
+    WHERE ${where.join(" AND ")}
+  `);
+  const row = stmt.get(...params) as { count: number };
   return row.count;
 }
 

@@ -1,14 +1,36 @@
+import fs from "fs";
+import path from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod/v4";
 import { getEnv } from "@/config/env";
 import { listWorkspaces } from "@/lib/db/workspaces";
-import { listBundles as dbListBundles } from "@/lib/db/bundles";
+import { countBundles, listBundles as dbListBundles } from "@/lib/db/bundles";
 import { findWorkspaceBySlug } from "@/lib/db/workspaces";
+import { findBundleWithUploader } from "@/lib/db/bundles";
+import { extractBundle, getFileContent } from "@/lib/bundle/extractor";
+import {
+  BundleNotFoundError,
+  BundleSizeLimitError,
+  FileCountLimitError,
+  ManifestNotFoundError,
+  ManifestValidationError,
+} from "@/lib/bundle/types";
+import { ensureWithinRoot, validatePathSafety } from "@/lib/bundle/security";
+import { detectFileType, getMimeType } from "@evidence-browser/shared/files/detect";
+import { bundleFileUrl } from "@evidence-browser/shared/url";
+import type { Bundle, Workspace } from "@evidence-browser/shared/api/types";
+import type { CacheEntry } from "@evidence-browser/shared/bundle/types";
 import type { AuthUser } from "@/lib/auth/types";
 import type { ScopedApiKeyScope } from "@/middleware/auth";
 import { validateBundleId } from "@/lib/bundle/upload-validation";
 import { createUploadToken } from "@/lib/upload-token";
-import { generateLlmText } from "./llm-text";
+import {
+  generateLlmText,
+  serializeBundleFileRead,
+  serializeBundleOverview,
+  serializeBundleTree,
+  type BundleFileRead,
+} from "./llm-text";
 
 export type McpAuthContext =
   | { kind: "api-key"; user: AuthUser; scope: ScopedApiKeyScope }
@@ -21,6 +43,20 @@ type McpServerOptions = {
   includeTestWriteTool?: boolean;
   origin?: string;
 };
+
+type McpTextResult = {
+  content: Array<{ type: "text"; text: string }>;
+  isError?: true;
+};
+
+type McpBundleResolution =
+  | { workspace: Workspace; bundle: Bundle }
+  | { error: McpTextResult };
+
+const MCP_INLINE_FILE_LIMIT_BYTES = 256 * 1024;
+const MCP_LIST_BUNDLES_DEFAULT_LIMIT = 50;
+const MCP_LIST_BUNDLES_MAX_LIMIT = 200;
+const ISO_OFFSET_DATE_TIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 const BUNDLE_SCHEMA_TEXT = `## manifest.json
 
@@ -76,11 +112,14 @@ Binary: all others (shown as download link)`;
 function hasToolAccess(authContext: McpAuthContext, required: McpToolAccess): boolean {
   if (required === "authenticated") return true;
   if (authContext.kind === "bypass") return true;
-  if (required === "read") return true;
-  return authContext.kind === "api-key" && ["upload", "admin"].includes(authContext.scope);
+  if (authContext.kind === "instance-key") {
+    return required === "read" && Boolean(getEnv().MCP_API_KEY);
+  }
+  if (required === "read") return ["read", "upload", "admin"].includes(authContext.scope);
+  return ["upload", "admin"].includes(authContext.scope);
 }
 
-function requireToolAccess(authContext: McpAuthContext, required: McpToolAccess) {
+function requireToolAccess(authContext: McpAuthContext, required: McpToolAccess): McpTextResult | null {
   if (hasToolAccess(authContext, required)) return null;
   return {
     content: [
@@ -92,6 +131,203 @@ function requireToolAccess(authContext: McpAuthContext, required: McpToolAccess)
             : "Forbidden: this MCP tool requires read scope.",
       },
     ],
+    isError: true,
+  };
+}
+
+function clampListLimit(limit: number | undefined): number {
+  if (limit === undefined) return MCP_LIST_BUNDLES_DEFAULT_LIMIT;
+  return Math.min(Math.max(Math.trunc(limit), 1), MCP_LIST_BUNDLES_MAX_LIMIT);
+}
+
+function validateIsoDateFilter(name: string, value: string | undefined): McpTextResult | null {
+  if (value === undefined) return null;
+  if (!ISO_OFFSET_DATE_TIME_RE.test(value) || Number.isNaN(Date.parse(value))) {
+    return {
+      content: [{ type: "text" as const, text: `${name} must be an ISO-8601 date/time with an explicit timezone offset.` }],
+      isError: true,
+    };
+  }
+  return null;
+}
+
+function toUtcIsoDateTime(value: string): string {
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+    ? `${value.replace(" ", "T")}Z`
+    : value;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? value : date.toISOString();
+}
+
+async function resolveMcpBundle(workspace: string, bundleId: string): Promise<McpBundleResolution> {
+  const ws = findWorkspaceBySlug(workspace);
+  if (!ws) {
+    return {
+      error: {
+        content: [{ type: "text" as const, text: `Workspace "${workspace}" not found.` }],
+        isError: true,
+      },
+    };
+  }
+
+  const bundle = findBundleWithUploader(ws.id, bundleId);
+  if (!bundle) {
+    return {
+      error: {
+        content: [{ type: "text" as const, text: `Bundle "${bundleId}" not found in workspace "${workspace}".` }],
+        isError: true,
+      },
+    };
+  }
+
+  return {
+    workspace: ws,
+    bundle,
+  };
+}
+
+function fileReadUnavailableError(pathLabel: string): McpTextResult {
+  return {
+    content: [{ type: "text" as const, text: `Unable to read file "${pathLabel}".` }],
+    isError: true,
+  };
+}
+
+function isFileSystemErrorCode(error: unknown, codes: string[]): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      codes.includes(String((error as { code?: unknown }).code))
+  );
+}
+
+function normalizeMcpReadError(
+  error: unknown,
+  workspace: string,
+  bundleId: string,
+  pathLabel?: string
+): McpTextResult | null {
+  if (error instanceof Error && error.message === "Invalid file path") {
+    return {
+      content: [{ type: "text" as const, text: "Invalid file path." }],
+      isError: true,
+    };
+  }
+
+  if (error instanceof Error && error.message === "Not a file") {
+    return {
+      content: [{ type: "text" as const, text: `Path "${pathLabel ?? "manifest index"}" is not a file.` }],
+      isError: true,
+    };
+  }
+
+  if (isFileSystemErrorCode(error, ["ENOENT", "ENOTDIR"])) {
+    return fileNotFoundError(pathLabel ?? "manifest index");
+  }
+
+  if (pathLabel && isFileSystemErrorCode(error, ["EACCES", "EPERM", "EISDIR"])) {
+    return fileReadUnavailableError(pathLabel);
+  }
+
+  if (error instanceof BundleNotFoundError) {
+    return {
+      content: [{ type: "text" as const, text: `Bundle "${bundleId}" not found in workspace "${workspace}".` }],
+      isError: true,
+    };
+  }
+
+  if (error instanceof BundleSizeLimitError) {
+    return {
+      content: [{ type: "text" as const, text: `Bundle "${bundleId}" exceeds the configured bundle size limit.` }],
+      isError: true,
+    };
+  }
+
+  if (error instanceof FileCountLimitError) {
+    return {
+      content: [{ type: "text" as const, text: `Bundle "${bundleId}" exceeds the configured file count limit.` }],
+      isError: true,
+    };
+  }
+
+  if (error instanceof ManifestNotFoundError) {
+    return {
+      content: [{ type: "text" as const, text: `Bundle "${bundleId}" manifest was not found.` }],
+      isError: true,
+    };
+  }
+
+  if (error instanceof ManifestValidationError) {
+    return {
+      content: [{ type: "text" as const, text: `Bundle "${bundleId}" manifest is invalid.` }],
+      isError: true,
+    };
+  }
+
+  return null;
+}
+
+async function readMcpBundleFile(
+  entry: CacheEntry,
+  workspace: string,
+  bundleId: string,
+  filePath: string
+): Promise<BundleFileRead> {
+  if (!validatePathSafety(filePath)) {
+    throw new Error("Invalid file path");
+  }
+
+  const fullPath = path.join(entry.cacheDir, filePath);
+  if (!ensureWithinRoot(entry.cacheDir, fullPath)) {
+    throw new Error("Invalid file path");
+  }
+
+  const detectedType = detectFileType(filePath);
+  const mimeType = getMimeType(filePath);
+  const stat = await fs.promises.stat(fullPath);
+  if (!stat.isFile()) {
+    throw new Error("Not a file");
+  }
+
+  if (detectedType === "binary" || detectedType === "image") {
+    return {
+      inline: false,
+      path: filePath,
+      sizeBytes: stat.size,
+      detectedType,
+      mimeType,
+      reason: "binary",
+      url: bundleFileUrl(workspace, bundleId, filePath),
+    };
+  }
+
+  if (stat.size > MCP_INLINE_FILE_LIMIT_BYTES) {
+    return {
+      inline: false,
+      path: filePath,
+      sizeBytes: stat.size,
+      detectedType,
+      mimeType,
+      reason: "oversized",
+      url: bundleFileUrl(workspace, bundleId, filePath),
+    };
+  }
+
+  const content = await getFileContent(entry.cacheDir, filePath);
+  return {
+    inline: true,
+    path: filePath,
+    sizeBytes: stat.size,
+    detectedType,
+    mimeType,
+    content: content.toString("utf8"),
+  };
+}
+
+function fileNotFoundError(pathLabel: string): McpTextResult {
+  return {
+    content: [{ type: "text" as const, text: `File "${pathLabel}" not found.` }],
     isError: true,
   };
 }
@@ -179,13 +415,21 @@ export function createMcpServer(
 
   server.tool(
     "list_bundles",
-    "Lists bundles in a workspace",
+    "Lists bundles in a workspace, optionally filtered by uploader, time range, and limit",
     {
       workspace: z.string().describe("Workspace slug (required)"),
+      uploadedBy: z.string().optional().describe("Uploader username filter"),
+      since: z.string().optional().describe("Only bundles uploaded at or after this ISO-8601 date/time with timezone offset"),
+      until: z.string().optional().describe("Only bundles uploaded at or before this ISO-8601 date/time with timezone offset"),
+      limit: z.number().int().positive().optional().describe("Max bundles to return (default 50, capped at 200)"),
     },
-    async ({ workspace }) => {
+    async ({ workspace, uploadedBy, since, until, limit }) => {
       const authError = requireToolAccess(authContext, "read");
       if (authError) return authError;
+      const sinceError = validateIsoDateFilter("since", since);
+      if (sinceError) return sinceError;
+      const untilError = validateIsoDateFilter("until", until);
+      if (untilError) return untilError;
       const ws = findWorkspaceBySlug(workspace);
       if (!ws) {
         return {
@@ -193,7 +437,10 @@ export function createMcpServer(
           isError: true,
         };
       }
-      const bundles = dbListBundles(ws.id);
+      const effectiveLimit = clampListLimit(limit);
+      const filters = { uploadedBy, since, until };
+      const total = countBundles(ws.id, filters);
+      const bundles = dbListBundles(ws.id, { ...filters, limit: effectiveLimit });
       return {
         content: [
           {
@@ -205,10 +452,18 @@ export function createMcpServer(
                   bundleId: b.bundle_id,
                   title: b.title,
                   uploadedBy: b.uploader_username,
-                  createdAt: b.created_at,
+                  createdAt: toUtcIsoDateTime(b.created_at),
                   sizeBytes: b.size_bytes,
                 })),
                 count: bundles.length,
+                total,
+                hasMore: bundles.length < total,
+                filters: {
+                  uploadedBy: uploadedBy ?? null,
+                  since: since ?? null,
+                  until: until ?? null,
+                  limit: effectiveLimit,
+                },
               },
               null,
               2
@@ -288,6 +543,118 @@ export function createMcpServer(
           },
         ],
       };
+    }
+  );
+
+  server.tool(
+    "get_bundle_overview",
+    "Returns manifest, metadata, file tree, and inline manifest index file content for one bundle",
+    {
+      workspace: z.string().describe("Workspace slug (required)"),
+      bundleId: z.string().describe("Bundle ID (required)"),
+    },
+    async ({ workspace, bundleId }) => {
+      const authError = requireToolAccess(authContext, "read");
+      if (authError) return authError;
+      const resolved = await resolveMcpBundle(workspace, bundleId);
+      if ("error" in resolved) return resolved.error;
+
+      let indexPath: string | undefined;
+      try {
+        const entry = await extractBundle(resolved.bundle.storage_key);
+        indexPath = entry.manifest.index;
+        const indexFile = await readMcpBundleFile(entry, resolved.workspace.slug, bundleId, indexPath);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: serializeBundleOverview({
+                workspace: resolved.workspace.slug,
+                bundle: resolved.bundle,
+                manifest: entry.manifest,
+                tree: entry.fileTree,
+                indexFile,
+              }),
+            },
+          ],
+        };
+      } catch (err) {
+        const normalized = normalizeMcpReadError(err, resolved.workspace.slug, bundleId, indexPath);
+        if (normalized) return normalized;
+        throw err;
+      }
+    }
+  );
+
+  server.tool(
+    "get_bundle_tree",
+    "Returns the file tree for one bundle",
+    {
+      workspace: z.string().describe("Workspace slug (required)"),
+      bundleId: z.string().describe("Bundle ID (required)"),
+    },
+    async ({ workspace, bundleId }) => {
+      const authError = requireToolAccess(authContext, "read");
+      if (authError) return authError;
+      const resolved = await resolveMcpBundle(workspace, bundleId);
+      if ("error" in resolved) return resolved.error;
+
+      try {
+        const entry = await extractBundle(resolved.bundle.storage_key);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: serializeBundleTree({
+                workspace: resolved.workspace.slug,
+                bundleId,
+                tree: entry.fileTree,
+              }),
+            },
+          ],
+        };
+      } catch (err) {
+        const normalized = normalizeMcpReadError(err, resolved.workspace.slug, bundleId);
+        if (normalized) return normalized;
+        throw err;
+      }
+    }
+  );
+
+  server.tool(
+    "read_bundle_file",
+    "Reads one text file from a bundle, or returns metadata and web URL for binary/oversized files",
+    {
+      workspace: z.string().describe("Workspace slug (required)"),
+      bundleId: z.string().describe("Bundle ID (required)"),
+      path: z.string().describe("Bundle-relative file path (required)"),
+    },
+    async ({ workspace, bundleId, path: filePath }) => {
+      const authError = requireToolAccess(authContext, "read");
+      if (authError) return authError;
+      const resolved = await resolveMcpBundle(workspace, bundleId);
+      if ("error" in resolved) return resolved.error;
+
+      try {
+        const entry = await extractBundle(resolved.bundle.storage_key);
+        const file = await readMcpBundleFile(entry, resolved.workspace.slug, bundleId, filePath);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: serializeBundleFileRead({
+                workspace: resolved.workspace.slug,
+                bundleId,
+                file,
+              }),
+            },
+          ],
+        };
+      } catch (err) {
+        const normalized = normalizeMcpReadError(err, resolved.workspace.slug, bundleId, filePath);
+        if (normalized) return normalized;
+        throw err;
+      }
     }
   );
 

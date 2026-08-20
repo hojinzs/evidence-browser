@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { resetEnv } from "@/config/env";
-import { generateLlmText } from "./llm-text";
+import type { Bundle } from "@evidence-browser/shared/api/types";
+import { generateLlmText, serializeBundleFileRead, serializeBundleOverview } from "./llm-text";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -136,8 +137,15 @@ The response sets an evidence_session cookie.
     get_storage_info         — Storage config (no secrets)
     get_upload_instructions  — This guide
     list_workspaces          — All workspaces
-    list_bundles             — Bundles in a workspace (requires workspace param)
+    list_bundles             — Bundles in a workspace; optional uploadedBy/since/until/limit filters
     create_upload_url        — Short-lived signed multipart upload URL (upload/admin scope)
+    get_bundle_overview      — Manifest, upload metadata, file tree, and inline index file content
+    get_bundle_tree          — File tree for one bundle
+    read_bundle_file         — Inline text file read up to 256 KB; binary/oversized files return metadata + URL
+
+  Tool access:
+    Read tools require read access: read, upload, or admin scoped eb_ API keys;
+    MCP_API_KEY and auth bypass are also accepted where configured.
 `);
   });
 
@@ -167,5 +175,51 @@ S3 Force Path Style: true`);
     expect(text).not.toContain("AKIA_TEST_SHOULD_NOT_LEAK");
     expect(text).not.toContain("secret-should-not-leak");
     expect(text).not.toContain("mcp-secret");
+  });
+});
+
+describe("bundle MCP serializers", () => {
+  it("serializes bundle metadata timestamps as UTC ISO-8601", () => {
+    const bundle = {
+      bundle_id: "run-1",
+      title: "Run 1",
+      uploader_username: "qa-agent",
+      created_at: "2026-08-10 00:00:00",
+      size_bytes: 512,
+    } as Bundle;
+
+    const text = serializeBundleOverview({
+      workspace: "qa",
+      bundle,
+      manifest: { version: 1, title: "Run 1", index: "index.md" },
+      tree: [{ name: "index.md", path: "index.md", type: "file" }],
+      indexFile: {
+        inline: true,
+        path: "index.md",
+        sizeBytes: 7,
+        detectedType: "markdown",
+        mimeType: "text/markdown",
+        content: "# Run 1",
+      },
+    });
+
+    expect(text).toContain('"createdAt": "2026-08-10T00:00:00.000Z"');
+  });
+
+  it("uses a longer fence when inline file content contains triple backticks", () => {
+    const text = serializeBundleFileRead({
+      workspace: "qa",
+      bundleId: "run-1",
+      file: {
+        inline: true,
+        path: "index.md",
+        sizeBytes: 30,
+        detectedType: "markdown",
+        mimeType: "text/markdown",
+        content: "before\n```ts\nconst ok = true;\n```\nafter",
+      },
+    });
+
+    expect(text).toContain("````\nbefore\n```ts\nconst ok = true;\n```\nafter\n````");
   });
 });
