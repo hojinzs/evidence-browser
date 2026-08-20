@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { TanStackRouterDevtools } from "@tanstack/router-devtools";
-import { Check, Copy, PackageOpen } from "lucide-react";
+import { Check, Copy, Loader2, PackageOpen } from "lucide-react";
 import { AppShell, MobileSidebarTrigger } from "@/components/layout/app-shell";
 import { Header } from "@/components/layout/header";
 import { BrandMark } from "@/components/layout/brand";
@@ -76,7 +76,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function CheckSetup({ children }: { children: React.ReactNode }) {
+export function CheckSetup({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const setupQuery = useQuery({
@@ -87,7 +87,12 @@ function CheckSetup({ children }: { children: React.ReactNode }) {
   });
 
   React.useEffect(() => {
-    if (!setupQuery.isLoading && setupQuery.data?.needsSetup && !location.pathname.startsWith("/setup")) {
+    if (
+      !setupQuery.isLoading &&
+      setupQuery.data?.needsSetup &&
+      !location.pathname.startsWith("/setup") &&
+      !location.pathname.startsWith("/login")
+    ) {
       void navigate({ to: "/setup" });
     }
   }, [setupQuery.isLoading, setupQuery.data?.needsSetup, location.pathname, navigate]);
@@ -1022,8 +1027,62 @@ function SettingsPage() {
 }
 
 type SetupStep = "admin" | "storage" | "workspace" | "done";
+type SetupPendingMode = "loading" | "redirecting" | "unresolved";
 
-function SetupPage() {
+function SetupPendingState({
+  mode,
+  onRetry,
+}: {
+  mode: SetupPendingMode;
+  onRetry: () => void;
+}) {
+  const isLoading = mode === "loading";
+  const copy = {
+    loading: {
+      title: "Checking setup status",
+      detail: "Loading the current setup and sign-in state...",
+    },
+    redirecting: {
+      title: "Sign in required to continue setup",
+      detail: "The admin account already exists. Sign in to resume the remaining setup steps.",
+    },
+    unresolved: {
+      title: "Setup state needs attention",
+      detail: "The setup wizard could not determine the next step yet. Retry the status check or sign in to continue.",
+    },
+  }[mode];
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-6">
+      <Card className="w-full max-w-md p-6 text-center">
+        <div className="flex justify-center">
+          <BrandMark />
+        </div>
+        <div className="mt-8 flex justify-center">
+          {isLoading ? <Loader2 className="size-6 animate-spin text-primary" aria-hidden="true" /> : null}
+        </div>
+        <p className="mt-5 text-sm font-medium text-foreground">{copy.title}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{copy.detail}</p>
+        <div className="mt-5 flex flex-wrap justify-center gap-3">
+          <Button type="button" variant="outline" onClick={onRetry}>
+            Retry
+          </Button>
+          {mode !== "loading" && (
+            <Link
+              to="/login"
+              search={{ callbackUrl: "/setup" }}
+              className="inline-flex h-9 items-center rounded-md px-3 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-white/4 hover:text-foreground"
+            >
+              Sign in
+            </Link>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+export function SetupPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const setupQuery = useQuery({
@@ -1034,17 +1093,30 @@ function SetupPage() {
 
   const auth = useAuth();
   const [step, setStep] = React.useState<SetupStep | null>(null);
+  const [pendingTimedOut, setPendingTimedOut] = React.useState(false);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, []);
 
+  React.useEffect(() => {
+    if (!setupQuery.isLoading && !(setupQuery.data?.hasAdmin && auth.isLoading) && step !== null) {
+      setPendingTimedOut(false);
+      return;
+    }
+
+    const timeout = setTimeout(() => setPendingTimedOut(true), 8000);
+    return () => clearTimeout(timeout);
+  }, [auth.isLoading, setupQuery.data?.hasAdmin, setupQuery.isLoading, step]);
+
   // Determine initial step once status and auth are known
   React.useEffect(() => {
-    if (setupQuery.isLoading || auth.isLoading || step !== null) return;
+    if (setupQuery.isLoading || step !== null) return;
     if (setupQuery.data && !setupQuery.data.needsSetup) {
       void navigate({ to: "/" });
+    } else if (setupQuery.data?.hasAdmin && auth.isLoading) {
+      return;
     } else if (setupQuery.data?.hasAdmin && !auth.isAuthenticated) {
       // Admin exists but not logged in — must authenticate before completing setup
       void navigate({ to: "/login", search: { callbackUrl: "/setup" } });
@@ -1109,8 +1181,47 @@ function SetupPage() {
   const stepOrder: SetupStep[] = ["admin", "storage", "workspace", "done"];
   const currentIndex = step ? stepOrder.indexOf(step) : 0;
 
-  if (setupQuery.isLoading || step === null) {
-    return <div className="min-h-screen bg-background" />;
+  if (setupQuery.error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6">
+        <Card className="w-full max-w-md p-6 text-center">
+          <div className="flex justify-center">
+            <BrandMark />
+          </div>
+          <p className="mt-8 text-sm font-medium text-foreground">Could not load setup status</p>
+          <p className="mt-2 text-sm text-destructive">{getErrorMessage(setupQuery.error, "Unexpected setup error")}</p>
+          <Button type="button" variant="outline" className="mt-5" onClick={() => void setupQuery.refetch()}>
+            Retry
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  if (setupQuery.isLoading || (setupQuery.data?.hasAdmin && auth.isLoading)) {
+    return (
+      <SetupPendingState
+        mode={pendingTimedOut ? "unresolved" : "loading"}
+        onRetry={() => {
+          setPendingTimedOut(false);
+          void setupQuery.refetch();
+          void queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+        }}
+      />
+    );
+  }
+
+  if (step === null) {
+    return (
+      <SetupPendingState
+        mode={setupQuery.data?.hasAdmin && !auth.isAuthenticated ? "redirecting" : "unresolved"}
+        onRetry={() => {
+          setPendingTimedOut(false);
+          void setupQuery.refetch();
+          void queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+        }}
+      />
+    );
   }
 
   return (
