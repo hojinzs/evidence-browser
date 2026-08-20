@@ -10,7 +10,7 @@ import {
   validateBundleSize,
   validateUploadedFile,
 } from "@/lib/bundle/upload-validation";
-import { createBundle, type BundleRow } from "@/lib/db/bundles";
+import { createBundle, deleteBundle, type BundleRow } from "@/lib/db/bundles";
 import { getStorageAdapter } from "@/lib/storage";
 import { storageKey } from "@/lib/url";
 
@@ -23,7 +23,20 @@ export type MultipartBundleUploadOptions = {
 
 export type MultipartBundleUploadResult =
   | { ok: true; status: 201; bundle: BundleRow }
-  | { ok: false; status: 400 | 413 | 501; error: string };
+  | { ok: false; status: 400 | 409 | 413 | 501; error: string };
+
+function isFile(value: FormDataEntryValue | null): value is File {
+  return typeof File !== "undefined" && value instanceof File;
+}
+
+function isSqliteConstraint(error: unknown, constraint: "UNIQUE" | "FOREIGNKEY"): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === `SQLITE_CONSTRAINT_${constraint}`
+  );
+}
 
 export async function uploadBundleFromMultipart(
   options: MultipartBundleUploadOptions
@@ -31,14 +44,17 @@ export async function uploadBundleFromMultipart(
   const formData = await options.request.formData().catch(() => null);
   if (!formData) return { ok: false, status: 400, error: "Invalid form data" };
 
-  const rawFile = formData.get("file") as File | null;
-  const fileResult = validateUploadedFile(rawFile);
+  const rawFile = formData.get("file");
+  const fileResult = validateUploadedFile(isFile(rawFile) ? rawFile : null);
   if (!fileResult.ok) {
     return { ok: false, status: fileResult.error.status, error: fileResult.error.message };
   }
   const file = fileResult.value;
 
-  const rawBundleId = formData.get("bundleId") as string | null;
+  const rawBundleId = formData.get("bundleId");
+  if (rawBundleId !== null && typeof rawBundleId !== "string") {
+    return { ok: false, status: 400, error: "Invalid bundleId" };
+  }
   const bundleIdResult = options.pinnedBundleId
     ? validateBundleId(options.pinnedBundleId)
     : deriveAndValidateBundleId(rawBundleId, file.name);
@@ -85,20 +101,34 @@ export async function uploadBundleFromMultipart(
     if (!storage.putBundle) {
       return { ok: false, status: 501, error: "Storage adapter does not support upload" };
     }
-    await storage.putBundle(key, buffer);
-
-    return {
-      ok: true,
-      status: 201,
-      bundle: createBundle({
+    let bundle: BundleRow;
+    try {
+      bundle = createBundle({
         bundleId,
         workspaceId: options.workspace.id,
         title,
         storageKey: key,
         sizeBytes: buffer.byteLength,
         uploadedBy: options.uploadedBy,
-      }),
-    };
+      });
+    } catch (error) {
+      if (isSqliteConstraint(error, "UNIQUE")) {
+        return { ok: false, status: 409, error: "Bundle already exists" };
+      }
+      if (isSqliteConstraint(error, "FOREIGNKEY")) {
+        return { ok: false, status: 400, error: "Invalid uploader" };
+      }
+      throw error;
+    }
+
+    try {
+      await storage.putBundle(key, buffer);
+    } catch (error) {
+      deleteBundle(bundle.id);
+      throw error;
+    }
+
+    return { ok: true, status: 201, bundle };
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

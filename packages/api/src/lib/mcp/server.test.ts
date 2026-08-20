@@ -1,12 +1,11 @@
 import type Database from "better-sqlite3";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetEnv } from "@/config/env";
 import { createTestDb } from "@/lib/db/index";
 import { createUser } from "@/lib/db/users";
 import { createWorkspace } from "@/lib/db/workspaces";
+import { createTransportPair } from "@/lib/mcp/test-transport";
 import { createMcpServer, type McpAuthContext } from "./server";
 
 let testDb: Database.Database;
@@ -18,35 +17,6 @@ vi.mock("@/lib/db/index", async (importOriginal) => {
     getDb: () => testDb,
   };
 });
-
-class MemoryTransport implements Transport {
-  peer: MemoryTransport | null = null;
-  onclose?: () => void;
-  onerror?: (error: Error) => void;
-  onmessage?: (message: JSONRPCMessage) => void;
-
-  async start(): Promise<void> {
-    // No connection setup is required for in-memory test transport.
-  }
-
-  async send(message: JSONRPCMessage): Promise<void> {
-    queueMicrotask(() => {
-      this.peer?.onmessage?.(message);
-    });
-  }
-
-  async close(): Promise<void> {
-    this.onclose?.();
-  }
-}
-
-function createTransportPair() {
-  const serverTransport = new MemoryTransport();
-  const clientTransport = new MemoryTransport();
-  serverTransport.peer = clientTransport;
-  clientTransport.peer = serverTransport;
-  return { serverTransport, clientTransport };
-}
 
 const TEST_USER = { id: "user-1", username: "member", role: "user" as const };
 

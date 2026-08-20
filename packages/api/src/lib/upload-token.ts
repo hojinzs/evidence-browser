@@ -1,5 +1,6 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac } from "crypto";
 import { getEnv } from "@/config/env";
+import { timingSafeStringEqual } from "@/lib/crypto";
 
 export const UPLOAD_TOKEN_PREFIX = "ebu1";
 export const DEFAULT_UPLOAD_URL_TTL_SECONDS = 600;
@@ -45,12 +46,6 @@ function decodeBase64urlJson(value: string): unknown {
 
 function signPayload(encodedPayload: string): string {
   return createHmac("sha256", getAuthSecret()).update(encodedPayload).digest("base64url");
-}
-
-function timingSafeStringEqual(left: string, right: string): boolean {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
 }
 
 function normalizeTtl(ttlSeconds: number | undefined): number {

@@ -4,7 +4,7 @@ import { resetEnv } from "@/config/env";
 import { createApiKey } from "@/lib/db/api-keys";
 import { createTestDb } from "@/lib/db/index";
 import { createUser } from "@/lib/db/users";
-import { checkAuth, resolveMcpAuthContext } from "./mcp";
+import { checkAuth, resolveMcpAuthContext, resolvePublicOrigin } from "./mcp";
 
 let testDb: Database.Database;
 
@@ -79,5 +79,29 @@ describe("MCP route auth", () => {
     await expect(resolveMcpAuthContext(valid)).resolves.toEqual({
       kind: "instance-key",
     });
+  });
+
+  it("resolves the public origin from forwarded proxy headers", () => {
+    const request = new Request("http://internal:3000/api/mcp", {
+      headers: {
+        "x-forwarded-proto": "https",
+        "x-forwarded-host": "evidence.example",
+      },
+    });
+
+    expect(resolvePublicOrigin(request)).toBe("https://evidence.example");
+  });
+
+  it("prefers PUBLIC_URL when minting externally visible URLs", () => {
+    process.env.PUBLIC_URL = "https://evidence.example/app";
+    resetEnv();
+    const request = new Request("http://internal:3000/api/mcp", {
+      headers: {
+        "x-forwarded-proto": "http",
+        "x-forwarded-host": "internal.example",
+      },
+    });
+
+    expect(resolvePublicOrigin(request)).toBe("https://evidence.example");
   });
 });

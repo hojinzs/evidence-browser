@@ -40,6 +40,7 @@ const envSchema = z
 
     // Static SPA
     STATIC_ROOT: z.string().optional(),
+    PUBLIC_URL: z.string().url().optional(),
 
     // Auth
     AUTH_SECRET: z.string().optional().default("evidence-browser-default-secret-change-me"),

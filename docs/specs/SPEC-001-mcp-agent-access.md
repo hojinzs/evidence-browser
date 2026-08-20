@@ -18,6 +18,7 @@ from this spec updates the affected section and appends a Delta Log row in the s
 | Date | PR | Change |
 |------|----|--------|
 | 2026-08-13 | — | Initial draft |
+| 2026-08-20 | #162 | WP2 signed upload URLs may use `PUBLIC_URL` or reverse-proxy forwarded headers to mint externally reachable origins; malformed multipart fields and DB constraint failures are normalized before storage writes. |
 
 ---
 
@@ -130,7 +131,7 @@ create_upload_url({
   ttlSeconds?: number       // default 600, max 3600
 })
 → {
-  uploadUrl: string,        // absolute URL: {origin}/api/upload/{token}
+  uploadUrl: string,        // absolute URL: {public-origin}/api/upload/{token}
   method: "POST",           // multipart/form-data, field "file" (+ optional "bundleId" if not pinned)
   expiresAt: string,        // ISO-8601
   instructions: string      // one-paragraph curl example for the consuming agent
@@ -155,8 +156,10 @@ payload: {
 }
 ```
 
-No DB row, no new env vars. Rotating `AUTH_SECRET` invalidates outstanding tokens (and
-sessions) — acceptable for ≤1h TTLs.
+No token DB row. Rotating `AUTH_SECRET` invalidates outstanding tokens (and sessions) —
+acceptable for ≤1h TTLs. Deployments behind TLS-terminating reverse proxies may set
+`PUBLIC_URL`; otherwise the MCP route derives the public origin from forwarded headers
+before falling back to the request origin.
 
 **Upload route** — `POST /api/upload/:token`:
 
@@ -167,7 +170,9 @@ sessions) — acceptable for ≤1h TTLs.
    `POST /api/w/:ws/bundle` (`lib/bundle/upload-validation.ts` and the existing route
    internals — extracted into a shared handler, not copied). Size/count limits
    (`MAX_BUNDLE_SIZE`, `MAX_FILE_COUNT`, `MAX_SINGLE_FILE_SIZE`) apply unchanged.
-5. Uploader recorded as `payload.uid`. If `payload.b` is set it wins over any form field;
+5. Malformed multipart field types return 400, duplicate bundle IDs return 409, and
+   DB constraint failures are resolved before object storage is written.
+6. Uploader recorded as `payload.uid`. If `payload.b` is set it wins over any form field;
    mismatched form `bundleId` → 400.
 
 The route itself performs no session/API-key auth — the token *is* the authorization
@@ -242,7 +247,8 @@ with a `.evidence/{session}` bundle uploaded and verified).
 ## 7. Rollout
 
 - No DB schema migration (tokens are stateless).
-- No new env vars; `AUTH_SECRET` production guard already exists in `config/env.ts`.
+- Optional `PUBLIC_URL` config controls externally visible URL minting behind reverse
+  proxies; `AUTH_SECRET` production guard already exists in `config/env.ts`.
 - MCP server version bumps `0.2.0` → `0.3.0` when WP2/WP3 land.
 - Order: WP1 → (WP2 ∥ WP3) → WP4.
 

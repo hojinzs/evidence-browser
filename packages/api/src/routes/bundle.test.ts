@@ -4,11 +4,10 @@ import path from "path";
 import type Database from "better-sqlite3";
 import { Hono } from "hono";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetEnv } from "@/config/env";
 import { createTestDb } from "@/lib/db/index";
+import { createTransportPair } from "@/lib/mcp/test-transport";
 
 const { mockPutBundle, mockValidateBundleZip, originalValidateBundleZip } = vi.hoisted(() => ({
   mockPutBundle: vi.fn(),
@@ -66,7 +65,7 @@ import {
   revokeBundleShareToken,
 } from "@/lib/db/share-tokens";
 import { createWorkspace } from "@/lib/db/workspaces";
-import { createUser } from "@/lib/db/users";
+import { createUser, deleteUser } from "@/lib/db/users";
 import { createUploadToken } from "@/lib/upload-token";
 import { createMcpServer } from "@/lib/mcp/server";
 import { HTML_PREVIEW_CSP_HEADER, bundleRoutes, shareBundleRoutes } from "./bundle";
@@ -76,35 +75,6 @@ const mockedExtractBundle = vi.mocked(extractBundle);
 const mockedValidateBundleZip = vi.mocked(validateBundleZip);
 let tempDir: string;
 const originalMaxBundleSize = process.env.MAX_BUNDLE_SIZE;
-
-class MemoryTransport implements Transport {
-  peer: MemoryTransport | null = null;
-  onclose?: () => void;
-  onerror?: (error: Error) => void;
-  onmessage?: (message: JSONRPCMessage) => void;
-
-  async start(): Promise<void> {
-    // No connection setup is required for in-memory test transport.
-  }
-
-  async send(message: JSONRPCMessage): Promise<void> {
-    queueMicrotask(() => {
-      this.peer?.onmessage?.(message);
-    });
-  }
-
-  async close(): Promise<void> {
-    this.onclose?.();
-  }
-}
-
-function createTransportPair() {
-  const serverTransport = new MemoryTransport();
-  const clientTransport = new MemoryTransport();
-  serverTransport.peer = clientTransport;
-  clientTransport.peer = serverTransport;
-  return { serverTransport, clientTransport };
-}
 
 function restoreMaxBundleSize() {
   if (originalMaxBundleSize === undefined) {
@@ -731,6 +701,96 @@ describe("bundle upload route", () => {
       uploaded_by: issuer.id,
     });
     expect(mockPutBundle).toHaveBeenCalledWith("default/signed-upload", zip);
+  });
+
+  it("returns 409 for duplicate signed uploads before rewriting storage", async () => {
+    const { workspace } = await seedUploadWorkspace("admin-upload-duplicate");
+    const issuer = await createUser("mcp-duplicate-issuer", "password123", "user");
+    const token = createUploadToken({
+      workspace: "default",
+      bundleId: "duplicate-upload",
+      issuerUserId: issuer.id,
+    }).token;
+    const app = createTestApp();
+
+    const first = await app.request(`/api/upload/${token}`, {
+      method: "POST",
+      body: formDataForUpload(makeValidBundleZip("First Upload"), "first.zip", "duplicate-upload"),
+    });
+    const duplicate = await app.request(`/api/upload/${token}`, {
+      method: "POST",
+      body: formDataForUpload(makeValidBundleZip("Second Upload"), "second.zip", "duplicate-upload"),
+    });
+
+    expect(first.status).toBe(201);
+    expect(duplicate.status).toBe(409);
+    await expect(duplicate.json()).resolves.toEqual({ error: "Bundle already exists" });
+    expect(findBundle(workspace.id, "duplicate-upload")).toMatchObject({
+      title: "First Upload",
+      size_bytes: makeValidBundleZip("First Upload").byteLength,
+    });
+    expect(mockPutBundle).toHaveBeenCalledTimes(1);
+    expect(mockPutBundle).toHaveBeenCalledWith(
+      "default/duplicate-upload",
+      makeValidBundleZip("First Upload")
+    );
+  });
+
+  it("rejects deleted token issuers before writing signed upload storage", async () => {
+    await seedUploadWorkspace("admin-upload-deleted-issuer");
+    const issuer = await createUser("mcp-deleted-issuer", "password123", "user");
+    const token = createUploadToken({
+      workspace: "default",
+      issuerUserId: issuer.id,
+    }).token;
+    deleteUser(issuer.id);
+    const app = createTestApp();
+
+    const res = await app.request(`/api/upload/${token}`, {
+      method: "POST",
+      body: formDataForUpload(makeValidBundleZip(), "deleted-issuer.zip", "deleted-issuer"),
+    });
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: "Invalid uploader" });
+    expect(mockPutBundle).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for malformed multipart field types on signed uploads", async () => {
+    await seedUploadWorkspace("admin-upload-malformed-fields");
+    const issuer = await createUser("mcp-malformed-issuer", "password123", "user");
+    const token = createUploadToken({
+      workspace: "default",
+      issuerUserId: issuer.id,
+    }).token;
+    const app = createTestApp();
+
+    const textFileForm = new FormData();
+    textFileForm.set("file", "hello");
+    const fileBundleIdForm = new FormData();
+    fileBundleIdForm.set(
+      "file",
+      new File([new Uint8Array(makeValidBundleZip())], "valid.zip", { type: "application/zip" })
+    );
+    fileBundleIdForm.set(
+      "bundleId",
+      new File([new Uint8Array(Buffer.from("bad"))], "bundle-id.txt", { type: "text/plain" })
+    );
+
+    const textFile = await app.request(`/api/upload/${token}`, {
+      method: "POST",
+      body: textFileForm,
+    });
+    const fileBundleId = await app.request(`/api/upload/${token}`, {
+      method: "POST",
+      body: fileBundleIdForm,
+    });
+
+    expect(textFile.status).toBe(400);
+    expect(fileBundleId.status).toBe(400);
+    await expect(textFile.json()).resolves.toEqual({ error: "A .zip file is required" });
+    await expect(fileBundleId.json()).resolves.toEqual({ error: "Invalid bundleId" });
+    expect(mockPutBundle).not.toHaveBeenCalled();
   });
 
   it("rejects invalid and expired signed upload tokens with 401", async () => {
