@@ -32,7 +32,7 @@ Before acting, collect:
 1. Issue: state, identifier, title, labels, description, URL, repository.
 2. Land cycle workpad comment for this issue. (Step 4 created it. If absent, create one before proceeding.)
 3. PR: number, URL, base branch, head branch, `mergeStateStatus`, reviews, CI checks, head SHA.
-4. Changeset file path, if the issue carries a `changeset:major|minor|patch` label.
+4. Changeset file path and bump type, plus any `changeset:major|minor|patch` label on the issue (used to verify the bump type matches).
 
 If no PR is linked to the issue, record the blocker in the workpad and exit.
 
@@ -51,7 +51,7 @@ All must pass before merging. If any fails, record the failure in the workpad an
    git merge-base --is-ancestor "origin/$base" HEAD
    ```
    If behind: run `/pull`, then **re-run the full pre-flight sequence from step 1** (pushing the rebase invalidates prior CI runs and any prior approval).
-4. **Changeset present if labeled.** If the issue has a `changeset:major|minor|patch` label, confirm at least one `.changeset/*.md` file exists on the head branch (excluding `README.md` / `config.json`). If absent, record the blocker, do not merge.
+4. **Changeset present and correctly scoped.** Presence is enforced by the CI `changeset` job, already covered by step 2 — a failing or missing run is a blocker. Additionally, when the issue carries a `changeset:major|minor|patch` label, open the `.changeset/*.md` files added on the head branch (excluding `README.md` / `config.json`) and confirm the bump type matches the label. A mismatch is a blocker: record it and do not merge.
 5. **PR mergeable.** `gh pr view <pr-number> --json mergeStateStatus --jq .mergeStateStatus` must be `CLEAN` / `HAS_HOOKS` / `UNSTABLE` (the last allowed only when failing checks are all non-required). `BLOCKED` / `DIRTY` / `BEHIND` → not mergeable.
 
 ## Flow
