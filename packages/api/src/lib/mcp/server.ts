@@ -4,12 +4,20 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod/v4";
 import { getEnv } from "@/config/env";
 import { listWorkspaces } from "@/lib/db/workspaces";
-import { listBundles as dbListBundles } from "@/lib/db/bundles";
+import { countBundles, listBundles as dbListBundles } from "@/lib/db/bundles";
 import { findWorkspaceBySlug } from "@/lib/db/workspaces";
 import { findBundleWithUploader } from "@/lib/db/bundles";
 import { extractBundle, getFileContent } from "@/lib/bundle/extractor";
+import {
+  BundleNotFoundError,
+  BundleSizeLimitError,
+  FileCountLimitError,
+  ManifestNotFoundError,
+  ManifestValidationError,
+} from "@/lib/bundle/types";
 import { ensureWithinRoot, validatePathSafety } from "@/lib/bundle/security";
 import { detectFileType, getMimeType } from "@evidence-browser/shared/files/detect";
+import { bundleFileUrl } from "@evidence-browser/shared/url";
 import type { Bundle, Workspace } from "@evidence-browser/shared/api/types";
 import type { CacheEntry } from "@evidence-browser/shared/bundle/types";
 import type { AuthUser } from "@/lib/auth/types";
@@ -143,8 +151,12 @@ function validateIsoDateFilter(name: string, value: string | undefined): McpText
   return null;
 }
 
-function createBundleFileUrl(workspace: string, bundleId: string, filePath: string): string {
-  return `/w/${encodeURIComponent(workspace)}/b/${encodeURIComponent(bundleId)}/f?path=${encodeURIComponent(filePath)}`;
+function toUtcIsoDateTime(value: string): string {
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+    ? `${value.replace(" ", "T")}Z`
+    : value;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
 async function resolveMcpBundle(workspace: string, bundleId: string): Promise<McpBundleResolution> {
@@ -172,6 +184,88 @@ async function resolveMcpBundle(workspace: string, bundleId: string): Promise<Mc
     workspace: ws,
     bundle,
   };
+}
+
+function fileReadUnavailableError(pathLabel: string): McpTextResult {
+  return {
+    content: [{ type: "text" as const, text: `Unable to read file "${pathLabel}".` }],
+    isError: true,
+  };
+}
+
+function isFileSystemErrorCode(error: unknown, codes: string[]): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      codes.includes(String((error as { code?: unknown }).code))
+  );
+}
+
+function normalizeMcpReadError(
+  error: unknown,
+  workspace: string,
+  bundleId: string,
+  pathLabel?: string
+): McpTextResult | null {
+  if (error instanceof Error && error.message === "Invalid file path") {
+    return {
+      content: [{ type: "text" as const, text: "Invalid file path." }],
+      isError: true,
+    };
+  }
+
+  if (error instanceof Error && error.message === "Not a file") {
+    return {
+      content: [{ type: "text" as const, text: `Path "${pathLabel ?? "manifest index"}" is not a file.` }],
+      isError: true,
+    };
+  }
+
+  if (isFileSystemErrorCode(error, ["ENOENT", "ENOTDIR"])) {
+    return fileNotFoundError(pathLabel ?? "manifest index");
+  }
+
+  if (pathLabel && isFileSystemErrorCode(error, ["EACCES", "EPERM", "EISDIR"])) {
+    return fileReadUnavailableError(pathLabel);
+  }
+
+  if (error instanceof BundleNotFoundError) {
+    return {
+      content: [{ type: "text" as const, text: `Bundle "${bundleId}" not found in workspace "${workspace}".` }],
+      isError: true,
+    };
+  }
+
+  if (error instanceof BundleSizeLimitError) {
+    return {
+      content: [{ type: "text" as const, text: `Bundle "${bundleId}" exceeds the configured bundle size limit.` }],
+      isError: true,
+    };
+  }
+
+  if (error instanceof FileCountLimitError) {
+    return {
+      content: [{ type: "text" as const, text: `Bundle "${bundleId}" exceeds the configured file count limit.` }],
+      isError: true,
+    };
+  }
+
+  if (error instanceof ManifestNotFoundError) {
+    return {
+      content: [{ type: "text" as const, text: `Bundle "${bundleId}" manifest was not found.` }],
+      isError: true,
+    };
+  }
+
+  if (error instanceof ManifestValidationError) {
+    return {
+      content: [{ type: "text" as const, text: `Bundle "${bundleId}" manifest is invalid.` }],
+      isError: true,
+    };
+  }
+
+  return null;
 }
 
 async function readMcpBundleFile(
@@ -204,7 +298,7 @@ async function readMcpBundleFile(
       detectedType,
       mimeType,
       reason: "binary",
-      url: createBundleFileUrl(workspace, bundleId, filePath),
+      url: bundleFileUrl(workspace, bundleId, filePath),
     };
   }
 
@@ -216,7 +310,7 @@ async function readMcpBundleFile(
       detectedType,
       mimeType,
       reason: "oversized",
-      url: createBundleFileUrl(workspace, bundleId, filePath),
+      url: bundleFileUrl(workspace, bundleId, filePath),
     };
   }
 
@@ -344,7 +438,9 @@ export function createMcpServer(
         };
       }
       const effectiveLimit = clampListLimit(limit);
-      const bundles = dbListBundles(ws.id, { uploadedBy, since, until, limit: effectiveLimit });
+      const filters = { uploadedBy, since, until };
+      const total = countBundles(ws.id, filters);
+      const bundles = dbListBundles(ws.id, { ...filters, limit: effectiveLimit });
       return {
         content: [
           {
@@ -356,10 +452,12 @@ export function createMcpServer(
                   bundleId: b.bundle_id,
                   title: b.title,
                   uploadedBy: b.uploader_username,
-                  createdAt: b.created_at,
+                  createdAt: toUtcIsoDateTime(b.created_at),
                   sizeBytes: b.size_bytes,
                 })),
                 count: bundles.length,
+                total,
+                hasMore: bundles.length < total,
                 filters: {
                   uploadedBy: uploadedBy ?? null,
                   since: since ?? null,
@@ -481,21 +579,8 @@ export function createMcpServer(
           ],
         };
       } catch (err) {
-        if (err instanceof Error && err.message === "Invalid file path") {
-          return {
-            content: [{ type: "text" as const, text: "Invalid file path." }],
-            isError: true,
-          };
-        }
-        if (err instanceof Error && err.message === "Not a file") {
-          return {
-            content: [{ type: "text" as const, text: `Path "${indexPath ?? "manifest index"}" is not a file.` }],
-            isError: true,
-          };
-        }
-        if (err && typeof err === "object" && "code" in err && (err as { code?: unknown }).code === "ENOENT") {
-          return fileNotFoundError(indexPath ?? "manifest index");
-        }
+        const normalized = normalizeMcpReadError(err, resolved.workspace.slug, bundleId, indexPath);
+        if (normalized) return normalized;
         throw err;
       }
     }
@@ -514,19 +599,25 @@ export function createMcpServer(
       const resolved = await resolveMcpBundle(workspace, bundleId);
       if ("error" in resolved) return resolved.error;
 
-      const entry = await extractBundle(resolved.bundle.storage_key);
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: serializeBundleTree({
-              workspace: resolved.workspace.slug,
-              bundleId,
-              tree: entry.fileTree,
-            }),
-          },
-        ],
-      };
+      try {
+        const entry = await extractBundle(resolved.bundle.storage_key);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: serializeBundleTree({
+                workspace: resolved.workspace.slug,
+                bundleId,
+                tree: entry.fileTree,
+              }),
+            },
+          ],
+        };
+      } catch (err) {
+        const normalized = normalizeMcpReadError(err, resolved.workspace.slug, bundleId);
+        if (normalized) return normalized;
+        throw err;
+      }
     }
   );
 
@@ -560,21 +651,8 @@ export function createMcpServer(
           ],
         };
       } catch (err) {
-        if (err instanceof Error && err.message === "Invalid file path") {
-          return {
-            content: [{ type: "text" as const, text: "Invalid file path." }],
-            isError: true,
-          };
-        }
-        if (err instanceof Error && err.message === "Not a file") {
-          return {
-            content: [{ type: "text" as const, text: `Path "${filePath}" is not a file.` }],
-            isError: true,
-          };
-        }
-        if (err && typeof err === "object" && "code" in err && (err as { code?: unknown }).code === "ENOENT") {
-          return fileNotFoundError(filePath);
-        }
+        const normalized = normalizeMcpReadError(err, resolved.workspace.slug, bundleId, filePath);
+        if (normalized) return normalized;
         throw err;
       }
     }

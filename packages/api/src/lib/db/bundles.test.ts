@@ -34,6 +34,7 @@ import {
   deleteBundleByKey,
   findBundle,
   findBundleWithUploader,
+  countBundles,
   listBundles,
 } from "./bundles";
 
@@ -116,6 +117,13 @@ describe("bundles DAO", () => {
 
     expect(bundles.map((bundle) => bundle.bundle_id)).toEqual(["new"]);
     expect(bundles[0]?.uploader_username).toBe("qa-agent");
+    expect(
+      countBundles(workspaceId, {
+        uploadedBy: "qa-agent",
+        since: "2026-08-05T00:00:00Z",
+        until: "2026-08-12T00:00:00Z",
+      })
+    ).toBe(1);
   });
 
   it("finds one bundle with uploader metadata", () => {

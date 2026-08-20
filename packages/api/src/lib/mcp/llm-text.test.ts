@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { resetEnv } from "@/config/env";
-import { generateLlmText } from "./llm-text";
+import type { Bundle } from "@evidence-browser/shared/api/types";
+import { generateLlmText, serializeBundleFileRead, serializeBundleOverview } from "./llm-text";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -174,5 +175,51 @@ S3 Force Path Style: true`);
     expect(text).not.toContain("AKIA_TEST_SHOULD_NOT_LEAK");
     expect(text).not.toContain("secret-should-not-leak");
     expect(text).not.toContain("mcp-secret");
+  });
+});
+
+describe("bundle MCP serializers", () => {
+  it("serializes bundle metadata timestamps as UTC ISO-8601", () => {
+    const bundle = {
+      bundle_id: "run-1",
+      title: "Run 1",
+      uploader_username: "qa-agent",
+      created_at: "2026-08-10 00:00:00",
+      size_bytes: 512,
+    } as Bundle;
+
+    const text = serializeBundleOverview({
+      workspace: "qa",
+      bundle,
+      manifest: { version: 1, title: "Run 1", index: "index.md" },
+      tree: [{ name: "index.md", path: "index.md", type: "file" }],
+      indexFile: {
+        inline: true,
+        path: "index.md",
+        sizeBytes: 7,
+        detectedType: "markdown",
+        mimeType: "text/markdown",
+        content: "# Run 1",
+      },
+    });
+
+    expect(text).toContain('"createdAt": "2026-08-10T00:00:00.000Z"');
+  });
+
+  it("uses a longer fence when inline file content contains triple backticks", () => {
+    const text = serializeBundleFileRead({
+      workspace: "qa",
+      bundleId: "run-1",
+      file: {
+        inline: true,
+        path: "index.md",
+        sizeBytes: 30,
+        detectedType: "markdown",
+        mimeType: "text/markdown",
+        content: "before\n```ts\nconst ok = true;\n```\nafter",
+      },
+    });
+
+    expect(text).toContain("````\nbefore\n```ts\nconst ok = true;\n```\nafter\n````");
   });
 });

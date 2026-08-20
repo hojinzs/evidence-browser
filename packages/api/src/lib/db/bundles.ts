@@ -79,10 +79,7 @@ export function findBundleByStorageKey(
   return stmt.get(storageKey) as BundleRow | undefined;
 }
 
-export function listBundles(
-  workspaceId: string,
-  options: ListBundlesOptions = {}
-): BundleWithUploader[] {
+function bundleListWhere(workspaceId: string, options: Omit<ListBundlesOptions, "limit"> = {}) {
   const where = ["b.workspace_id = ?"];
   const params: Array<string | number> = [workspaceId];
 
@@ -101,6 +98,14 @@ export function listBundles(
     params.push(options.until);
   }
 
+  return { where, params };
+}
+
+export function listBundles(
+  workspaceId: string,
+  options: ListBundlesOptions = {}
+): BundleWithUploader[] {
+  const { where, params } = bundleListWhere(workspaceId, options);
   const limitClause = options.limit === undefined ? "" : "LIMIT ?";
   if (options.limit !== undefined) {
     params.push(options.limit);
@@ -117,11 +122,18 @@ export function listBundles(
   return stmt.all(...params) as BundleWithUploader[];
 }
 
-export function countBundles(workspaceId: string): number {
-  const stmt = db().prepare(
-    `SELECT COUNT(*) as count FROM bundles WHERE workspace_id = ?`
-  );
-  const row = stmt.get(workspaceId) as { count: number };
+export function countBundles(
+  workspaceId: string,
+  options: Omit<ListBundlesOptions, "limit"> = {}
+): number {
+  const { where, params } = bundleListWhere(workspaceId, options);
+  const stmt = db().prepare(`
+    SELECT COUNT(*) as count
+    FROM bundles b
+    JOIN users u ON b.uploaded_by = u.id
+    WHERE ${where.join(" AND ")}
+  `);
+  const row = stmt.get(...params) as { count: number };
   return row.count;
 }
 

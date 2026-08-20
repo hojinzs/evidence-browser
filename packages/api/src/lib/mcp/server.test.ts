@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetEnv } from "@/config/env";
 import { createTestDb } from "@/lib/db/index";
 import { createBundle } from "@/lib/db/bundles";
+import { BundleNotFoundError, ManifestNotFoundError } from "@/lib/bundle/types";
 import { createUser } from "@/lib/db/users";
 import { createWorkspace } from "@/lib/db/workspaces";
 import { createTransportPair } from "@/lib/mcp/test-transport";
@@ -561,6 +562,50 @@ describe("createMcpServer", () => {
     });
   });
 
+  it("normalizes nested-file ENOTDIR errors without leaking cache paths", async () => {
+    await seedBundleFixture({});
+    await setExtractedBundle({
+      "index.md": "# Index\n",
+    });
+
+    await withMcpClient({ kind: "api-key", user: TEST_USER, scope: "read" }, async (client) => {
+      const result = await client.callTool({
+        name: "read_bundle_file",
+        arguments: { workspace: "qa", bundleId: "run-1", path: "index.md/anything" },
+      });
+
+      expect(result.isError).toBe(true);
+      const text = firstText(result);
+      expect(text).toBe('File "index.md/anything" not found.');
+      expect(text).not.toContain("mcp-bundle-");
+      expect(text).not.toContain(os.tmpdir());
+    });
+  });
+
+  it("normalizes extractor errors without leaking storage keys", async () => {
+    await seedBundleFixture({});
+
+    await withMcpClient({ kind: "api-key", user: TEST_USER, scope: "read" }, async (client) => {
+      extractorState.extractBundle.mockRejectedValueOnce(new BundleNotFoundError("qa/run-1"));
+      const missingBundleStorage = await client.callTool({
+        name: "get_bundle_tree",
+        arguments: { workspace: "qa", bundleId: "run-1" },
+      });
+
+      extractorState.extractBundle.mockRejectedValueOnce(new ManifestNotFoundError());
+      const missingManifest = await client.callTool({
+        name: "get_bundle_overview",
+        arguments: { workspace: "qa", bundleId: "run-1" },
+      });
+
+      expect(missingBundleStorage.isError).toBe(true);
+      expect(firstText(missingBundleStorage)).toBe('Bundle "run-1" not found in workspace "qa".');
+      expect(firstText(missingBundleStorage)).not.toContain("qa/run-1");
+      expect(missingManifest.isError).toBe(true);
+      expect(firstText(missingManifest)).toBe('Bundle "run-1" manifest was not found.');
+    });
+  });
+
   it("returns metadata and web URL instead of bytes for binary files", async () => {
     await seedBundleFixture({});
     await setExtractedBundle({
@@ -676,6 +721,9 @@ describe("createMcpServer", () => {
           createdAt: string;
           sizeBytes: number;
         }>;
+        count: number;
+        total: number;
+        hasMore: boolean;
         filters: { limit: number };
       };
       expect(payload.bundles).toEqual([
@@ -683,11 +731,50 @@ describe("createMcpServer", () => {
           bundleId: "new",
           title: "New",
           uploadedBy: "qa-agent",
-          createdAt: "2026-08-10 00:00:00",
+          createdAt: "2026-08-10T00:00:00.000Z",
           sizeBytes: 512,
         },
       ]);
+      expect(payload.count).toBe(1);
+      expect(payload.total).toBe(1);
+      expect(payload.hasMore).toBe(false);
       expect(payload.filters.limit).toBe(5);
+    });
+  });
+
+  it("reports total and hasMore when default list_bundles limit truncates results", async () => {
+    const user = await createUser("member", "password123", "user");
+    const workspace = createWorkspace("qa", "QA", "QA workspace", user.id);
+    for (let i = 0; i < 80; i++) {
+      createBundle({
+        bundleId: `run-${String(i).padStart(2, "0")}`,
+        workspaceId: workspace.id,
+        title: `Run ${i}`,
+        storageKey: `qa/run-${i}`,
+        sizeBytes: i,
+        uploadedBy: user.id,
+      });
+    }
+
+    await withMcpClient({ kind: "api-key", user: TEST_USER, scope: "read" }, async (client) => {
+      const result = await client.callTool({
+        name: "list_bundles",
+        arguments: { workspace: "qa" },
+      });
+
+      expect(result.isError).not.toBe(true);
+      const payload = JSON.parse(firstText(result)) as {
+        bundles: Array<{ bundleId: string }>;
+        count: number;
+        total: number;
+        hasMore: boolean;
+        filters: { limit: number };
+      };
+      expect(payload.bundles).toHaveLength(50);
+      expect(payload.count).toBe(50);
+      expect(payload.total).toBe(80);
+      expect(payload.hasMore).toBe(true);
+      expect(payload.filters.limit).toBe(50);
     });
   });
 

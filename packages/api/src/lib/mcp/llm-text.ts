@@ -22,7 +22,26 @@ export type BundleFileRead =
     };
 
 function fencedJson(value: unknown): string {
-  return `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``;
+  return fencedBlock(JSON.stringify(value, null, 2), "json");
+}
+
+function fenceMarkerFor(content: string): string {
+  const longestBacktickRun = Math.max(0, ...[...content.matchAll(/`+/g)].map((match) => match[0].length));
+  return "`".repeat(Math.max(3, longestBacktickRun + 1));
+}
+
+function fencedBlock(content: string, info = ""): string {
+  const fence = fenceMarkerFor(content);
+  const suffix = info ? info : "";
+  return `${fence}${suffix}\n${content}\n${fence}`;
+}
+
+function toUtcIsoDateTime(value: string): string {
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+    ? `${value.replace(" ", "T")}Z`
+    : value;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
 function formatTree(nodes: TreeNode[], depth = 0): string {
@@ -42,7 +61,7 @@ function bundleMetadata(bundle: Bundle) {
     bundleId: bundle.bundle_id,
     title: bundle.title,
     uploadedBy: bundle.uploader_username,
-    createdAt: bundle.created_at,
+    createdAt: toUtcIsoDateTime(bundle.created_at),
     sizeBytes: bundle.size_bytes,
   };
 }
@@ -61,9 +80,7 @@ Size: ${input.indexFile.sizeBytes} bytes
 Detected type: ${input.indexFile.detectedType}
 MIME type: ${input.indexFile.mimeType}
 
-\`\`\`
-${input.indexFile.content}
-\`\`\``
+${fencedBlock(input.indexFile.content)}`
     : `## Index File: ${input.indexFile.path}
 
 Inline content unavailable.
@@ -137,9 +154,7 @@ Size: ${input.file.sizeBytes} bytes
 Detected type: ${input.file.detectedType}
 MIME type: ${input.file.mimeType}
 
-\`\`\`
-${input.file.content}
-\`\`\`
+${fencedBlock(input.file.content)}
 `;
 }
 
