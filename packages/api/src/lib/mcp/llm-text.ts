@@ -129,5 +129,6 @@ ${env.MCP_API_KEY ? "  Auth: Bearer token (Authorization: Bearer <MCP_API_KEY>)"
     get_upload_instructions  — This guide
     list_workspaces          — All workspaces
     list_bundles             — Bundles in a workspace (requires workspace param)
+    create_upload_url        — Short-lived signed multipart upload URL (upload/admin scope)
 `;
 }

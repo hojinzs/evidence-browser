@@ -1,15 +1,40 @@
-import { timingSafeEqual } from "crypto";
 import { Hono } from "hono";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { getEnv } from "@/config/env";
 import { getAuthBypassUser, isAuthBypassEnabled } from "@/lib/auth/bypass";
+import { timingSafeStringEqual } from "@/lib/crypto";
 import { createMcpServer, type McpAuthContext } from "@/lib/mcp/server";
 import { authenticateApiKey, extractBearerToken } from "@/middleware/auth";
 
-function timingSafeStringEqual(left: string, right: string): boolean {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+function firstForwardedValue(value: string | null): string | null {
+  return value?.split(",")[0]?.trim() || null;
+}
+
+function originFromUrl(value: string): string | null {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+export function resolvePublicOrigin(request: Request): string {
+  const publicUrl = getEnv().PUBLIC_URL;
+  const envPublicOrigin = publicUrl ? originFromUrl(publicUrl) : null;
+  if (envPublicOrigin) return envPublicOrigin;
+
+  const requestUrl = new URL(request.url);
+  const proto = firstForwardedValue(request.headers.get("x-forwarded-proto"));
+  const host =
+    firstForwardedValue(request.headers.get("x-forwarded-host")) ??
+    firstForwardedValue(request.headers.get("host")) ??
+    requestUrl.host;
+
+  if (proto && host && /^[a-z][a-z0-9+.-]*$/i.test(proto)) {
+    return `${proto.toLowerCase()}://${host}`;
+  }
+
+  return requestUrl.origin;
 }
 
 function resolveMcpAuthContextSync(request: Request): McpAuthContext | Response {
@@ -65,7 +90,7 @@ async function handleMcpRequest(request: Request): Promise<Response> {
     enableJsonResponse: true,
   });
 
-  const server = createMcpServer(authContext);
+  const server = createMcpServer(authContext, { origin: resolvePublicOrigin(request) });
   await server.connect(transport);
 
   return transport.handleRequest(request);

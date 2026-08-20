@@ -1,5 +1,4 @@
 import fs from "fs";
-import os from "os";
 import path from "path";
 import { Hono, type Context } from "hono";
 import { authenticate, requireUpload, type AppVariables } from "@/middleware/auth";
@@ -14,14 +13,11 @@ import {
 import { getStorageAdapter } from "@/lib/storage";
 import { storageKey } from "@/lib/url";
 import { validateBundleZip, extractBundle, getFileContent } from "@/lib/bundle/extractor";
-import {
-  validateUploadedFile,
-  validateBundleSize,
-  deriveAndValidateBundleId,
-} from "@/lib/bundle/upload-validation";
+import { validateBundleSize } from "@/lib/bundle/upload-validation";
 import { getEnv } from "@/config/env";
 import { ensureWithinRoot, validatePathSafety } from "@/lib/bundle/security";
 import { getMimeType } from "@evidence-browser/shared/files/detect";
+import { uploadBundleFromMultipart } from "@/lib/bundle/upload-service";
 
 const CSP_HEADER = "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'";
 export const HTML_PREVIEW_CSP_HEADER = [
@@ -253,65 +249,14 @@ bundle.post("/:ws/bundle", requireUpload, async (c) => {
   const workspace = findWorkspaceBySlug(ws);
   if (!workspace) return c.json({ error: "Workspace not found" }, 404);
 
-  const formData = await c.req.raw.formData().catch(() => null);
-  if (!formData) return c.json({ error: "Invalid form data" }, 400);
+  const result = await uploadBundleFromMultipart({
+    request: c.req.raw,
+    workspace,
+    uploadedBy: user.id,
+  });
 
-  const rawFile = formData.get("file") as File | null;
-  const fileResult = validateUploadedFile(rawFile);
-  if (!fileResult.ok) return c.json({ error: fileResult.error.message }, fileResult.error.status);
-  const file = fileResult.value;
-
-  const env = getEnv();
-
-  const bundleIdResult = deriveAndValidateBundleId(formData.get("bundleId") as string | null, file.name);
-  if (!bundleIdResult.ok) {
-    return c.json({ error: bundleIdResult.error.message }, bundleIdResult.error.status);
-  }
-  const bundleId = bundleIdResult.value;
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const sizeResult = validateBundleSize(buffer.byteLength, env.MAX_BUNDLE_SIZE);
-  if (!sizeResult.ok) return c.json({ error: sizeResult.error.message }, sizeResult.error.status);
-
-  const tmpDir = path.join(os.tmpdir(), `evidence-upload-${Date.now()}`);
-  const tmpZip = path.join(tmpDir, "upload.zip");
-  fs.mkdirSync(tmpDir, { recursive: true });
-
-  try {
-    fs.writeFileSync(tmpZip, buffer);
-    const key = storageKey(ws, bundleId);
-
-    let title: string | null = null;
-    try {
-      title = (await validateBundleZip(tmpZip, {
-        maxEntries: env.MAX_FILE_COUNT,
-        maxTotalUncompressedBytes: env.MAX_BUNDLE_SIZE,
-        maxEntryBytes: env.MAX_SINGLE_FILE_SIZE,
-        maxManifestBytes: env.MAX_SINGLE_FILE_SIZE,
-      })).title;
-    } catch (error) {
-      return c.json({ error: error instanceof Error ? error.message : "Bundle validation failed" }, 400);
-    }
-
-    const storage = getStorageAdapter();
-    if (!storage.putBundle) {
-      return c.json({ error: "Storage adapter does not support upload" }, 501);
-    }
-    await storage.putBundle(key, buffer);
-
-    const created = createBundle({
-      bundleId,
-      workspaceId: workspace.id,
-      title,
-      storageKey: key,
-      sizeBytes: buffer.byteLength,
-      uploadedBy: user.id,
-    });
-
-    return c.json({ bundle: created }, 201);
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
+  if (!result.ok) return c.json({ error: result.error }, result.status);
+  return c.json({ bundle: result.bundle }, result.status);
 });
 
 bundle.get("/:ws/bundles/:bundleId/meta", authenticate, async (c) => {
