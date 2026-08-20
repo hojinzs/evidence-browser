@@ -137,4 +137,6 @@ jobs:
 
           echo "changeset 확인됨:"
           echo "${ADDED}"
-          npx changeset status
+          # 로그 가독성용 요약. PR 체크아웃에는 로컬 main 이 없어 --since 를 명시해야 하고,
+          # 실제 게이트는 위 검사이므로 여기서 실패해도 job 을 떨어뜨리지 않는다.
+          npx changeset status --since="origin/${BASE}" || true
