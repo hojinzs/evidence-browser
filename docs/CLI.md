@@ -385,6 +385,8 @@ MCP endpoint는 다음 기능을 제공합니다.
 
 - scope별 tool 접근 제어: read tool은 `read`, `upload`, `admin` API key에서
   동작하고, `create_upload_url`은 `upload` 또는 `admin` scope가 필요합니다.
+- `MCP_API_KEY`는 read-only instance access입니다. `MCP_API_KEY`가 설정되지 않은
+  instance에서는 인증 없는 caller도 informational tool만 사용할 수 있습니다.
 - `create_upload_url`: 짧게 만료되는 signed capability URL을 발급해 기존
   multipart upload pipeline으로 bundle을 업로드합니다.
 - `get_bundle_overview`, `get_bundle_tree`, `read_bundle_file`: 에이전트가

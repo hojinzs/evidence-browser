@@ -113,7 +113,7 @@ remains cheap.
 
 | Tool | Required |
 |------|----------|
-| `get_bundle_schema`, `get_upload_instructions`, `get_storage_info` | any authenticated caller |
+| `get_bundle_schema`, `get_upload_instructions`, `get_storage_info` | any caller admitted by `/api/mcp` |
 | `list_workspaces`, `list_bundles` | read access |
 | `get_bundle_overview`, `get_bundle_tree`, `read_bundle_file` (§4.3) | read access |
 | `create_upload_url` (§4.2) | **write access** |
@@ -124,7 +124,9 @@ downgraded to read-only** — it is an instance-level shared secret with no user
 so it cannot mint upload URLs (§4.2 records an issuer). `AUTH_BYPASS=true` keeps full
 access (dev/test only, unchanged).
 
-Transport-level auth (401 for missing/invalid credentials) is unchanged.
+For informational tools, "admitted by `/api/mcp`" means the bearer token must match
+`MCP_API_KEY` when that instance secret is configured; when `MCP_API_KEY` is unset, the
+route admits unauthenticated callers but only informational tools pass access checks.
 
 ### 4.2 `create_upload_url` tool + signed upload route (WP2 · #155)
 
@@ -254,7 +256,8 @@ with a `.evidence/{session}` bundle uploaded and verified).
 
 **WP4 (#157)**
 - [x] Spec reconciled with shipped behavior; Status → `Adopted`; delta log complete.
-- [x] AGENTS.md / CHANGELOG / README-CLI docs updated. **Merge closes epic #153.**
+- [x] AGENTS.md / changeset-backed release notes / README-CLI docs updated. **Merge
+      closes epic #153.**
 
 ## 7. Rollout
 

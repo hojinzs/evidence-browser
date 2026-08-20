@@ -231,9 +231,10 @@ Accept: application/json, text/event-stream
 Authorization: Bearer <MCP_API_KEY>   # only if MCP_API_KEY is set
 ```
 
-The endpoint also accepts scoped `eb_` API keys. Read tools require a `read`, `upload`,
-or `admin` scoped API key; `create_upload_url` requires `upload` or `admin`.
-`MCP_API_KEY` is read-only instance access and cannot mint upload URLs.
+The endpoint also accepts `Authorization: Bearer <eb_...>` scoped API keys. Read tools
+require a `read`, `upload`, or `admin` scoped API key; `create_upload_url` requires
+`upload` or `admin`. `MCP_API_KEY` is read-only instance access and cannot mint upload
+URLs. If `MCP_API_KEY` is unset, unauthenticated callers can use informational tools only.
 
 Available tools:
 
