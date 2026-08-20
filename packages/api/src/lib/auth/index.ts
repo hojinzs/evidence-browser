@@ -54,6 +54,7 @@ export async function login(
 ): Promise<{ user: AuthUser; signedSessionId: string } | null> {
   const user = findUserByUsername(username);
   if (!user) return null;
+  if (user.password === null) return null;
 
   const valid = await verifyPassword(password, user.password);
   if (!valid) return null;

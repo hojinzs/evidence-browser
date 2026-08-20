@@ -3,16 +3,33 @@ import path from "path";
 import fs from "fs";
 import { getEnv } from "@/config/env";
 
-const SCHEMA = `
+const USERS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id         TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   username   TEXT NOT NULL UNIQUE,
-  password   TEXT NOT NULL,
+  password   TEXT,
   role       TEXT NOT NULL CHECK (role IN ('admin', 'user')),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+`;
 
+const IDENTITIES_SCHEMA = `
+CREATE TABLE IF NOT EXISTS identities (
+  id           TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider     TEXT NOT NULL,
+  provider_sub TEXT NOT NULL,
+  email        TEXT,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(provider, provider_sub)
+);
+CREATE INDEX IF NOT EXISTS idx_identities_user ON identities(user_id);
+`;
+
+const SCHEMA = `
+${USERS_SCHEMA}
 CREATE TABLE IF NOT EXISTS workspaces (
   id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   slug        TEXT NOT NULL UNIQUE,
@@ -73,11 +90,21 @@ CREATE TABLE IF NOT EXISTS bundle_share_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_bundle_share_tokens_bundle ON bundle_share_tokens(bundle_id);
 CREATE INDEX IF NOT EXISTS idx_bundle_share_tokens_hash ON bundle_share_tokens(token_hash);
+
+${IDENTITIES_SCHEMA}
 `;
 
 type Migration = {
   version: number;
+  transaction?: boolean;
   up: (db: Database.Database) => void;
+};
+
+type ForeignKeyCheckRow = {
+  table: string;
+  rowid: number;
+  parent: string;
+  fkid: number;
 };
 
 const MIGRATIONS: Migration[] = [
@@ -85,6 +112,48 @@ const MIGRATIONS: Migration[] = [
     version: 0,
     up(db) {
       db.exec(SCHEMA);
+    },
+  },
+  {
+    version: 1,
+    transaction: false,
+    up(db) {
+      db.pragma("foreign_keys = OFF");
+      try {
+        const rebuildUsers = db.transaction(() => {
+          db.exec(`
+            CREATE TABLE users_new (
+              id         TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+              username   TEXT NOT NULL UNIQUE,
+              password   TEXT,
+              role       TEXT NOT NULL CHECK (role IN ('admin', 'user')),
+              created_at TEXT NOT NULL DEFAULT (datetime('now')),
+              updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            INSERT INTO users_new (id, username, password, role, created_at, updated_at)
+            SELECT id, username, password, role, created_at, updated_at
+            FROM users;
+
+            DROP TABLE users;
+            ALTER TABLE users_new RENAME TO users;
+          `);
+
+          db.exec(IDENTITIES_SCHEMA);
+        });
+
+        rebuildUsers();
+
+        const foreignKeyErrors = db
+          .pragma("foreign_key_check") as ForeignKeyCheckRow[];
+        if (foreignKeyErrors.length > 0) {
+          throw new Error(
+            `Database migration v1 failed foreign_key_check: ${JSON.stringify(foreignKeyErrors)}`
+          );
+        }
+      } finally {
+        db.pragma("foreign_keys = ON");
+      }
     },
   },
 ];
@@ -112,14 +181,18 @@ export function runMigrations(db: Database.Database): void {
 
   if (currentVersion === TARGET_USER_VERSION) return;
 
-  const migrate = db.transaction(() => {
-    for (const migration of MIGRATIONS.slice(currentVersion)) {
+  for (const migration of MIGRATIONS.slice(currentVersion)) {
+    if (migration.transaction === false) {
       migration.up(db);
       db.pragma(`user_version = ${migration.version + 1}`);
+    } else {
+      const migrate = db.transaction(() => {
+        migration.up(db);
+        db.pragma(`user_version = ${migration.version + 1}`);
+      });
+      migrate();
     }
-  });
-
-  migrate();
+  }
 }
 
 function initializeDb(db: Database.Database, options: { useWal?: boolean } = {}): void {
