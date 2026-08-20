@@ -34,7 +34,12 @@ export function resolveStaticRoot(
 }
 
 export function redactRequestLog(message: string): string {
-  return message.replace(/\/api\/upload\/[^?\s]+/g, "/api/upload/:token");
+  return message
+    .replace(/\/api\/upload\/[^?\s]+/g, "/api/upload/:token")
+    .replace(
+      /\/api\/auth\/oidc\/callback\?[^ \t\n\r]*/g,
+      "/api/auth/oidc/callback?[redacted]"
+    );
 }
 
 export function createApp() {

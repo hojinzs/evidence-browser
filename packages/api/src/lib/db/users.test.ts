@@ -19,8 +19,10 @@ import {
   findUserById,
   listUsers,
   countAdmins,
+  createPasswordlessUser,
   updateUserRole,
   deleteUser,
+  findUserByEmail,
   verifyPassword,
 } from "./users";
 
@@ -58,6 +60,18 @@ describe("users DAO", () => {
     const found = findUserById(user.id);
     expect(found).toBeDefined();
     expect(found!.username).toBe("alice");
+  });
+
+  it("creates passwordless users and finds them by email", () => {
+    const user = createPasswordlessUser({
+      username: "oidc-user",
+      email: "oidc@example.com",
+      role: "user",
+    });
+
+    expect(user.username).toBe("oidc-user");
+    expect(findUserByUsername("oidc-user")?.password).toBeNull();
+    expect(findUserByEmail("oidc@example.com")?.id).toBe(user.id);
   });
 
   it("lists all users", async () => {

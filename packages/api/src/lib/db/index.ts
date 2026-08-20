@@ -7,6 +7,7 @@ const USERS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id         TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   username   TEXT NOT NULL UNIQUE,
+  email      TEXT,
   password   TEXT,
   role       TEXT NOT NULL CHECK (role IN ('admin', 'user')),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -125,14 +126,15 @@ const MIGRATIONS: Migration[] = [
             CREATE TABLE users_new (
               id         TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
               username   TEXT NOT NULL UNIQUE,
+              email      TEXT,
               password   TEXT,
               role       TEXT NOT NULL CHECK (role IN ('admin', 'user')),
               created_at TEXT NOT NULL DEFAULT (datetime('now')),
               updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
 
-            INSERT INTO users_new (id, username, password, role, created_at, updated_at)
-            SELECT id, username, password, role, created_at, updated_at
+            INSERT INTO users_new (id, username, email, password, role, created_at, updated_at)
+            SELECT id, username, NULL, password, role, created_at, updated_at
             FROM users;
 
             DROP TABLE users;
@@ -154,6 +156,18 @@ const MIGRATIONS: Migration[] = [
       } finally {
         db.pragma("foreign_keys = ON");
       }
+    },
+  },
+  {
+    version: 2,
+    up(db) {
+      const columns = db.pragma("table_info(users)") as Array<{ name: string }>;
+      if (!columns.some((column) => column.name === "email")) {
+        db.exec(`ALTER TABLE users ADD COLUMN email TEXT`);
+      }
+      db.exec(
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL`
+      );
     },
   },
 ];

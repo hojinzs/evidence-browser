@@ -4,6 +4,7 @@ import type { UserPublic } from "@evidence-browser/shared/api/types";
 import { getDb } from "./index";
 
 export interface User extends UserPublic {
+  email: string | null;
   password: string | null;
 }
 
@@ -33,6 +34,11 @@ export async function verifyPassword(
 export function findUserByUsername(username: string): User | undefined {
   const stmt = db().prepare(`SELECT * FROM users WHERE username = ?`);
   return stmt.get(username) as User | undefined;
+}
+
+export function findUserByEmail(email: string): User | undefined {
+  const stmt = db().prepare(`SELECT * FROM users WHERE email = ?`);
+  return stmt.get(email) as User | undefined;
 }
 
 export function findUserById(id: string): User | undefined {
@@ -73,6 +79,19 @@ export function updateUserRole(id: string, role: "admin" | "user"): boolean {
   );
   const result = stmt.run(role, id);
   return result.changes > 0;
+}
+
+export function createPasswordlessUser(params: {
+  username: string;
+  email: string | null;
+  role: "admin" | "user";
+}): UserPublic {
+  const stmt = db().prepare(
+    `INSERT INTO users (username, email, password, role)
+     VALUES (?, ?, NULL, ?)
+     RETURNING id, username, role, created_at, updated_at`
+  );
+  return stmt.get(params.username, params.email, params.role) as UserPublic;
 }
 
 export async function updateUserPassword(

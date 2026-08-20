@@ -144,6 +144,13 @@ function tableExists(db: Database.Database, tableName: string): boolean {
   return row !== undefined;
 }
 
+function indexExists(db: Database.Database, indexName: string): boolean {
+  const row = db
+    .prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?`)
+    .get(indexName);
+  return row !== undefined;
+}
+
 function getColumn(
   db: Database.Database,
   tableName: string,
@@ -233,10 +240,12 @@ describe("db migrations", () => {
   it("creates test databases through the migration path", () => {
     const db = createTestDb();
 
-    expect(getUserVersion(db)).toBe(2);
+    expect(getUserVersion(db)).toBe(3);
     expect(tableExists(db, "bundle_share_tokens")).toBe(true);
     expect(tableExists(db, "identities")).toBe(true);
     expect(getColumn(db, "users", "password").notnull).toBe(0);
+    expect(getColumn(db, "users", "email").notnull).toBe(0);
+    expect(indexExists(db, "idx_users_email")).toBe(true);
 
     db.close();
   });
@@ -251,14 +260,16 @@ describe("db migrations", () => {
 
     runMigrations(db);
 
-    expect(getUserVersion(db)).toBe(2);
+    expect(getUserVersion(db)).toBe(3);
     expect(tableExists(db, "bundle_share_tokens")).toBe(true);
     expect(tableExists(db, "identities")).toBe(true);
     expect(getColumn(db, "users", "password").notnull).toBe(0);
+    expect(getColumn(db, "users", "email").notnull).toBe(0);
+    expect(indexExists(db, "idx_users_email")).toBe(true);
 
     runMigrations(db);
 
-    expect(getUserVersion(db)).toBe(2);
+    expect(getUserVersion(db)).toBe(3);
     expect(tableExists(db, "bundle_share_tokens")).toBe(true);
 
     db.close();
@@ -272,9 +283,11 @@ describe("db migrations", () => {
 
     runMigrations(db);
 
-    expect(getUserVersion(db)).toBe(2);
+    expect(getUserVersion(db)).toBe(3);
     expect(tableExists(db, "identities")).toBe(true);
     expect(getColumn(db, "users", "password").notnull).toBe(0);
+    expect(getColumn(db, "users", "email").notnull).toBe(0);
+    expect(indexExists(db, "idx_users_email")).toBe(true);
     expect(db.prepare(`SELECT COUNT(*) as count FROM users`).get()).toEqual({ count: 1 });
     expect(db.prepare(`SELECT COUNT(*) as count FROM workspaces`).get()).toEqual({ count: 1 });
     expect(db.prepare(`SELECT COUNT(*) as count FROM bundles`).get()).toEqual({ count: 1 });
