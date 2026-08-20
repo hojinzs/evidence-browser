@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft |
+| **Status** | Adopted |
 | **Epic** | [#153](https://github.com/hojinzs/evidence-browser/issues/153) |
 | **Created** | 2026-08-13 |
 | **Owner** | hojinzs |
@@ -18,7 +18,10 @@ from this spec updates the affected section and appends a Delta Log row in the s
 | Date | PR | Change |
 |------|----|--------|
 | 2026-08-13 | — | Initial draft |
+| 2026-08-13 | #161 | WP1 shipped per-request MCP auth context and per-tool scope checks; `MCP_API_KEY` is read-only instance access and future write tools require `upload` or `admin` scoped `eb_` keys or auth bypass. |
 | 2026-08-20 | #162 | WP2 signed upload URLs may use `PUBLIC_URL` or reverse-proxy forwarded headers to mint externally reachable origins; malformed multipart fields and DB constraint failures are normalized before storage writes. |
+| 2026-08-20 | #163 | WP3 shipped `get_bundle_overview`, `get_bundle_tree`, `read_bundle_file`, and `list_bundles` filters with normalized read errors, UTC `createdAt` output, truncation metadata, shared bundle file URLs, and safe markdown fences. |
+| 2026-08-20 | #157 | WP4 reconciled this document with the final shipped MCP `0.3.0` surface, verified `llm.txt` guidance, and adopted SPEC-001. |
 
 ---
 
@@ -29,9 +32,11 @@ Evidence Browser exposes two programmatic surfaces today:
 - The **`eb` CLI** (`packages/cli`) — full-featured: auth, workspace CRUD, bundle
   create/validate/upload/info/tree/download, API-key management.
 - A **remote MCP endpoint** at `POST /api/mcp` (Streamable HTTP, stateless;
-  `packages/api/src/routes/mcp.ts`, `packages/api/src/lib/mcp/server.ts`) — five
-  informational tools only (`get_bundle_schema`, `get_storage_info`,
-  `get_upload_instructions`, `list_workspaces`, `list_bundles`) plus the
+  `packages/api/src/routes/mcp.ts`, `packages/api/src/lib/mcp/server.ts`) — scoped
+  informational/read/upload helpers (`get_bundle_schema`, `get_storage_info`,
+  `get_upload_instructions`, `list_workspaces`, `list_bundles`,
+  `create_upload_url`, `get_bundle_overview`, `get_bundle_tree`,
+  `read_bundle_file`) plus the
   `evidence://llm.txt` resource.
 
 Two things changed:
@@ -51,11 +56,11 @@ validation and DB recording are unchanged and behavior is identical for `local` 
 storage. The value is credential scoping: the MCP connection holds the durable auth; the
 agent only ever touches a single-purpose, expiring URL.
 
-**Security gate.** The MCP route currently authenticates `eb_` API keys by existence only
-(`checkAuth` → `getApiKeyUser`) and ignores the key's scope; `MCP_API_KEY` grants blanket
-access. The scope system (`read | upload | admin`, `requireScope` in
-`packages/api/src/middleware/auth.ts`) already exists and is enforced on REST routes.
-Scope enforcement on MCP must land **before** any write-capable tool.
+**Security gate.** Before WP1, the MCP route authenticated `eb_` API keys by existence
+only and ignored the key's scope, while `MCP_API_KEY` granted blanket access. WP1 replaced
+that with per-request auth context resolution using the shared API-key helpers and
+per-tool capability checks, so MCP now follows the same `read | upload | admin` scope
+model as REST routes where the tool contract requires it.
 
 ## 2. Goals
 
@@ -88,9 +93,10 @@ Scope enforcement on MCP must land **before** any write-capable tool.
 
 ### 4.1 Scope enforcement on `/api/mcp` (WP1 · #154)
 
-Today `createMcpServer()` takes no arguments and tool handlers run with no caller
-identity. The transport is already constructed per-request with
-`sessionIdGenerator: undefined`, so per-request context is cheap.
+WP1 made caller identity explicit: `createMcpServer(authContext)` is constructed
+per request, and tool handlers check the required capability before doing work. The
+transport is stateless (`sessionIdGenerator: undefined`), so the per-request MCP server
+remains cheap.
 
 **Contract:**
 
@@ -107,9 +113,9 @@ identity. The transport is already constructed per-request with
 
 | Tool | Required |
 |------|----------|
-| `get_bundle_schema`, `get_upload_instructions`, `get_storage_info` | any authenticated caller |
+| `get_bundle_schema`, `get_upload_instructions`, `get_storage_info` | any caller admitted by `/api/mcp` |
 | `list_workspaces`, `list_bundles` | read access |
-| read tools (§4.3) | read access |
+| `get_bundle_overview`, `get_bundle_tree`, `read_bundle_file` (§4.3) | read access |
 | `create_upload_url` (§4.2) | **write access** |
 
 Where: *read access* = `eb_` key with `read \| upload \| admin`, or `MCP_API_KEY`, or
@@ -118,7 +124,9 @@ downgraded to read-only** — it is an instance-level shared secret with no user
 so it cannot mint upload URLs (§4.2 records an issuer). `AUTH_BYPASS=true` keeps full
 access (dev/test only, unchanged).
 
-Transport-level auth (401 for missing/invalid credentials) is unchanged.
+For informational tools, "admitted by `/api/mcp`" means the bearer token must match
+`MCP_API_KEY` when that instance secret is configured; when `MCP_API_KEY` is unset, the
+route admits unauthenticated callers but only informational tools pass access checks.
 
 ### 4.2 `create_upload_url` tool + signed upload route (WP2 · #155)
 
@@ -201,6 +209,12 @@ or path-resolution logic.
 The `llm.txt` guide (`generateLlmText`) is updated in the same WP to list the final tool
 set and the capability requirements.
 
+**Final verification:** `packages/api/src/lib/mcp/llm-text.ts` lists the shipped MCP tool
+set (`get_bundle_schema`, `get_storage_info`, `get_upload_instructions`,
+`list_workspaces`, filtered `list_bundles`, `create_upload_url`,
+`get_bundle_overview`, `get_bundle_tree`, `read_bundle_file`) and states the read access
+requirements for scoped `eb_` keys, `MCP_API_KEY`, and auth bypass.
+
 ## 5. Security Requirements
 
 - Scope table (§4.1) enforced on every tool; no tool executes work before the check.
@@ -221,40 +235,41 @@ Each WP passes the standard team cycle (backend-engineer → code-reviewer → q
 with a `.evidence/{session}` bundle uploaded and verified).
 
 **WP1 (#154)**
-- [ ] Tool handlers receive an auth context; per-tool capability table enforced.
-- [ ] `MCP_API_KEY` callers can invoke read/informational tools but no write tool.
-- [ ] Tests: 401 invalid key; scope-denial tool error; read-scope happy path; bypass mode.
+- [x] Tool handlers receive an auth context; per-tool capability table enforced.
+- [x] `MCP_API_KEY` callers can invoke read/informational tools but no write tool.
+- [x] Tests: 401 invalid key; scope-denial tool error; read-scope happy path; bypass mode.
 
 **WP2 (#155)**
-- [ ] `create_upload_url` denied without write access; happy path returns a working URL.
-- [ ] Token tests: round-trip, expiry, payload tamper, signature tamper, workspace
+- [x] `create_upload_url` denied without write access; happy path returns a working URL.
+- [x] Token tests: round-trip, expiry, payload tamper, signature tamper, workspace
       binding, pinned-bundleId conflict → 400.
-- [ ] End-to-end: bundle uploaded via minted URL passes validation, is DB-recorded with
+- [x] End-to-end: bundle uploaded via minted URL passes validation, is DB-recorded with
       the issuer as uploader, and renders in the web UI.
-- [ ] QA dogfoods the full flow over MCP (mint → curl upload → verify render).
+- [x] QA dogfoods the full flow over MCP (mint → curl upload → verify render).
 
 **WP3 (#156)**
-- [ ] Overview/tree/file tools work against an uploaded bundle; not-found and traversal
+- [x] Overview/tree/file tools work against an uploaded bundle; not-found and traversal
       cases covered; binary/oversize fallback returns metadata + URL.
-- [ ] `list_bundles` filters behave as specified.
-- [ ] QA dogfoods: answers a content question about a previously uploaded bundle using
+- [x] `list_bundles` filters behave as specified.
+- [x] QA dogfoods: answers a content question about a previously uploaded bundle using
       only MCP tools.
 
 **WP4 (#157)**
-- [ ] Spec reconciled with shipped behavior; Status → `Adopted`; delta log complete.
-- [ ] AGENTS.md / CHANGELOG / README-CLI docs updated. **Merge closes epic #153.**
+- [x] Spec reconciled with shipped behavior; Status → `Adopted`; delta log complete.
+- [x] AGENTS.md / changeset-backed release notes / README-CLI docs updated. **Merge
+      closes epic #153.**
 
 ## 7. Rollout
 
 - No DB schema migration (tokens are stateless).
 - Optional `PUBLIC_URL` config controls externally visible URL minting behind reverse
   proxies; `AUTH_SECRET` production guard already exists in `config/env.ts`.
-- MCP server version bumps `0.2.0` → `0.3.0` when WP2/WP3 land.
-- Order: WP1 → (WP2 ∥ WP3) → WP4.
+- MCP server version is `0.3.0` after WP2/WP3 landed.
+- Order completed: WP1 → WP2/WP3 → WP4.
 
-## 8. Open Questions
+## 8. Resolved Questions
 
-- Should `create_upload_url` optionally return a `metaUrl` for post-upload verification
-  (agent confirms its own upload)? Cheap to add in WP2; decide during implementation.
-- Whether `get_bundle_overview` should inline *all* small text files rather than just the
-  index (context-budget tradeoff). WP3 may tune; record the decision in the delta log.
+- `create_upload_url` returns `uploadUrl`, `method`, `expiresAt`, and `instructions`;
+  no `metaUrl` shipped in this epic.
+- `get_bundle_overview` inlines the manifest index file only. Agents can call
+  `read_bundle_file` for additional small text files, keeping the overview bounded.

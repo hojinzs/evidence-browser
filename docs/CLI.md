@@ -371,6 +371,33 @@ eb upload report.zip --workspace ci-results --bundle-id pr-42-run-1
 
 ---
 
+## MCP endpoint와의 관계
+
+CLI는 로컬 파일 시스템을 직접 다루는 자동화 표면입니다. 원격 에이전트가
+쉘이나 로컬 파일 접근 없이 Evidence Browser와 통신해야 하면 서버의
+Streamable HTTP MCP endpoint를 사용할 수 있습니다.
+
+```text
+POST /api/mcp
+```
+
+MCP endpoint는 다음 기능을 제공합니다.
+
+- scope별 tool 접근 제어: read tool은 `read`, `upload`, `admin` API key에서
+  동작하고, `create_upload_url`은 `upload` 또는 `admin` scope가 필요합니다.
+- `MCP_API_KEY`는 read-only instance access입니다. `MCP_API_KEY`가 설정되지 않은
+  instance에서는 인증 없는 caller도 informational tool만 사용할 수 있습니다.
+- `create_upload_url`: 짧게 만료되는 signed capability URL을 발급해 기존
+  multipart upload pipeline으로 bundle을 업로드합니다.
+- `get_bundle_overview`, `get_bundle_tree`, `read_bundle_file`: 에이전트가
+  이전 bundle의 metadata, file tree, text file 내용을 MCP만으로 조회합니다.
+- `list_bundles`: uploader, ISO-8601 시간 범위, limit filter를 지원합니다.
+
+MCP guide는 서버의 `GET /llm.txt` 또는 MCP resource `evidence://llm.txt`에서
+확인할 수 있습니다.
+
+---
+
 ## 종료 코드
 
 현재 구현은 실패 시 `stderr`에 오류를 출력하고 `1`로 종료합니다. 성공 시

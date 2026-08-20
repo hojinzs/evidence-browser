@@ -145,7 +145,7 @@ eb upload dist/evidence.zip --workspace ci-results --bundle-id "pr-42-run-1"
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MCP_API_KEY` | — | Optional Bearer token for `/api/mcp` auth. If unset, the endpoint is public. |
+| `MCP_API_KEY` | — | Optional read-only Bearer token for `/api/mcp` instance auth. Scoped `eb_` API keys are also accepted. If unset, only informational tools are public unless `AUTH_BYPASS=true`. |
 
 ## Bundle Format
 
@@ -231,6 +231,11 @@ Accept: application/json, text/event-stream
 Authorization: Bearer <MCP_API_KEY>   # only if MCP_API_KEY is set
 ```
 
+The endpoint also accepts `Authorization: Bearer <eb_...>` scoped API keys. Read tools
+require a `read`, `upload`, or `admin` scoped API key; `create_upload_url` requires
+`upload` or `admin`. `MCP_API_KEY` is read-only instance access and cannot mint upload
+URLs. If `MCP_API_KEY` is unset, unauthenticated callers can use informational tools only.
+
 Available tools:
 
 | Tool | Description |
@@ -238,7 +243,12 @@ Available tools:
 | `get_bundle_schema` | Returns manifest.json schema and zip structure |
 | `get_storage_info` | Returns storage type, bucket, endpoint, region (no secrets) |
 | `get_upload_instructions` | Step-by-step upload instructions for the current storage |
-| `list_bundles` | Lists available bundle IDs with optional prefix filter |
+| `list_workspaces` | Lists available workspaces |
+| `list_bundles` | Lists bundles in a workspace, optionally filtered by uploader, time range, and limit |
+| `create_upload_url` | Mints a short-lived signed multipart upload URL for upload/admin scoped callers |
+| `get_bundle_overview` | Returns bundle metadata, manifest, file tree, and inline index file content |
+| `get_bundle_tree` | Returns the file tree for one bundle |
+| `read_bundle_file` | Reads one text file up to 256 KB; binary or oversized files return metadata plus a web URL |
 
 Test with MCP Inspector:
 
