@@ -53,19 +53,30 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # publish 후 v{version} 태그를 push → docker.yml 이 semver 태그로 이미지를 빌드
-      - name: Push git tag for Docker release
-        if: steps.changesets.outputs.published == 'true'
+      # 앱(api/web/shared)은 private 이라 npm publish 가 없다.
+      # Version Packages PR 이 머지돼 앱 버전이 올라간 순간을 태그 유무로 판별한다.
+      # hasChangesets == 'true' 이면 이번 push 는 "Version Packages" PR 을 연 것뿐이므로
+      # 아직 릴리즈가 아니다. 그 PR 이 머지된 다음 push 에서만 태그를 만든다.
+      - name: Tag app release
+        id: app
+        if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
-          VERSION=$(jq -r '.version' packages/cli/package.json)
-          git tag "v${VERSION}"
-          git push origin "v${VERSION}"
+          set -euo pipefail
+          VERSION=$(jq -r '.version' packages/api/package.json)
+          if git rev-parse -q --verify "refs/tags/app-v${VERSION}" >/dev/null; then
+            echo "app-v${VERSION} 태그가 이미 존재 → 앱 릴리즈 없음"
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git tag "app-v${VERSION}"
+          git push origin "app-v${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "released=true" >> "$GITHUB_OUTPUT"
 
+      # GITHUB_TOKEN 으로 push 한 태그는 다른 워크플로를 트리거하지 않으므로 직접 dispatch 한다.
       - name: Trigger Docker release
-        if: steps.changesets.outputs.published == 'true'
-        continue-on-error: true
+        if: steps.app.outputs.released == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=$(jq -r '.version' packages/cli/package.json)
-          gh workflow run docker.yml --ref main -f version="v${VERSION}"
+          gh workflow run docker.yml --ref main -f version="app-v${{ steps.app.outputs.version }}"

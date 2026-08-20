@@ -2,12 +2,14 @@ name: Docker
 
 on:
   push:
+    branches: [main]
     tags:
-      - "v*"
+      - "app-v*"   # 앱 릴리즈 (release.yml 이 생성)
+      - "v*"       # 레거시 태그 (0.1.3 이하, CLI 버전 기반)
   workflow_dispatch:
     inputs:
       version:
-        description: "Git tag to build, e.g. v0.1.1"
+        description: "Git tag to build, e.g. app-v0.2.0 (비우면 현재 ref 를 빌드)"
         required: false
         type: string
 
@@ -29,17 +31,31 @@ jobs:
         with:
           ref: ${{ inputs.version || github.ref }}
 
+      # app-v0.2.0 / v0.2.0 → RELEASE_VERSION=v0.2.0 (릴리즈 빌드)
+      # main 브랜치 push → RELEASE_VERSION 비어 있음 (연속 배포)
+      - name: Resolve release version
+        run: |
+          set -euo pipefail
+          REF="${{ inputs.version || github.ref_name }}"
+          case "${REF}" in
+            app-v*|v*) echo "RELEASE_VERSION=${REF#app-}" >> "$GITHUB_ENV" ;;
+            *)         echo "RELEASE_VERSION=" >> "$GITHUB_ENV" ;;
+          esac
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            # v* 태그 push → :1.2.3, :1.2, :1, :latest
-            type=semver,pattern={{version}},value=${{ inputs.version || github.ref_name }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.version || github.ref_name }}
-            type=semver,pattern={{major}},value=${{ inputs.version || github.ref_name }}
-            type=raw,value=latest,enable=${{ startsWith(inputs.version || github.ref_name, 'v') }}
+            # main push → :main, :sha-abc1234 (연속 배포, latest 는 건드리지 않음)
+            type=raw,value=main,enable=${{ env.RELEASE_VERSION == '' }}
+            type=sha,enable=${{ env.RELEASE_VERSION == '' }}
+            # v* 태그 / dispatch → :1.2.3, :1.2, :1, :latest
+            type=semver,pattern={{version}},value=${{ env.RELEASE_VERSION }},enable=${{ env.RELEASE_VERSION != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.RELEASE_VERSION }},enable=${{ env.RELEASE_VERSION != '' }}
+            type=semver,pattern={{major}},value=${{ env.RELEASE_VERSION }},enable=${{ env.RELEASE_VERSION != '' }}
+            type=raw,value=latest,enable=${{ env.RELEASE_VERSION != '' }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

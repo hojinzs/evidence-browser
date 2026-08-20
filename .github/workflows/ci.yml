@@ -91,3 +91,50 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e
+
+  changeset:
+    name: changeset
+    if: >-
+      github.event_name == 'pull_request' &&
+      !contains(github.event.pull_request.labels.*.name, 'skip-changeset')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Require a changeset for released packages
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "+refs/heads/${BASE}:refs/remotes/origin/${BASE}"
+
+          if [ -z "$(git diff --name-only "origin/${BASE}...HEAD" -- packages/)" ]; then
+            echo "packages/ 변경 없음 → changeset 불필요"
+            exit 0
+          fi
+
+          ADDED=$(git diff --name-only --diff-filter=AM "origin/${BASE}...HEAD" -- '.changeset/*.md' \
+            | grep -v '/README.md$' || true)
+
+          if [ -z "${ADDED}" ]; then
+            echo "::error::packages/ 를 변경했지만 changeset 이 없습니다. \`npx changeset\` 으로 추가하거나, 릴리즈가 불필요하면 PR 에 skip-changeset 라벨을 붙이세요."
+            exit 1
+          fi
+
+          # shared 는 CLI 의 prepack 으로 vendoring 되어 npm 패키지에도 함께 실린다.
+          # 따라서 cli / shared 를 건드렸다면 evidence-browser-cli 도 changeset 에 포함해야 한다.
+          if [ -n "$(git diff --name-only "origin/${BASE}...HEAD" -- packages/cli packages/shared)" ] \
+             && ! printf '%s\n' "${ADDED}" | xargs grep -l 'evidence-browser-cli' >/dev/null; then
+            echo "::error::packages/cli · packages/shared 변경은 evidence-browser-cli 를 포함한 changeset 이 필요합니다 (shared 는 CLI 에 vendoring 됩니다)."
+            exit 1
+          fi
+
+          echo "changeset 확인됨:"
+          echo "${ADDED}"
+          npx changeset status

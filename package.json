@@ -37,7 +37,7 @@
     "typecheck:web": "npm -w @evidence-browser/web run typecheck",
     "typecheck:cli": "npm -w evidence-browser-cli run typecheck",
     "build:cli": "npm -w evidence-browser-cli run build",
-    "changeset:version": "changeset version",
+    "changeset:version": "changeset version && npm install --package-lock-only",
     "release": "changeset publish",
     "test:coverage": "npm run test:coverage:shared && npm run test:coverage:api && npm run test:coverage:web",
     "test:coverage:api": "npm -w @evidence-browser/api run test:coverage",

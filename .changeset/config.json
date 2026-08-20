@@ -2,14 +2,20 @@
   "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    [
+      "@evidence-browser/api",
+      "@evidence-browser/web",
+      "@evidence-browser/shared"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [
-    "@evidence-browser/api",
-    "@evidence-browser/web",
-    "@evidence-browser/shared"
-  ]
+  "ignore": [],
+  "privatePackages": {
+    "version": true,
+    "tag": false
+  }
 }
