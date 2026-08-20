@@ -22,7 +22,7 @@ Use this skill when creating or updating a GitHub PR for an implementation issue
 Before the PR is created or updated, run the smallest meaningful automated check that covers the changed area.
 
 - Prefer targeted commands over full-repo suites when the change scope is narrow.
-- Use repository defaults when the scope is broad: `pnpm -r lint`, `pnpm -r test`, `pnpm -r build`.
+- Use repository defaults when the scope is broad: `npm run lint`, `npm test`, `npm run build`. For a narrow scope, prefer the per-workspace scripts (`npm run test:api`, `npm run typecheck:web`, …).
 - If no automated test is available, record the gap explicitly in `Evidence` and explain the fallback manual check.
 
 ## PR Body Template

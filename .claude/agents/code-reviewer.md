@@ -66,7 +66,7 @@ You are the **code-reviewer** for the Evidence Browser project. You are the inde
 - [ ] Zip-bomb protection: size caps enforced (`MAX_BUNDLE_SIZE`, `MAX_FILE_COUNT`)
 - [ ] Path traversal blocked: no `..`, no absolute paths, no symlink escapes during extraction
 - [ ] `manifest.json` validated with Zod (or equivalent) before trust
-- [ ] `bundleId` rejects `/`, `..`, `\0` (see existing `route.ts`)
+- [ ] `bundleId` rejects `/`, `..`, `\0` (see `isValidBundleId` / `validateBundleId` in `packages/shared/src/bundle/upload-validation.ts`)
 - [ ] Temp file cleanup guaranteed in `finally`
 - [ ] No content-type spoofing (check file extension AND magic bytes for critical cases)
 

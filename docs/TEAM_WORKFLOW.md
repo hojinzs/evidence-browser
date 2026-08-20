@@ -11,7 +11,7 @@ This is the canonical spec for how the Claude Code sub-agent team operates on th
 | `frontend-engineer` | `.claude/agents/frontend-engineer.md` | `/frontend-design` | Vite/TanStack routes, React components, Tailwind, `packages/web/src/styles.css`, Figma integration |
 | `code-reviewer` | `.claude/agents/code-reviewer.md` | — | Diff review + security checklist between impl and QA |
 | `qa-engineer` | `.claude/agents/qa-engineer.md` | — | TC design, Playwright MCP, evidence bundling, upload, recursive verification |
-| `release-notes-writer` | `.claude/agents/release-notes-writer.md` | — | AGENTS.md / README / CHANGELOG after a cycle |
+| `release-notes-writer` | `.claude/agents/release-notes-writer.md` | — | AGENTS.md / README / WORKFLOW docs after a cycle |
 
 ## Standard flow
 
@@ -51,7 +51,7 @@ This is the canonical spec for how the Claude Code sub-agent team operates on th
                         │        └──► tech-lead → re-dispatch → attempt N+1
                         │
                 ┌───────▼────────┐
-                │ release-notes- │  AGENTS.md, README, CHANGELOG
+                │ release-notes- │  AGENTS.md, README, docs
                 │ writer         │
                 └───────┬────────┘
                         │
@@ -192,7 +192,7 @@ loop:
 | FE impl | commit(s) + file list + visual screenshots | git + `.evidence/{session}/screenshots/` (if QA running) |
 | code-reviewer | review report | `.evidence/{session}/review.md` |
 | qa-engineer | evidence bundle | `.evidence/{session}/` + uploaded bundle URL |
-| release-notes-writer | doc updates | `AGENTS.md`, `README.md`, `CHANGELOG.md` edits in git |
+| release-notes-writer | doc updates | `AGENTS.md`, `README.md`, `docs/**` edits in git |
 
 ## Pre-conditions
 

@@ -160,21 +160,23 @@ Entered from one of:
 
 6. **Completion Bar — agent-verifiable.** All must hold before marking the PR ready:
    - [ ] All in-scope requirements from the issue description are implemented.
-   - [ ] `pnpm lint` passes.
-   - [ ] `pnpm test` passes.
-   - [ ] `pnpm typecheck` passes.
-   - [ ] `pnpm build` passes.
-   - [ ] If the change affects integration behavior (orchestrator dispatch, worker lifecycle, tracker adapters, status API, etc.), a short TC was added and a Docker E2E blackbox run completed per [AGENT_TEST.md](AGENT_TEST.md). Results recorded in the workpad `### Validation` section.
+   - [ ] `npm run lint` passes (ESLint + `npm run typecheck`).
+   - [ ] `npm test` passes.
+   - [ ] `npm run build` passes.
+   - [ ] If the change touches a user-facing surface (web routes, API endpoints, bundle upload/rendering, auth, MCP, CLI), the QA required for that surface by [TEST.md](TEST.md) was run. Results recorded in the workpad `### Validation` section.
    - [ ] Tests written for new functionality (or justified N/A and noted).
-   - [ ] Code follows the conventions in [CLAUDE.md](CLAUDE.md) (strict TypeScript, Prettier, conventional commits).
+   - [ ] Code follows repo conventions: strict TypeScript (`tsconfig.base.json`), ESLint clean, conventional commits, and the stack boundaries in [AGENTS.md](AGENTS.md).
    - [ ] All inline review comments answered (rework cycles only).
 
+   CI runs two gates beyond this bar — `npm run test:coverage` (threshold-enforced) and `npm run e2e` (Playwright). A PR can satisfy the local bar and still fail those; check the PR's CI result before the handoff in Step 2.8.
+
 7. **Changeset policy — mandatory immediately before marking the PR ready (or before re-handoff after rework).**
-   - If the issue has one of `changeset:major`, `changeset:minor`, `changeset:patch`, create a Changeset.
-   - The release package must be `@gh-symphony/cli` only. Do not add private/internal workspace packages.
-   - Bump type follows the label; with multiple labels, use the highest impact (`major` > `minor` > `patch`) and note the ambiguity in the workpad.
+   - **When required:** every PR that touches `packages/**`. The CI `changeset` job enforces it, and `/land` blocks on failing checks — a missing changeset stalls the release pipeline, so do not defer it to a later PR.
+   - **Bump type:** if the issue carries `changeset:major` / `changeset:minor` / `changeset:patch`, follow the label (highest impact wins when several are present; note the ambiguity in the workpad). With no label, infer and record the reasoning in the workpad: breaking API/CLI contract → `major`, new user-visible capability → `minor`, everything else → `patch`. Never block on a missing label.
+   - **Release targets:** CLI changes (`packages/cli`, `packages/shared`) must list `evidence-browser-cli`; app changes (`packages/api`, `packages/web`, `packages/shared`) list `@evidence-browser/api` — the `fixed` group in `.changeset/config.json` bumps api/web/shared together. A `packages/shared` change usually needs both, because `shared` is vendored into the published CLI by its `prepack`.
+   - **Escape hatch:** the `skip-changeset` label, applied to the **PR** (not the issue), skips the CI job. Use it only when the change is genuinely not releasable (tests, fixtures, comments) and say why in the workpad.
    - The Changeset summary describes the user-visible CLI/runtime behavior change and references the issue identifier when practical.
-   - Record the Changeset file path in the workpad `### Validation` section.
+   - Record the Changeset file path and the chosen bump type (label-driven or inferred) in the workpad `### Validation` section.
 
 8. **Mandatory handoff gate.** The moment Steps 5–7 are satisfied, in **this same turn**:
    1. Run `/gh-pr-writeup` to refresh the PR body so TL;DR · 변경 지점 다이어그램 · 여기부터 보세요 · 위험 & 롤백 · 변경 파일 · `## Issues — Closed #<N>` · 머지 후/사람 확인 sections are current.
@@ -312,13 +314,12 @@ Used for all cycles. Land-cycle workpads keep Plan/Validation/Progress Log fille
 <!-- mirror of WORKFLOW.md Step 2.6; in-progress cycles only -->
 
 - [ ] In-scope requirements implemented
-- [ ] `pnpm lint`
-- [ ] `pnpm test`
-- [ ] `pnpm typecheck`
-- [ ] `pnpm build`
-- [ ] Docker E2E (if integration behavior changed)
+- [ ] `npm run lint`
+- [ ] `npm test`
+- [ ] `npm run build`
+- [ ] TEST.md QA for the changed surface (if user-facing)
 - [ ] Tests for new functionality (or justified N/A)
-- [ ] Code conventions (CLAUDE.md)
+- [ ] Code conventions (AGENTS.md)
 - [ ] Inline review comments answered (rework only)
 
 ### Validation
@@ -326,8 +327,8 @@ Used for all cycles. Land-cycle workpads keep Plan/Validation/Progress Log fille
 <!-- evidence: command, outcome, artifacts -->
 
 - {command} — {pass/fail}
-- Changeset: `{path or N/A}`
-- Docker E2E evidence: `{path or N/A}`
+- Changeset: `{path or N/A}` — bump `{major|minor|patch}` ({label `changeset:x` | inferred: reason})
+- QA evidence (TEST.md / `.evidence/<session>/`): `{path or N/A}`
 - Merge commit (Land cycle only): `{SHA}`
 
 ### 위임 (out-of-scope / human / post-merge)
