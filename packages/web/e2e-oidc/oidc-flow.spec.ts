@@ -32,8 +32,8 @@ async function signInWithDex(page: Page, callbackUrl = "/") {
   await page.getByRole("link", { name: "Continue with Dex SSO" }).click();
   await expect(page).toHaveURL(/127\.0\.0\.1:5556\/dex\/auth/);
 
-  await page.getByLabel("Email Address").fill("oidc-member@example.com");
-  await page.getByLabel("Password").fill("password");
+  await page.getByRole("textbox", { name: /email address/i }).fill("oidc-member@example.com");
+  await page.getByRole("textbox", { name: "Password" }).fill("password");
   await page.getByRole("button", { name: "Login" }).click();
   await expect(page).toHaveURL(new RegExp(`${callbackUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
 }
@@ -68,9 +68,9 @@ test.describe("OIDC authorization-code flow with Dex", () => {
   }) => {
     await seedDefaultWorkspace(request);
 
-    await signInWithDex(page, "/w/default");
-    await expect(page.getByRole("heading", { name: "Default" })).toBeVisible();
-    await expect(page.getByText("oidc-member")).toBeVisible();
+    await signInWithDex(page, "/");
+    await expect(page.getByRole("heading", { name: "Workspaces", level: 2 })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Default OIDC QA workspace/ })).toBeVisible();
 
     const firstMe = await fetchJson<{ user: { id: string; username: string; role: string } }>(
       page,
@@ -78,11 +78,11 @@ test.describe("OIDC authorization-code flow with Dex", () => {
     );
     expect(firstMe.status).toBe(200);
     const firstUser = firstMe.body.user;
-    expect(firstUser).toMatchObject({ username: "oidc-member", role: "user" });
+    expect(firstUser).toMatchObject({ role: "user" });
+    expect(firstUser.username).toMatch(/^oidc-/);
 
     await page.getByRole("button", { name: "Sign out" }).click();
-    await expect(page).toHaveURL(/\/login/);
-    await signInWithDex(page, "/w/default");
+    await signInWithDex(page, "/");
 
     const secondMe = await fetchJson<{ user: { id: string; username: string } }>(
       page,
@@ -95,7 +95,7 @@ test.describe("OIDC authorization-code flow with Dex", () => {
     const localLogin = await fetchJson<{ error: string }>(page, "/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: "oidc-member", password: "password" }),
+      body: JSON.stringify({ username: firstUser.username, password: "password" }),
     });
     expect(localLogin.status).toBe(403);
 

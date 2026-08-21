@@ -161,6 +161,29 @@ describe("resolveOidcUser", () => {
     expect(findUserByUsername("member-2")?.password).toBeNull();
   });
 
+  it("reuses the same user row on a second login for the provider subject", async () => {
+    const first = await resolveOidcUser(claims());
+    const second = await resolveOidcUser(claims());
+
+    expect(second).toMatchObject({
+      id: first.id,
+      username: first.username,
+      role: first.role,
+    });
+    expect(
+      (testDb.prepare(`SELECT COUNT(*) AS count FROM users`).get() as { count: number }).count
+    ).toBe(1);
+  });
+
+  it("provisions admin users from the configured admin group", async () => {
+    setBaseEnv({ OIDC_ADMIN_GROUP: "admins" });
+
+    await expect(resolveOidcUser(claims({ groups: ["users", "admins"] }))).resolves.toMatchObject({
+      username: "member",
+      role: "admin",
+    });
+  });
+
   it("rejects when no identity, link, or provision rule matches", async () => {
     setBaseEnv({
       OIDC_AUTO_PROVISION: "false",

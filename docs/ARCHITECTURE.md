@@ -127,7 +127,11 @@ Vite dev serves the SPA on port 3000 and proxies `/api` to the Hono dev server o
 
 ## 4. Auth And Authorization
 
-Evidence Browser uses its own session and API-key model, not NextAuth/OIDC.
+Evidence Browser uses its own session and API-key model. Optional OIDC is an
+SSO front door onto that same model: successful provider callbacks resolve or
+provision a local `users` row, link an `identities` row, and then issue the same
+`evidence_session` cookie used by password login. Evidence Browser does not use
+NextAuth.
 
 ```text
 POST /api/auth/login
@@ -145,6 +149,11 @@ POST /api/auth/login
 - `requireUpload` — API key with `upload` or `admin` scope, or an admin session.
 
 Auth bypass is isolated in `packages/api/src/lib/auth/bypass.ts` for local/dev workflows and emits a warning when enabled.
+
+OIDC routes live in `packages/api/src/routes/auth.ts` and provider logic lives in
+`packages/api/src/lib/auth/oidc.ts`. `OIDC_ADMIN_GROUP` maps group members to the
+local `admin` role, while `OIDC_ALLOWED_GROUPS` rejects users outside the
+configured allowlist before local provisioning.
 
 ---
 

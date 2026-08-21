@@ -264,7 +264,7 @@ manifest.json 은 viewer가 bundle을 여는 데 필요한 최소 정보만 가�
 ### 확장성
 - 다양한 에이전트와 파일 구조를 수용할 수 있어야 한다
 - manifest는 얇게 유지하고, bundle 내부 파일 구조는 자유로워야 한다
-- OIDC 같은 외부 IdP 연동은 향후 확장 방향으로 둘 수 있어야 한다
+- 외부 IdP는 OIDC authorization-code 로그인으로 연동할 수 있어야 하며, 기존 session/API-key 모델과 함께 동작해야 한다
 
 ---
 

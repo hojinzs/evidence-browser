@@ -18,7 +18,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "docker compose -f ../../docker-compose.test.yml up -d oidc",
+      command: "docker compose -f ../../docker-compose.test.yml up oidc",
       url: "http://127.0.0.1:5556/dex/.well-known/openid-configuration",
       reuseExistingServer: true,
       timeout: 60_000,

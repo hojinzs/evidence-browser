@@ -135,6 +135,15 @@ function uniqueUsername(preferred: string | undefined, sub: string): string {
   return `${base.slice(0, 48)}-${randomUUID().slice(0, 8)}`;
 }
 
+function isLoopbackIssuer(issuer: string): boolean {
+  try {
+    const hostname = new URL(issuer).hostname;
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
 async function getOidcConfig(): Promise<OidcConfig> {
   const env = getEnv();
   const issuer = env.OIDC_ISSUER;
@@ -162,7 +171,8 @@ async function getOidcConfig(): Promise<OidcConfig> {
         redirect_uris: [redirectUri],
         response_types: ["code"],
       },
-      client.ClientSecretPost(clientSecret)
+      client.ClientSecretPost(clientSecret),
+      isLoopbackIssuer(issuer) ? { execute: [client.allowInsecureRequests] } : undefined
     );
     cachedDiscovery = { issuer, clientId, redirectUri, config };
     return config;
