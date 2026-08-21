@@ -19,7 +19,7 @@ Stop dumping CI and agent test results into public HTML reports. Evidence Browse
 - **Bundle viewer** — Browse zip bundles with file tree navigation
 - **Rich rendering** — Markdown (with embedded images), syntax-highlighted code, image preview
 - **Pluggable storage** — Local filesystem or S3/R2-compatible object storage
-- **Authentication** — Built-in username/password session auth for admin and API access
+- **Authentication** — Built-in username/password auth, API keys, and optional OIDC SSO
 - **AI Agent integration** — `/llm.txt` endpoint and MCP server for programmatic access
 - **Hierarchical bundle IDs** — `org/repo/pr-42/run-1` maps to nested storage paths
 - **First-run setup** — `/setup` guides the initial admin, storage check, and workspace creation
@@ -117,6 +117,54 @@ eb upload dist/evidence.zip --workspace ci-results --bundle-id "pr-42-run-1"
 |----------|---------|-------------|
 | `AUTH_SECRET` | `evidence-browser-default-secret-change-me` | Session signing secret (must be explicitly set in production) |
 | `AUTH_BYPASS` | `false` | Set to `true` only for trusted local or intranet deployments. All requests run as an admin user, `/setup` is skipped, and no login/API key is required. Do not expose an instance with this enabled to an untrusted network. |
+| `AUTH_LOCAL_ENABLED` | `true` | Enables built-in username/password login. Set to `false` only when `OIDC_ENABLED=true`; API keys and active OIDC sessions still work. |
+| `OIDC_ENABLED` | `false` | Enables OIDC authorization-code login. Requires issuer, client ID, client secret, and redirect URI. |
+| `OIDC_ISSUER` | — | OIDC issuer URL used for discovery, for example `https://auth.example.com/application/o/evidence-browser/` for Authentik. |
+| `OIDC_CLIENT_ID` | — | Client ID from the OIDC provider. |
+| `OIDC_CLIENT_SECRET` | — | Client secret from the OIDC provider. |
+| `OIDC_REDIRECT_URI` | — | Public callback URL, for example `https://evidence.example.com/api/auth/oidc/callback`. |
+| `OIDC_SCOPES` | `openid profile email` | Space-separated scopes requested during authorization. Include a provider-specific groups scope only when required. |
+| `OIDC_GROUPS_CLAIM` | `groups` | Claim name read as the group list. |
+| `OIDC_ADMIN_GROUP` | — | Group whose members are synced as Evidence Browser admins. Other OIDC users are synced as `user`. |
+| `OIDC_ALLOWED_GROUPS` | — | Optional comma-separated allowlist. When set, users outside every listed group are rejected. |
+| `OIDC_AUTO_PROVISION` | `true` | Creates a passwordless local user on first successful OIDC login. |
+| `OIDC_LINK_BY_VERIFIED_EMAIL` | `false` | Links a verified OIDC email to an existing local user when no provider identity exists. |
+| `OIDC_BUTTON_LABEL` | `Sign in with SSO` | Login page label for the OIDC button. |
+
+### Authentik OIDC setup
+
+Manual sign-off path recorded against Authentik `2026.8.0`.
+
+1. In Authentik, create a Property Mapping for the admin group claim if the default `groups` claim is not already suitable:
+   - Scope name: `groups`
+   - Expression:
+     ```python
+     return [group.name for group in request.user.ak_groups.all()]
+     ```
+2. Create an OAuth2/OpenID Provider:
+   - Authorization flow: the instance default explicit or implicit consent flow.
+   - Client type: Confidential.
+   - Redirect URI: `https://<evidence-browser-host>/api/auth/oidc/callback`.
+   - Signing key: select the instance default.
+   - Scopes: include `openid`, `profile`, `email`, and the `groups` mapping.
+3. Create an Application and attach the provider.
+4. Assign the Application to the users or groups allowed to sign in.
+5. Configure Evidence Browser:
+   ```bash
+   AUTH_SECRET="$(openssl rand -base64 32)"
+   AUTH_LOCAL_ENABLED=false
+   OIDC_ENABLED=true
+   OIDC_ISSUER=https://<authentik-host>/application/o/<slug>/
+   OIDC_CLIENT_ID=<provider-client-id>
+   OIDC_CLIENT_SECRET=<provider-client-secret>
+   OIDC_REDIRECT_URI=https://<evidence-browser-host>/api/auth/oidc/callback
+   OIDC_GROUPS_CLAIM=groups
+   OIDC_ADMIN_GROUP=evidence-browser-admins
+   OIDC_ALLOWED_GROUPS=evidence-browser-users,evidence-browser-admins
+   ```
+6. Verify that an `evidence-browser-admins` member lands in `/admin`, and that a user outside `OIDC_ALLOWED_GROUPS` is rejected with the safe login error.
+
+Upgrade note: migration v1 rebuilds the `users` table. Back up `evidence.db` before upgrading an existing instance.
 
 ### Storage
 

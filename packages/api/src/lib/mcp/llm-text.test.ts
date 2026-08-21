@@ -91,9 +91,10 @@ Use the web UI at /w/{workspace-slug} — drag and drop a .zip file.
 
 ## Authentication
 
-Evidence Browser uses local password auth (no OIDC).
-Login: POST /api/auth/login with { "username", "password" }
-The response sets an evidence_session cookie.
+Evidence Browser uses local password auth and optional OIDC SSO.
+Password login: POST /api/auth/login with { "username", "password" }
+OIDC login: GET /api/auth/oidc/start, then provider callback.
+Both paths set an evidence_session cookie. API keys remain valid for automation.
 
 ---
 
