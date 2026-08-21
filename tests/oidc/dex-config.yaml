@@ -9,6 +9,11 @@ web:
 oauth2:
   skipApprovalScreen: true
 
+connectors:
+  - type: mockCallback
+    id: mock
+    name: Mock Groups
+
 staticClients:
   - id: evidence-browser
     name: Evidence Browser

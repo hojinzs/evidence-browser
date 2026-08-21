@@ -12,6 +12,7 @@ async function seedDefaultWorkspace(request: APIRequestContext) {
     data: { username: `setup-${Date.now()}`, password: "password123" },
   });
   expect([200, 403]).toContain(admin.status());
+  if (admin.status() === 403) return;
 
   const workspace = await request.post("/api/setup/workspace", {
     data: {
@@ -23,7 +24,22 @@ async function seedDefaultWorkspace(request: APIRequestContext) {
   expect([200, 409]).toContain(workspace.status());
 }
 
-async function signInWithDex(page: Page, callbackUrl = "/") {
+async function chooseDexLoginMethod(page: Page, method: "password" | "mock") {
+  if (method === "mock") {
+    const mockLink = page.getByRole("link", { name: /Mock Groups/i });
+    if (await mockLink.isVisible()) {
+      await mockLink.click();
+    }
+    return;
+  }
+
+  const passwordLink = page.getByRole("link", { name: /Email|Password/i });
+  if (await passwordLink.isVisible()) {
+    await passwordLink.click();
+  }
+}
+
+async function signInWithDex(page: Page, callbackUrl = "/", method: "password" | "mock" = "password") {
   await page.goto(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
   await expect(page.getByRole("link", { name: "Continue with Dex SSO" })).toBeVisible();
   await expect(page.getByLabel("Username")).toHaveCount(0);
@@ -31,6 +47,12 @@ async function signInWithDex(page: Page, callbackUrl = "/") {
 
   await page.getByRole("link", { name: "Continue with Dex SSO" }).click();
   await expect(page).toHaveURL(/127\.0\.0\.1:5556\/dex\/auth/);
+  await chooseDexLoginMethod(page, method);
+
+  if (method === "mock") {
+    await expect(page).toHaveURL(new RegExp(`${callbackUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+    return;
+  }
 
   await page.getByRole("textbox", { name: /email address/i }).fill("oidc-member@example.com");
   await page.getByRole("textbox", { name: "Password" }).fill("password");
@@ -117,5 +139,19 @@ test.describe("OIDC authorization-code flow with Dex", () => {
     });
     expect(uploadResponse.status()).toBe(201);
     await apiContext.close();
+  });
+
+  test("maps a real provider admin-group claim to the admin role", async ({ page, request }) => {
+    await seedDefaultWorkspace(request);
+
+    await signInWithDex(page, "/admin", "mock");
+    await expect(page.getByRole("heading", { name: "Admin" })).toBeVisible();
+
+    const me = await fetchJson<{ user: { username: string; role: string } }>(
+      page,
+      "/api/auth/me"
+    );
+    expect(me.status).toBe(200);
+    expect(me.body.user).toMatchObject({ role: "admin" });
   });
 });
