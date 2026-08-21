@@ -1,4 +1,12 @@
 services:
+  oidc:
+    image: dexidp/dex:v2.44.0
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    ports:
+      - "5556:5556"
+    volumes:
+      - ./tests/oidc/dex-config.yaml:/etc/dex/config.yaml:ro
+
   minio:
     image: minio/minio
     command: server /data --console-address ":9001"
