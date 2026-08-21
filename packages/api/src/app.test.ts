@@ -58,6 +58,19 @@ describe("SPA static serving", () => {
     );
   });
 
+  it("redacts OIDC callback query strings from request logs", () => {
+    expect(
+      redactRequestLog(
+        "<-- GET /api/auth/oidc/callback?code=secret-code&state=state"
+      )
+    ).toBe("<-- GET /api/auth/oidc/callback?[redacted]");
+    expect(
+      redactRequestLog(
+        "--> GET /api/auth/oidc/callback?code=secret-code&state=state 302 4ms"
+      )
+    ).toBe("--> GET /api/auth/oidc/callback?[redacted] 302 4ms");
+  });
+
   it("redacts signed upload capability tokens from structured error logs", async () => {
     process.env.AUTH_SECRET = "test-production-secret";
     resetEnv();
