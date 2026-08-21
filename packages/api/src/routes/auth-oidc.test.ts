@@ -275,6 +275,7 @@ describe("OIDC auth routes", () => {
 
     expect(callback.status).toBe(302);
     expect(callback.headers.get("location")).toBe("/login?error=oidc_failed");
+    expect(findSetCookie(callback.headers, "eb_oidc_tx")).toContain("Max-Age=0");
   });
 
   it("rejects a wrong or absent nonce", async () => {
@@ -293,6 +294,7 @@ describe("OIDC auth routes", () => {
     );
     expect(wrongNonce.status).toBe(302);
     expect(wrongNonce.headers.get("location")).toBe("/login?error=oidc_failed");
+    expect(findSetCookie(wrongNonce.headers, "eb_oidc_tx")).toContain("Max-Age=0");
 
     resetOidcDiscoveryCache();
     mockIssuerFetch({ omitNonce: true });
@@ -302,6 +304,7 @@ describe("OIDC auth routes", () => {
     );
     expect(absentNonce.status).toBe(302);
     expect(absentNonce.headers.get("location")).toBe("/login?error=oidc_failed");
+    expect(findSetCookie(absentNonce.headers, "eb_oidc_tx")).toContain("Max-Age=0");
   });
 
   it("rejects an expired transaction cookie before token exchange", async () => {
@@ -324,6 +327,7 @@ describe("OIDC auth routes", () => {
 
     expect(callback.status).toBe(302);
     expect(callback.headers.get("location")).toBe("/login?error=oidc_failed");
+    expect(findSetCookie(callback.headers, "eb_oidc_tx")).toContain("Max-Age=0");
     expect(fetchMock).not.toHaveBeenCalledWith(tokenEndpoint, expect.anything());
   });
 
