@@ -1,6 +1,6 @@
 {
   "name": "@evidence-browser/api",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1019.0",
-    "@evidence-browser/shared": "^0.2.0",
+    "@evidence-browser/shared": "^0.2.1",
     "@hono/node-server": "^1.14.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@node-rs/argon2": "^2.0.2",

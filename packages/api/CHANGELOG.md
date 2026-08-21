@@ -1,5 +1,14 @@
 # @evidence-browser/api
 
+## 0.2.1
+
+### Patch Changes
+
+- f27d3fa: Add OIDC start/callback authentication routes, identity resolution, and the local-login off switch for issue #166.
+- c9b7e42: Verify Evidence Browser OIDC login against a containerized Dex provider for issue #168, and update generated auth guidance to describe optional OIDC SSO alongside local sessions and API keys.
+- d6b2727: Harden OIDC verification for issue #164 by asserting failed callbacks clear the signed transaction cookie and documenting the Authentik/Dex sign-off path.
+  - @evidence-browser/shared@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes
