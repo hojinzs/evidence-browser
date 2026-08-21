@@ -10,6 +10,8 @@ import {
   CheckSetup,
   DefaultNotFoundComponent,
   DefaultRouterErrorComponent,
+  getOidcLoginErrorMessage,
+  getOidcStartHref,
   SetupPage,
   WorkspacePageContent,
 } from "./router";
@@ -81,6 +83,25 @@ function renderWithQueryClient(ui: React.ReactElement) {
 
   return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
 }
+
+describe("login helpers", () => {
+  it("maps supported OIDC errors to safe user-facing messages", () => {
+    expect(getOidcLoginErrorMessage("oidc_failed")).toBe(
+      "Single sign-on could not be completed. Try again or use another sign-in method."
+    );
+    expect(getOidcLoginErrorMessage("oidc_forbidden")).toBe(
+      "Your single sign-on account is not permitted to access this workspace."
+    );
+    expect(getOidcLoginErrorMessage("oidc_failed: issuer secret")).toBeNull();
+  });
+
+  it("builds a plain OIDC start URL with the callbackUrl encoded once", () => {
+    expect(getOidcStartHref("/w/infra?tab=files")).toBe(
+      "/api/auth/oidc/start?callbackUrl=%2Fw%2Finfra%3Ftab%3Dfiles"
+    );
+    expect(getOidcStartHref()).toBe("/api/auth/oidc/start?callbackUrl=%2F");
+  });
+});
 
 describe("bundle query states", () => {
   beforeEach(() => {
