@@ -133,7 +133,10 @@ eb upload dist/evidence.zip --workspace ci-results --bundle-id "pr-42-run-1"
 
 ### Authentik OIDC setup
 
-Manual sign-off path recorded against Authentik `2026.8.0`.
+Manual sign-off path recorded for issue `#164` against Authentik `2026.8.0`.
+The automated CI-compatible OIDC flow uses Dex in
+`packages/web/e2e-oidc/oidc-flow.spec.ts`; Authentik remains the first target
+IdP for operator setup and manual provider sign-off.
 
 1. In Authentik, create a Property Mapping for the admin group claim if the default `groups` claim is not already suitable:
    - Scope name: `groups`
@@ -163,6 +166,11 @@ Manual sign-off path recorded against Authentik `2026.8.0`.
    OIDC_ALLOWED_GROUPS=evidence-browser-users,evidence-browser-admins
    ```
 6. Verify that an `evidence-browser-admins` member lands in `/admin`, and that a user outside `OIDC_ALLOWED_GROUPS` is rejected with the safe login error.
+
+The regression suite also covers the local-login off switch: with
+`AUTH_LOCAL_ENABLED=false`, `POST /api/auth/login` returns `403`, the login page
+hides username/password fields, OIDC can still issue the normal
+`evidence_session` cookie, and API keys remain valid.
 
 Upgrade note: migration v1 rebuilds the `users` table. Back up `evidence.db` before upgrading an existing instance.
 

@@ -311,7 +311,7 @@ fixture-unicode.zip
 - **Given** AUTH_BYPASS=false이고 OIDC provider가 설정됨
 - **When** `/login` 페이지에서 로그인 버튼을 클릭한다
 - **Then** OIDC provider의 인증 페이지로 리다이렉트되고, 인증 후 원래 페이지로 돌아온다
-- **검증**: Verified — `packages/web/e2e-oidc/oidc-flow.spec.ts`가 `docker-compose.test.yml`의 Dex provider로 authorization-code flow를 실행한다.
+- **검증**: Verified for issue #164 — `packages/web/e2e-oidc/oidc-flow.spec.ts`가 `docker-compose.test.yml`의 Dex provider로 authorization-code flow를 실행한다. API route tests additionally verify `state`/`nonce` failure handling and transaction-cookie clearing.
 - **Evidence**: `.evidence/20260821-0216-feat-168-oidc-idp-stack-attempt1/` (PR #178 QA bundle; uploaded locally as `/w/default/b/20260821-0216-feat-168-oidc-idp-stack-attempt1`)
 - **참고**: 실제 Authentik sign-off 절차는 `README.md`의 "Authentik OIDC setup"에 기록됨.
 
