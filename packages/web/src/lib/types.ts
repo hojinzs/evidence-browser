@@ -10,6 +10,14 @@ export type {
   WorkspaceWithBundleCount,
 } from "@evidence-browser/shared/api/types";
 
+export interface AuthConfig {
+  local: boolean;
+  oidc: {
+    enabled: boolean;
+    label: string;
+  };
+}
+
 export interface BundleShareTokenPublic {
   id: string;
   bundle_id: string;

@@ -174,6 +174,78 @@ export function DefaultNotFoundComponent() {
   );
 }
 
+export function getOidcLoginErrorMessage(error?: string): string | null {
+  switch (error) {
+    case "oidc_failed":
+      return "Single sign-on could not be completed. Try again or use another sign-in method.";
+    case "oidc_forbidden":
+      return "Your single sign-on account is not permitted to access this workspace.";
+    default:
+      return null;
+  }
+}
+
+export function getOidcStartHref(callbackUrl?: string): string {
+  const params = new URLSearchParams({ callbackUrl: callbackUrl || "/" });
+  return `/api/auth/oidc/start?${params.toString()}`;
+}
+
+type LoginSearch = {
+  callbackUrl?: string;
+  error?: string;
+};
+
+function validateLoginSearch(search: Record<string, unknown>): LoginSearch {
+  const validated: LoginSearch = {};
+  if (typeof search.callbackUrl === "string") validated.callbackUrl = search.callbackUrl;
+  if (typeof search.error === "string") validated.error = search.error;
+  return validated;
+}
+
+function LoginForm({
+  username,
+  password,
+  error,
+  loading,
+  onUsernameChange,
+  onPasswordChange,
+  onSubmit,
+}: {
+  username: string;
+  password: string;
+  error: string;
+  loading: boolean;
+  onUsernameChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <label htmlFor="username" className="text-sm font-medium">Username</label>
+        <input id="username" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={username} onChange={(e) => onUsernameChange(e.target.value)} autoFocus required />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="password" className="text-sm font-medium">Password</label>
+        <input id="password" type="password" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={password} onChange={(e) => onPasswordChange(e.target.value)} required />
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <Button type="submit" size="lg" className="w-full" disabled={loading}>{loading ? "Signing in..." : "Sign in"}</Button>
+    </form>
+  );
+}
+
+function SsoButton({ callbackUrl, label }: { callbackUrl?: string; label: string }) {
+  return (
+    <a
+      href={getOidcStartHref(callbackUrl)}
+      className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-border bg-transparent bg-clip-padding px-4 text-[13px] font-medium text-foreground transition-colors duration-150 hover:border-[oklch(1_0_0/16%)] hover:bg-[oklch(0.14_0_0)] focus-visible:border-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring"
+    >
+      {label}
+    </a>
+  );
+}
+
 function LoginPage() {
   const navigate = useNavigate();
   const auth = useAuth();
@@ -182,6 +254,11 @@ function LoginPage() {
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const authConfigQuery = useQuery({
+    queryKey: ["auth", "config"],
+    queryFn: () => api.getAuthConfig(),
+    retry: false,
+  });
 
   React.useEffect(() => {
     if (!auth.isLoading && auth.isAuthenticated) {
@@ -204,6 +281,15 @@ function LoginPage() {
     }
   }
 
+  const oidcError = getOidcLoginErrorMessage(search.error);
+  const authConfig = authConfigQuery.data;
+  const showLocalForm = authConfigQuery.isError || authConfig?.local === true;
+  const showOidcButton = authConfig?.oidc.enabled === true;
+  const showAuthControls = !authConfigQuery.isLoading;
+  const helperCopy = showAuthControls && !showLocalForm && showOidcButton
+    ? "Continue with single sign-on to access your workspace."
+    : "Enter your credentials to access your workspace.";
+
   return (
     <div className="app-fade-up relative flex min-h-screen items-center justify-center overflow-hidden px-6">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,color-mix(in_oklch,var(--primary)_12%,transparent)_0%,transparent_28%)]" />
@@ -213,22 +299,37 @@ function LoginPage() {
           <div className="pt-8">
             <h1 className="text-xl font-semibold">Sign in to your workspace</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Enter your credentials to access your workspace.
+              {helperCopy}
             </p>
           </div>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="username" className="text-sm font-medium">Username</label>
-            <input id="username" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required />
+        {showAuthControls && (
+          <div className="space-y-4">
+            {oidcError && <p className="text-sm text-destructive">{oidcError}</p>}
+            {authConfigQuery.isError && (
+              <p className="text-sm text-warning">Could not load sign-in options. Local sign-in is still available.</p>
+            )}
+            {showLocalForm && (
+              <LoginForm
+                username={username}
+                password={password}
+                error={error}
+                loading={loading}
+                onUsernameChange={setUsername}
+                onPasswordChange={setPassword}
+                onSubmit={handleSubmit}
+              />
+            )}
+            {showLocalForm && showOidcButton && (
+              <div className="flex items-center gap-3" role="separator" aria-label="or">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted-foreground">or</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            )}
+            {showOidcButton && <SsoButton callbackUrl={search.callbackUrl} label={authConfig.oidc.label} />}
           </div>
-          <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium">Password</label>
-            <input id="password" type="password" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" size="lg" className="w-full" disabled={loading}>{loading ? "Signing in..." : "Sign in"}</Button>
-        </form>
+        )}
       </Card>
     </div>
   );
@@ -1334,7 +1435,12 @@ export function SetupPage() {
 
 const rootRoute = createRootRoute({ component: RootLayout });
 const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: WorkspacesPage });
-const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: "/login", validateSearch: (search: Record<string, unknown>) => ({ callbackUrl: typeof search.callbackUrl === "string" ? search.callbackUrl : undefined }), component: LoginPage });
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/login",
+  validateSearch: validateLoginSearch,
+  component: LoginPage,
+});
 const workspaceRoute = createRoute({ getParentRoute: () => rootRoute, path: "/w/$ws", component: WorkspacePage });
 const bundleRoute = createRoute({ getParentRoute: () => rootRoute, path: "/w/$ws/b/$bundleId", component: BundleRoutePage });
 const bundleFileRoute = createRoute({ getParentRoute: () => rootRoute, path: "/w/$ws/b/$bundleId/f", validateSearch: (search: Record<string, unknown>) => ({ path: typeof search.path === "string" ? search.path : "" }), component: BundleFileRoutePage });

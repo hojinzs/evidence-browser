@@ -9,7 +9,7 @@ import type {
   Workspace,
   WorkspaceWithBundleCount,
 } from "@evidence-browser/shared/api/types";
-import type { BundleShareTokenPublic } from "@/lib/types";
+import type { AuthConfig, BundleShareTokenPublic } from "@/lib/types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -94,6 +94,7 @@ export function uploadBundleWithProgress(
 
 export const api = {
   me: () => apiFetch<{ user: AuthUser }>("/api/auth/me"),
+  getAuthConfig: () => apiFetch<AuthConfig>("/api/auth/config"),
   login: (username: string, password: string) =>
     apiFetch<{ user: AuthUser }>("/api/auth/login", {
       method: "POST",

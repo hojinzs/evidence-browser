@@ -1,6 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError } from "./api";
 
+describe("api.getAuthConfig", () => {
+  it("loads the auth configuration with credentials", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      local: true,
+      oidc: { enabled: true, label: "Continue with SSO" },
+    })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api.getAuthConfig()).resolves.toEqual({
+      local: true,
+      oidc: { enabled: true, label: "Continue with SSO" },
+    });
+    expect(fetchMock).toHaveBeenCalledWith("/api/auth/config", expect.objectContaining({
+      credentials: "include",
+    }));
+  });
+});
+
 class FakeUploadTarget {
   private progressListener?: (event: ProgressEvent) => void;
 
