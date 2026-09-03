@@ -1,98 +1,169 @@
 ---
 name: gh-project
-description: Manage GitHub Project v2 issue states, workpad comments, and related follow-up actions.
+description: Request run-scoped tracker states and transitions through the orchestrator, and manage issue comments through the host-side github_graphql tool.
 license: MIT
 metadata:
   author: gh-symphony
-  version: "2.0"
+  version: "3.0"
   generatedBy: "gh-symphony"
 ---
 
-# /gh-project — GitHub Project v2 Status Management
+# /gh-project — Orchestrator-owned Tracker State
 
 ## Purpose
 
-Interact with the GitHub Project v2 board to manage issue status,
-create workpad comments, and handle follow-up issues.
+Request issue-scoped tracker state reads and transitions from the orchestrator,
+supplying policy-authored lifecycle comment bodies for publication after confirmed readback.
+Issue comments (workpad, triage, blocker) are written with the host-side `github_graphql` tool.
 
 ## Prerequisites
 
-- `gh` CLI is authenticated (`gh auth status`)
-- `.gh-symphony/context.yaml` exists with field IDs and option IDs
-
-## Column ID Quick Reference
-
-**Project:** 🧩 Moncher Stack (`PVT_kwHOAPiKdM4BYPVD`, hojinzs/projects/14)
-**Status Field ID:** `PVTSSF_lAHOAPiKdM4BYPVDzhTWkPc`
-
-| Column Name | Role     | Option ID  |
-| ----------- | -------- | ---------- |
-| Backlog     | wait     | `ecd228db` |
-| Ready       | active   | `f043e389` |
-| In progress | active   | `b734c33a` |
-| In review   | wait     | `ffe0efa5` |
-| Land        | active   | `161b1b30` |
-| Done        | terminal | `444fc1b2` |
+- `SYMPHONY_ORCHESTRATOR_URL` is set by the current run
+- `SYMPHONY_RUN_ID` identifies the current run
+- `SYMPHONY_ORCHESTRATOR_TOKEN` authenticates the worker without exposing the credential through status APIs
+- The orchestrator owns the canonical tracker item, provider quota, retry/backoff, mutation, and readback
+- The worker child has **no** GitHub credentials: `gh` is unauthenticated. Use the `github_graphql` tool for every GitHub read or write.
 
 ## Operations
 
-### Change Issue Status
-
-Use `gh project item-edit` with the field ID and option ID from the table above:
+### Read Current Issue State
 
 ```bash
-# Get the project item ID for an issue
-gh project item-list <project-number> --owner <owner> --format json \
-  | jq '.items[] | select(.content.number == <issue-number>) | .id'
-
-# Update the status field
-gh project item-edit \
-  --project-id PVT_kwHOAPiKdM4BYPVD \
-  --id <item-id> \
-  --field-id PVTSSF_lAHOAPiKdM4BYPVDzhTWkPc \
-  --single-select-option-id <option-id-from-table-above>
+curl --fail-with-body --silent --show-error \
+  -X POST "$SYMPHONY_ORCHESTRATOR_URL/api/v1/tracker-state" \
+  -H "Content-Type: application/json" \
+  -H "X-Symphony-Run-Id: $SYMPHONY_RUN_ID" \
+  -H "X-Symphony-Orchestrator-Token: $SYMPHONY_ORCHESTRATOR_TOKEN" \
+  --data '{"type":"state-read"}'
 ```
 
-### Create Workpad Comment
+### Request Issue Status Transition
+
+Write the transition body to a scratch file **outside the checkout** (`mktemp -d "${TMPDIR:-/tmp}/symphony-<issue>.XXXXXX"`), then run this script verbatim so every value is JSON-encoded by `jq`:
 
 ```bash
-tmp=$(mktemp)
-$EDITOR "$tmp" # write the full Markdown body with real newlines
-gh issue comment <issue-number> --repo <owner>/<repo> --body-file "$tmp"
+expected_state="In progress"
+target_state="In review"
+reason="PR ready; Completion Bar passed"
+comment_body_file="$scratch/transition.md"
+comment_body=$(<"$comment_body_file")
+payload=$(jq -n \
+  --arg expected "$expected_state" \
+  --arg target "$target_state" \
+  --arg reason "$reason" \
+  --arg comment_body "$comment_body" \
+  '{type:"transition-request", expected_state:$expected, target_state:$target, reason:$reason, comment_body:$comment_body}')
+response=$(curl --fail-with-body --silent --show-error \
+  -X POST "$SYMPHONY_ORCHESTRATOR_URL/api/v1/tracker-state" \
+  -H "Content-Type: application/json" \
+  -H "X-Symphony-Run-Id: $SYMPHONY_RUN_ID" \
+  -H "X-Symphony-Orchestrator-Token: $SYMPHONY_ORCHESTRATOR_TOKEN" \
+  --data "$payload")
+printf "%s\n" "$response"
+jq -e --arg target "$target_state" \
+  '.ok == true and .outcome == "confirmed" and .state == $target' <<<"$response"
+```
+
+### Create Workpad or Issue Comment (`github_graphql`)
+
+Load the body from the scratch file into the tool variables (for example `jq -n --arg id "$issue_id" --rawfile body "$scratch/workpad.md" '{subjectId:$id, body:$body}'`), then call:
+
+```graphql
+mutation AddIssueComment($subjectId: ID!, $body: String!) {
+  addComment(input: { subjectId: $subjectId, body: $body }) {
+    commentEdge {
+      node {
+        id
+        url
+      }
+    }
+  }
+}
+```
+
+The issue node id comes from:
+
+```graphql
+query IssueContext($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    id
+    issue(number: $number) {
+      id
+      comments(last: 50) {
+        nodes {
+          id
+          body
+          author {
+            login
+          }
+          createdAt
+        }
+      }
+      closedByPullRequestsReferences(first: 10, includeClosedPrs: true) {
+        nodes {
+          id
+          number
+          url
+          state
+          isDraft
+          merged
+          headRefName
+          baseRefName
+          reviewDecision
+          mergeCommit {
+            oid
+          }
+        }
+      }
+    }
+  }
+}
 ```
 
 ### Update Existing Comment
 
-```bash
-body_tmp=$(mktemp)
-json_tmp=$(mktemp)
-$EDITOR "$body_tmp" # write the full Markdown body with real newlines
-jq -n --rawfile body "$body_tmp" '{body:$body}' > "$json_tmp"
-gh api -X PATCH /repos/<owner>/<repo>/issues/comments/<comment-id> --input "$json_tmp"
+```graphql
+mutation UpdateIssueComment($id: ID!, $body: String!) {
+  updateIssueComment(input: { id: $id, body: $body }) {
+    issueComment {
+      id
+    }
+  }
+}
 ```
 
 ### Create Follow-up Issue
 
-```bash
-gh issue create --repo <owner>/<repo> \
-  --title "Follow-up: <title>" \
-  --body "<description>" \
-  --label "backlog"
-```
-
-### Add Label
-
-```bash
-gh issue edit <issue-number> --repo <owner>/<repo> --add-label "<label>"
+```graphql
+mutation CreateFollowUp(
+  $repositoryId: ID!
+  $title: String!
+  $body: String!
+  $labelIds: [ID!]
+) {
+  createIssue(
+    input: {
+      repositoryId: $repositoryId
+      title: $title
+      body: $body
+      labelIds: $labelIds
+    }
+  ) {
+    issue {
+      number
+      url
+    }
+  }
+}
 ```
 
 ## Rules
 
-- Always follow the WORKFLOW.md status map flow for state transitions
-- For multi-line issue/workpad comments, pass file contents with `--body-file` or a JSON payload. Do not pass a file path as the body, such as `--body @/tmp/comment.md` or `-f body=@/tmp/comment.md`; GitHub will publish that literal path.
-- Before transitioning to a terminal state, verify the Completion Bar is satisfied:
-  - All acceptance criteria checked
-  - All tests passing
-  - PR merged (if applicable)
-- Use the Column ID Quick Reference table above for all status transitions
-- Do not transition issues to terminal states without explicit completion verification
+- Always follow the `WORKFLOW.md` status map.
+- Never traverse provider boards or mutate tracker fields directly from a worker; never touch ProjectV2 objects through `github_graphql`.
+- Treat non-2xx responses, expected-state mismatches, and readback mismatches as failed transitions.
+- Do not post a standalone status-transition comment before or after the request; the orchestrator publishes the supplied `comment_body` only after confirmed readback.
+- Keep the transition reason and intended comment body in the workpad before requesting the transition. A failed transition produces no status comment and remains recoverable in the current worker.
+- When the response is not `.ok == true`, `.outcome == "confirmed"`, and the returned state matching the target, record the failure in the workpad and do not publish a correction status comment.
+- Before creating a workpad, re-query the newest comments and adopt an existing workpad with the same cycle number.
+- Before transitioning to a terminal state, verify the Completion Bar and merged PR requirements.
