@@ -1,5 +1,12 @@
 # @evidence-browser/web
 
+## 0.2.1
+
+### Patch Changes
+
+- 3e2606d: Add config-driven login rendering for issue #167 so deployments can expose OIDC SSO, local login, or both from `/api/auth/config`.
+  - @evidence-browser/shared@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes
